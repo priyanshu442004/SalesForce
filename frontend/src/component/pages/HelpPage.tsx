@@ -75,7 +75,7 @@ export default function HelpPage() {
   );
 
   return (
-    <div className="p-5 sm:p-7 lg:p-9 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white">
+    <div className="p-5 sm:p-7 lg:p-9 pb-12 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white">
       
       {/* CSS Animations Injection */}
       <style jsx global>{`

@@ -242,7 +242,7 @@ export default function ValidationPage() {
       </div>
 
       {/* Main Grid: Donut, Check list and Recent Errors */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch min-h-0 pb-2 opacity-0 animate-scale-up" style={{ animationDelay: "200ms" }}>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch pb-2 opacity-0 animate-scale-up" style={{ animationDelay: "200ms" }}>
         
         {/* Column 1: Validation Summary Donut Card */}
         <div className="col-span-1 md:col-span-4 bg-white border border-slate-200/60 rounded-2xl p-6 lg:p-7 flex flex-col justify-between items-stretch shadow-[0_2px_12px_rgba(0,0,0,0.006)] min-h-[390px]">
@@ -454,7 +454,7 @@ export default function ValidationPage() {
       </div>
 
       {/* Bottom CTA Button */}
-      <div className="flex items-center justify-end pt-3.5 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "250ms" }}>
+      <div className="flex items-center justify-end pt-3.5 pb-10 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "250ms" }}>
         <button className="px-9 py-4 rounded-xl bg-[#002BFF] hover:bg-blue-700 text-white text-[15px] font-black transition-all select-none cursor-pointer shadow-lg shadow-blue-500/10 active:scale-[0.98]">
           View All Errors
         </button>

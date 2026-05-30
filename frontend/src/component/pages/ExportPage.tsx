@@ -143,7 +143,7 @@ export default function ExportPage() {
       </div>
 
       {/* Three Column Widescreen Grid */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-7 items-start min-h-0 opacity-0 animate-scale-up" style={{ animationDelay: "200ms" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-7 items-start opacity-0 animate-scale-up" style={{ animationDelay: "200ms" }}>
         
         {/* Column 1: Files Generated */}
         <div className="bg-[#FFFFFF] border border-slate-200/60 rounded-3xl p-6.5 lg:p-8 flex flex-col justify-between shadow-[0_4px_24px_rgba(0,0,0,0.015)] min-h-[460px]">
@@ -279,7 +279,7 @@ export default function ExportPage() {
       </div>
 
       {/* Bottom Action bar with "Go to Dashboard" button styled exactly like in mockup */}
-      <div className="flex items-center justify-end pt-5 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "250ms" }}>
+      <div className="flex items-center justify-end pt-5 pb-12 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "250ms" }}>
         <button
           onClick={() => router.push("/")}
           className="px-9 py-4 rounded-xl bg-[#002BFF] hover:bg-blue-700 text-white text-[15px] font-black transition-all select-none cursor-pointer shadow-lg shadow-blue-500/10 active:scale-[0.98]"

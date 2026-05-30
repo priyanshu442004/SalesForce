@@ -92,7 +92,7 @@ export default function ProjectsPage() {
       <div className="flex-none flex flex-col md:flex-row md:items-center md:justify-between gap-4 opacity-0 animate-scale-up" style={{ animationDelay: "50ms" }}>
         <div className="space-y-1.5">
           <h2 className="text-[26px] font-black text-[#002BFF] tracking-tight">
-            12. Projects
+            Active Projects
           </h2>
           <p className="text-[14.5px] font-extrabold text-slate-500">
             Manage and track all your migration projects.
@@ -109,7 +109,7 @@ export default function ProjectsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search projects..."
-              className="w-full pl-11 pr-10 py-3.5 rounded-2xl border border-slate-200 text-[#000839] text-[14.5px] font-black placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/10 bg-white"
+              className="w-full pl-11 pr-10 h-13 rounded-2xl border border-slate-200 text-[#000839] text-[14.5px] font-black placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/10 bg-white"
             />
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -125,7 +125,7 @@ export default function ProjectsPage() {
           </div>
 
           {/* New Migration button */}
-          <button className="w-full sm:w-auto px-6 py-4.5 rounded-2xl bg-[#002BFF] hover:bg-blue-700 text-white text-[15px] font-black flex items-center justify-center gap-2 transition-all select-none cursor-pointer shadow-lg shadow-blue-500/10 active:scale-[0.98]">
+          <button className="w-full sm:w-auto px-6 h-13 rounded-2xl bg-[#002BFF] hover:bg-blue-700 text-white text-[15px] font-black flex items-center justify-center gap-2 transition-all select-none cursor-pointer shadow-lg shadow-blue-500/10 active:scale-[0.98]">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />

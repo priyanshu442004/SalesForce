@@ -50,7 +50,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="p-5 sm:p-7 lg:p-9 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden select-none bg-white">
+    <div className="p-5 sm:p-7 lg:p-9 pb-12 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white">
       
       {/* CSS Animations Injection */}
       <style jsx global>{`
@@ -173,7 +173,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Settings layout grid */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch min-h-0 pb-2 opacity-0 animate-scale-up" style={{ animationDelay: "200ms" }}>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch pb-2 opacity-0 animate-scale-up" style={{ animationDelay: "200ms" }}>
         
         {/* Column 1: Config Form (col-span-8) */}
         <div className="col-span-1 md:col-span-8 bg-white border border-slate-200/90 rounded-2xl p-6.5 lg:p-7.5 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.008)]">
@@ -272,33 +272,63 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Column 2: User profile card (col-span-4) */}
-        <div className="col-span-1 md:col-span-4 bg-white border border-slate-200/90 rounded-2xl p-6.5 lg:p-7.5 flex flex-col justify-between items-center shadow-[0_2px_12px_rgba(0,0,0,0.008)] min-h-[350px]">
-          <div className="w-full flex-1 flex flex-col items-center justify-center space-y-5">
-            
-            <div className="w-22 h-22 bg-blue-50 text-[#002BFF] rounded-full border border-blue-500/20 flex items-center justify-center text-[25px] font-black">
-              AU
-            </div>
-            
-            <div className="text-center space-y-1">
-              <h4 className="text-[18px] font-black text-[#000839]">Administrator User</h4>
-              <span className="block text-[13px] font-extrabold text-[#002BFF] uppercase tracking-wider">System Architect</span>
-            </div>
-
-            <div className="w-full border-t border-slate-100 pt-5 space-y-3 text-[14px] font-bold">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Workspace Tenant:</span>
-                <span className="text-[#000839]">Enterprise Sandbox</span>
+        {/* Column 2: User profile & Org list (col-span-4) */}
+        <div className="col-span-1 md:col-span-4 flex flex-col gap-6">
+          {/* User profile card */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-6.5 lg:p-7.5 flex flex-col justify-between items-center shadow-[0_2px_12px_rgba(0,0,0,0.008)] min-h-[300px]">
+            <div className="w-full flex-1 flex flex-col items-center justify-center space-y-5">
+              
+              <div className="w-20 h-20 bg-blue-50 text-[#002BFF] rounded-full border border-blue-500/20 flex items-center justify-center text-[24px] font-black">
+                AU
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Authorized Orgs:</span>
-                <span className="text-[#000839]">4 Salesforce Orgs</span>
+              
+              <div className="text-center space-y-1">
+                <h4 className="text-[17px] font-black text-[#000839]">Administrator User</h4>
+                <span className="block text-[12.5px] font-extrabold text-[#002BFF] uppercase tracking-wider">System Architect</span>
+              </div>
+
+              <div className="w-full border-t border-slate-100 pt-5 space-y-3 text-[14px] font-bold">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Workspace Tenant:</span>
+                  <span className="text-[#000839]">Enterprise Sandbox</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Authorized Orgs:</span>
+                  <span className="text-[#000839]">4 Salesforce Orgs</span>
+                </div>
               </div>
             </div>
+          </div>
 
+          {/* Connected Environments card */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-6.5 lg:p-7.5 flex flex-col shadow-[0_2px_12px_rgba(0,0,0,0.008)]">
+            <h4 className="text-[16px] font-black text-[#000839] border-b border-slate-50 pb-2.5 mb-4">
+              Connected Orgs
+            </h4>
+            <div className="space-y-4">
+              {[
+                { name: "Production (Primary)", url: "acme.my.salesforce.com", status: "Connected", api: "v60.0" },
+                { name: "UAT Sandbox", url: "acme--uat.my.salesforce.com", status: "Connected", api: "v60.0" },
+                { name: "QA Sandbox", url: "acme--qa.my.salesforce.com", status: "Connected", api: "v59.0" },
+                { name: "Dev Sandbox 1", url: "acme--dev1.my.salesforce.com", status: "Connected", api: "v60.0" }
+              ].map((org, index) => (
+                <div key={index} className="flex items-center justify-between text-[13.5px]">
+                  <div className="space-y-0.5">
+                    <span className="block font-black text-[#000839]">{org.name}</span>
+                    <span className="block text-[12px] font-bold text-slate-400">{org.url}</span>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="px-2 py-0.5 rounded bg-emerald-50 text-[#137333] text-[11px] font-black flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#137333] inline-block" />
+                      {org.status}
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-400">{org.api}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-
       </div>
 
       {/* Bottom CTA Save Button */}

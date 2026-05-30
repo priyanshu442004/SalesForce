@@ -91,7 +91,7 @@ export default function MappingPage() {
   ];
 
   return (
-    <div className="p-5 sm:p-6 lg:p-7 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden select-none">
+    <div className="p-5 sm:p-6 lg:p-7 pb-12 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none">
       
       {/* Dynamic Keyframes Animation Injection */}
       <style jsx global>{`
@@ -221,10 +221,10 @@ export default function MappingPage() {
       </div>
 
       {/* Main 3-Column Content Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-[500px] lg:min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-none">
         
         {/* Column 1: Objects & Execution Order */}
-        <div className="lg:col-span-3 bg-white border border-slate-200/60 rounded-2xl p-5 lg:p-6 flex flex-col shadow-[0_3px_14px_rgba(148,163,184,0.01)] h-full overflow-hidden opacity-0 animate-scale-up" style={{ animationDelay: "350ms" }}>
+        <div className="lg:col-span-3 bg-white border border-slate-200/60 rounded-2xl p-5 lg:p-6 flex flex-col shadow-[0_3px_14px_rgba(148,163,184,0.01)] opacity-0 animate-scale-up" style={{ animationDelay: "350ms" }}>
           <h4 className="text-[13.5px] lg:text-[14.5px] font-extrabold text-slate-800 tracking-tight pb-3 border-b border-slate-100 flex-none uppercase">
             Objects & Execution Order
           </h4>
@@ -233,7 +233,7 @@ export default function MappingPage() {
             
             {/* connecting vertical blue line precisely connecting dots */}
             <div 
-              className="absolute right-[19px] top-4 bottom-4 w-[2px] bg-blue-600/90 pointer-events-none opacity-0 animate-draw-line"
+               className="absolute right-[36px] top-6 bottom-6 w-[2px] bg-blue-600/90 pointer-events-none opacity-0 animate-draw-line"
               style={{ minHeight: "85%" }}
             />
 
@@ -242,7 +242,7 @@ export default function MappingPage() {
               return (
                 <div 
                   key={idx}
-                  className={`flex items-center justify-between py-1.5 px-3 rounded-lg border border-transparent transition-all duration-150 relative group cursor-pointer ${isHovered ? "bg-slate-50 border-slate-200/40" : "hover:bg-slate-50/20"}`}
+                  className={`flex items-center justify-between py-1.5 pl-3.5 pr-6 rounded-lg border border-transparent transition-all duration-150 relative group cursor-pointer ${isHovered ? "bg-slate-50 border-slate-200/40" : "hover:bg-slate-50/20"}`}
                   onMouseEnter={() => setActiveTimelineIdx(idx)}
                   onMouseLeave={() => setActiveTimelineIdx(null)}
                 >
@@ -272,7 +272,7 @@ export default function MappingPage() {
         </div>
 
         {/* Column 2: Mapping Overview with Prominent Donut Chart */}
-        <div className="lg:col-span-5 bg-white border border-slate-200/60 rounded-2xl p-5 lg:p-6 flex flex-col justify-between shadow-[0_3px_14px_rgba(148,163,184,0.01)] h-full overflow-hidden opacity-0 animate-scale-up" style={{ animationDelay: "400ms" }}>
+        <div className="lg:col-span-5 bg-white border border-slate-200/60 rounded-2xl p-5 lg:p-6 flex flex-col justify-between shadow-[0_3px_14px_rgba(148,163,184,0.01)] opacity-0 animate-scale-up" style={{ animationDelay: "400ms" }}>
           <h4 className="text-[13.5px] lg:text-[14.5px] font-extrabold text-slate-800 tracking-tight pb-3 border-b border-slate-100 flex-none uppercase">
             Mapping Overview
           </h4>
@@ -380,7 +380,7 @@ export default function MappingPage() {
         </div>
 
         {/* Column 3: AI Insights */}
-        <div className="lg:col-span-4 bg-white border border-slate-200/60 rounded-2xl p-5 lg:p-6 flex flex-col justify-between shadow-[0_3px_14px_rgba(148,163,184,0.01)] h-full overflow-hidden relative opacity-0 animate-scale-up" style={{ animationDelay: "450ms" }}>
+        <div className="lg:col-span-4 bg-white border border-slate-200/60 rounded-2xl p-5 lg:p-6 flex flex-col justify-between shadow-[0_3px_14px_rgba(148,163,184,0.01)] relative opacity-0 animate-scale-up" style={{ animationDelay: "450ms" }}>
           
           <div className="space-y-4.5">
             <h4 className="text-[13.5px] lg:text-[14.5px] font-extrabold text-slate-800 tracking-tight pb-3 border-b border-slate-100 flex-none uppercase">

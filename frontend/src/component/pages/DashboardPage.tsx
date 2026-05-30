@@ -459,70 +459,70 @@ export default function DashboardPage() {
           </div>
 
           {/* Interactive Flex list with enlarged typography */}
-          <div className="flex-1 flex flex-col justify-evenly py-2 space-y-2 lg:space-y-0">
+          <div className="flex-1 flex flex-col justify-between py-1.5 space-y-2 lg:space-y-0.5">
             
             {/* Action 1: New Migration */}
             <Link 
               href="/upload"
-              className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-violet-200 hover:bg-violet-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none"
+              className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 hover:border-violet-200 hover:bg-violet-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none"
             >
               <div className="flex flex-1 items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-violet-100/80 text-violet-600 flex items-center justify-center font-bold shrink-0 transition-transform duration-300 group-hover:rotate-12">
-                  <Icon name="plus" size={15.5} />
+                <div className="w-8.5 h-8.5 rounded-full bg-violet-100/80 text-violet-600 flex items-center justify-center font-bold shrink-0 transition-transform duration-300 group-hover:rotate-12">
+                  <Icon name="plus" size={14} />
                 </div>
-                <span className="text-[13.5px] lg:text-[14px] font-black text-slate-700 transition-colors group-hover:text-violet-600">New Migration</span>
+                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 transition-colors group-hover:text-violet-600">New Migration</span>
               </div>
             </Link>
 
-            {/* Action 2: Upload Files */}
+            {/* Action 2: Review AI Mappings */}
             <Link 
-              href="/upload"
-              className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none"
+              href="/mapping"
+              className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none"
             >
               <div className="flex flex-1 items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
-                  <Icon name="upload" size={15.5} />
+                <div className="w-8.5 h-8.5 rounded-full bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
+                  <Icon name="database" size={14} />
                 </div>
-                <span className="text-[13.5px] lg:text-[14px] font-black text-slate-700 transition-colors group-hover:text-blue-600">Upload Files</span>
+                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 transition-colors group-hover:text-blue-600">AI Mapping Review</span>
               </div>
             </Link>
 
-            {/* Action 3: Create Template */}
+            {/* Action 3: Manage Transformations */}
             <Link 
-              href="/templates"
-              className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-teal-200 hover:bg-teal-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none"
+              href="/transformations"
+              className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 hover:border-teal-200 hover:bg-teal-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none"
             >
               <div className="flex flex-1 items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-teal-100/80 text-teal-600 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
-                  <Icon name="fileText" size={15.5} />
+                <div className="w-8.5 h-8.5 rounded-full bg-teal-100/80 text-teal-600 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
+                  <Icon name="shuffle" size={14} />
                 </div>
-                <span className="text-[13.5px] lg:text-[14px] font-black text-slate-700 transition-colors group-hover:text-teal-600">Create Template</span>
+                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 transition-colors group-hover:text-teal-600">Transformations</span>
               </div>
             </Link>
 
-            {/* Action 4: View Templates */}
+            {/* Action 4: Data Validation */}
             <Link 
-              href="/templates"
-              className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-slate-250 hover:bg-slate-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none"
+              href="/validation"
+              className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 hover:border-rose-200 hover:bg-rose-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none"
             >
               <div className="flex flex-1 items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-slate-100/90 text-slate-600 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
-                  <Icon name="folder" size={15.5} />
+                <div className="w-8.5 h-8.5 rounded-full bg-rose-100/90 text-rose-600 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
+                  <Icon name="shield" size={14} />
                 </div>
-                <span className="text-[13.5px] lg:text-[14px] font-black text-slate-700 transition-colors group-hover:text-slate-900">View Templates</span>
+                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 transition-colors group-hover:text-rose-650">Validation Center</span>
               </div>
             </Link>
 
-            {/* Action 5: Data Dictionary */}
+            {/* Action 5: Final Export */}
             <Link 
-              href="/data-dictionary"
-              className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-sky-200 hover:bg-sky-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none"
+              href="/export"
+              className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 hover:border-sky-200 hover:bg-sky-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none"
             >
               <div className="flex flex-1 items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-sky-100/80 text-sky-600 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
-                  <Icon name="fileCode" size={15.5} />
+                <div className="w-8.5 h-8.5 rounded-full bg-sky-100/80 text-sky-600 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
+                  <Icon name="download" size={14} />
                 </div>
-                <span className="text-[13.5px] lg:text-[14px] font-black text-slate-700 transition-colors group-hover:text-sky-600">Data Dictionary</span>
+                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 transition-colors group-hover:text-sky-600">Export preview.xlsx</span>
               </div>
             </Link>
 

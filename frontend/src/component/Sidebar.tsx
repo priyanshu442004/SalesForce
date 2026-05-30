@@ -18,9 +18,7 @@ export default function Sidebar() {
     { name: "Validation", path: "/validation", icon: "shield" },
     { name: "Export", path: "/export", icon: "download" },
     { name: "Projects", path: "/projects", icon: "folder" },
-    { name: "Templates", path: "/templates", icon: "layers" },
     { name: "Activity Log", path: "/activity-log", icon: "activity" },
-    { name: "Data Dictionary", path: "/data-dictionary", icon: "fileCode" },
     { name: "Settings", path: "/settings", icon: "settings" },
     { name: "Help & Support", path: "/help", icon: "help" }
   ];
@@ -84,7 +82,7 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation Menu Links */}
-        <nav className="space-y-1.5 max-h-[calc(100vh-190px)] overflow-y-auto pr-0.5 scrollbar-thin">
+        <nav className="space-y-1.5 max-h-[calc(100vh-190px)] overflow-y-auto pr-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {navItems.map((item, idx) => {
             const isActive = pathname === item.path;
             return (

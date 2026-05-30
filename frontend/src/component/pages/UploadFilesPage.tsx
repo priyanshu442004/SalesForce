@@ -37,12 +37,18 @@ export default function UploadFilesPage() {
 
   const [isDragging, setIsDragging] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isShowingPreview, setIsShowingPreview] = useState(false);
+  
   const { 
     uploadedFiles, 
     handleFileUpload, 
     clearFile, 
-    autofillMockFiles, 
-    isContinueEnabled 
+    isContinueEnabled,
+    
+    previewData,
+    generatePreview,
+    isPreviewLoading,
+    previewError
   } = useMigration();
 
   useEffect(() => {
@@ -68,7 +74,7 @@ export default function UploadFilesPage() {
   };
 
   return (
-    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden select-none bg-white">
+    <div className="p-5 sm:p-7 lg:p-9 pb-12 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white">
       
       {/* CSS Animations Injection */}
       <style jsx global>{`
@@ -78,7 +84,7 @@ export default function UploadFilesPage() {
         }
         @keyframes bounceSlow {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
+          50% { transform: translateY(-3px); }
         }
         .animate-scale-up {
           animation: scaleUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -168,7 +174,7 @@ export default function UploadFilesPage() {
                   <span className="w-8 h-8 rounded-lg bg-[#e6f4ea] text-[#137333] flex items-center justify-center shrink-0">
                     <DocumentSvg size={15} />
                   </span>
-                  <span className="text-[13px] font-black text-[#000839] truncate max-w-[130px]">{uploadedFiles.source.name}</span>
+                  <span className="text-[13px] font-black text-[#000839] truncate flex-1 min-w-0">{uploadedFiles.source.name}</span>
                   <span className="text-[11px] text-slate-400 font-bold whitespace-nowrap">({uploadedFiles.source.size})</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -235,7 +241,7 @@ export default function UploadFilesPage() {
                   <span className="w-8 h-8 rounded-lg bg-[#e8f0fe] text-[#1a73e8] flex items-center justify-center shrink-0">
                     <DocumentSvg size={15} />
                   </span>
-                  <span className="text-[13px] font-black text-[#000839] truncate max-w-[130px]">{uploadedFiles.master.name}</span>
+                  <span className="text-[13px] font-black text-[#000839] truncate flex-1 min-w-0">{uploadedFiles.master.name}</span>
                   <span className="text-[11px] text-slate-400 font-bold whitespace-nowrap">({uploadedFiles.master.size})</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -302,7 +308,7 @@ export default function UploadFilesPage() {
                   <span className="w-8 h-8 rounded-lg bg-[#f3e8ff] text-[#9333ea] flex items-center justify-center shrink-0">
                     <DocumentSvg size={15} />
                   </span>
-                  <span className="text-[13px] font-black text-[#000839] truncate max-w-[130px]">{uploadedFiles.logic.name}</span>
+                  <span className="text-[13px] font-black text-[#000839] truncate flex-1 min-w-0">{uploadedFiles.logic.name}</span>
                   <span className="text-[11px] text-slate-400 font-bold whitespace-nowrap">({uploadedFiles.logic.size})</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -329,7 +335,7 @@ export default function UploadFilesPage() {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => globalInputRef.current?.click()}
-        className={`flex-1 min-h-[240px] lg:min-h-0 border-2 border-dashed rounded-2xl flex flex-col justify-center items-center p-8 lg:p-12 text-center cursor-pointer transition-all duration-300 relative select-none opacity-0 animate-scale-up ${
+        className={`flex-none min-h-[220px] border-2 border-dashed rounded-2xl flex flex-col justify-center items-center py-7 px-6 text-center cursor-pointer transition-all duration-300 relative select-none opacity-0 animate-scale-up ${
           isDragging 
             ? "border-blue-500 bg-blue-50/30 scale-[0.99]" 
             : "border-slate-200 bg-white hover:border-blue-400 hover:bg-slate-50/[0.02]"
@@ -346,45 +352,62 @@ export default function UploadFilesPage() {
         />
         
         {/* Drag zone inner blue cloud icon */}
-        <div className="space-y-4.5 max-w-md pointer-events-none">
-          <div className="w-20 h-20 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto text-blue-600 transition-transform animate-bounce-slow">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[#1a73e8]">
+        <div className="space-y-3.5 max-w-md pointer-events-none">
+          <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto text-blue-600 transition-transform animate-bounce-slow">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[#1a73e8]">
               <path d="M17.5 19A3.5 3.5 0 0 0 21 15.5c0-2.79-2.54-4.5-5-4.5-.47 0-.89.09-1.25.26A5 5 0 1 0 5 15.5A3.5 3.5 0 0 0 8.5 19h9Z" />
               <polyline points="12 10 12 16" />
               <polyline points="9 13 12 10 15 13" />
             </svg>
           </div>
           
-          <div className="space-y-2">
-            <p className="text-[19px] lg:text-[21px] font-black text-[#000839]">
+          <div className="space-y-1.5">
+            <p className="text-[18px] lg:text-[19px] font-black text-[#000839]">
               Drop all files here to auto fillout
             </p>
-            <p className="text-[14px] text-slate-400 font-extrabold leading-relaxed">
+            <p className="text-[13.5px] text-slate-400 font-extrabold leading-relaxed">
               Drag all three files together onto this card to auto-sort, or click <span className="text-[#1a73e8] underline font-black">Browse Files</span>
             </p>
           </div>
         </div>
 
-        {/* Demo trigger float action */}
-        <div className="absolute bottom-4 right-4 z-10" onClick={e => e.stopPropagation()}>
-          <button 
-            onClick={autofillMockFiles}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-black active:scale-[0.97] transition-all border border-slate-200 select-none cursor-pointer"
-          >
-            <svg width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-blue-600">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
-            <span>Autofill Mock Files</span>
-          </button>
-        </div>
+
       </div>
 
       {/* Bottom Actions Row */}
-      <div className="flex-none flex justify-end items-center pt-2 opacity-0 animate-scale-up" style={{ animationDelay: "300ms" }}>
+      <div className="flex-none flex flex-col sm:flex-row justify-between items-stretch sm:items-center pt-2 gap-4 opacity-0 animate-scale-up" style={{ animationDelay: "300ms" }}>
+        
+        {/* Preview Button (Left Side) */}
+        <button 
+          onClick={async () => {
+            if (isContinueEnabled) {
+              try {
+                await generatePreview();
+                setIsShowingPreview(true);
+              } catch (e) {
+                console.error(e);
+              }
+            }
+          }}
+          disabled={!isContinueEnabled}
+          className={`px-7 py-4 rounded-xl text-[14.5px] font-black tracking-wide flex items-center justify-center gap-2.5 shadow-sm transition-all duration-300 ${
+            isContinueEnabled 
+              ? "bg-[#0b0f19] hover:bg-slate-800 text-white cursor-pointer active:scale-[0.98] shadow-md shadow-slate-900/10" 
+              : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none"
+          }`}
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className={isContinueEnabled ? "text-emerald-400 animate-pulse" : "text-slate-300"}>
+            <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          <span>Preview Updated Client Data</span>
+        </button>
+
+        {/* AI Mapping Continue Button (Right Side) */}
         <button 
           onClick={() => isContinueEnabled && router.push("/mapping")}
           disabled={!isContinueEnabled}
-          className={`px-9 py-4 rounded-xl text-[14.5px] font-black tracking-wide flex items-center gap-2.5 shadow-sm transition-all duration-300 ${
+          className={`px-9 py-4 rounded-xl text-[14.5px] font-black tracking-wide flex items-center justify-center gap-2.5 shadow-sm transition-all duration-300 ${
             isContinueEnabled 
               ? "bg-[#002BFF] hover:bg-blue-700 text-white cursor-pointer active:scale-[0.98] shadow-md shadow-blue-500/10" 
               : "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
@@ -397,6 +420,213 @@ export default function UploadFilesPage() {
           </svg>
         </button>
       </div>
+
+      {/* 1. GLASSMORPHIC SERVER CALCULATION LOADING DIALOG */}
+      {isPreviewLoading && (
+        <div className="fixed inset-0 bg-[#000839]/60 backdrop-blur-md flex items-center justify-center z-50 transition-all duration-300">
+          <div className="bg-white p-8 rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 scale-100 flex flex-col space-y-6">
+            <div className="flex flex-col items-center text-center space-y-4">
+              {/* Spinner */}
+              <div className="w-16 h-16 rounded-full border-4 border-slate-100 border-t-[#002BFF] animate-spin" />
+              <h3 className="text-[20px] font-black text-[#000839]">Compiling Salesforce Preview...</h3>
+              <p className="text-[13.5px] text-slate-400 font-semibold leading-relaxed">
+                Executing dynamic master sheets lookups, dropping empty fields, and parsing date-times on the Python server.
+              </p>
+            </div>
+            
+            {/* Action checklist */}
+            <div className="space-y-3 bg-slate-50 p-4.5 rounded-2xl border border-slate-200/50 text-[13px] font-bold text-slate-500">
+              <div className="flex items-center gap-2.5 text-emerald-600">
+                <span className="w-5 h-5 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-[10px]">✓</span>
+                <span>Uploading Excel sheets to Python backend</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-emerald-600">
+                <span className="w-5 h-5 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-[10px]">✓</span>
+                <span>Dropping all-null and all-blank columns</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-[#002BFF]">
+                <span className="w-5 h-5 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0 text-[10px] animate-spin border-t-[#002BFF]">/</span>
+                <span>Mapping sheets & matching Salesforce master keys</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-slate-400">
+                <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 text-[10px]">-</span>
+                <span>Formatting date variables and datetime ISO patterns</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. HIGH-FIDELITY ENTERPRISE SPREADSHEET PREVIEW CENTER */}
+      {isShowingPreview && previewData && (
+        <div className="fixed inset-0 bg-[#000839]/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6 md:p-10 transition-all duration-300">
+          <div className="bg-white rounded-3xl w-full h-full max-w-[1550px] shadow-2xl border border-slate-200/60 flex flex-col min-h-0 overflow-hidden animate-scale-up">
+            
+            {/* Header section with metrics highlights */}
+            <div className="p-6 sm:p-7 border-b border-slate-100 bg-[#fafbfe]/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+              <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <span className="px-3.5 py-1.5 rounded-lg bg-[#e6f4ea] text-[#137333] text-[11.5px] font-black tracking-wider uppercase">Live Preview Active</span>
+                  <h3 className="text-[20px] lg:text-[23px] font-black text-[#000839] tracking-tight">Salesforce Client Data Preview</h3>
+                </div>
+                <p className="text-[13px] text-slate-400 font-bold">
+                  Here is the exact representation of <code className="text-[#002BFF] font-black">preview.xlsx</code> after processing with the Work Order mapping logic sheet.
+                </p>
+              </div>
+
+              {/* Action buttons (Close + Direct Excel Export) */}
+              <div className="flex items-center gap-3.5 self-stretch sm:self-auto shrink-0">
+                <button
+                  onClick={() => {
+                    window.open("http://localhost:8000/api/download-preview", "_blank");
+                  }}
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#107c41] hover:bg-[#0c5d31] text-white text-[13px] font-black transition-all shadow-md shadow-[#107c41]/10 active:scale-[0.98] select-none cursor-pointer"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                  </svg>
+                  <span>Export Completed Excel</span>
+                </button>
+                <button
+                  onClick={() => setIsShowingPreview(false)}
+                  className="px-5 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 text-[13px] font-black transition-all active:scale-[0.98] select-none cursor-pointer"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+
+            {/* Metrics cards row */}
+            <div className="grid grid-cols-2 md:grid-cols-5 border-b border-slate-100 bg-white p-4.5 sm:p-6 shrink-0 gap-4">
+              
+              <div className="bg-[#f8fafc] border border-slate-100 p-4 rounded-2xl flex flex-col justify-center">
+                <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Total Output Rows</span>
+                <span className="text-[20px] font-black text-[#000839] mt-0.5">{previewData.summary.total_rows}</span>
+              </div>
+
+              <div className="bg-[#f8fafc] border border-slate-100 p-4 rounded-2xl flex flex-col justify-center">
+                <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Active Columns</span>
+                <span className="text-[20px] font-black text-[#000839] mt-0.5">{previewData.summary.total_columns}</span>
+              </div>
+
+              <div className="bg-[#fdf4f5] border border-rose-100/50 p-4 rounded-2xl flex flex-col justify-center">
+                <span className="text-[11px] text-rose-400 font-bold uppercase tracking-wider">Empty Columns Removed</span>
+                <span className="text-[20px] font-black text-rose-600 mt-0.5">{previewData.summary.cleaned_columns_count}</span>
+              </div>
+
+              <div className="bg-[#eaf5ff] border border-blue-100/50 p-4 rounded-2xl flex flex-col justify-center">
+                <span className="text-[11px] text-[#1a73e8] font-bold uppercase tracking-wider">Salesforce Master Lookups</span>
+                <span className="text-[20px] font-black text-[#1a73e8] mt-0.5">{previewData.summary.lookups_successful} matches</span>
+              </div>
+
+              <div className="bg-[#fff9e6] border border-amber-100/50 p-4 rounded-2xl flex flex-col justify-center">
+                <span className="text-[11px] text-amber-500 font-bold uppercase tracking-wider">Dates Formatted</span>
+                <span className="text-[20px] font-black text-amber-600 mt-0.5">{previewData.summary.dates_formatted} cells</span>
+              </div>
+
+            </div>
+
+            {/* Grid preview area with horizontal and vertical scroll */}
+            <div className="flex-1 min-h-0 overflow-auto bg-slate-50/50 p-6 relative">
+              <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden shadow-sm h-full flex flex-col">
+                <div className="flex-1 overflow-auto">
+                  <table className="w-full border-collapse text-left text-[12.5px] relative">
+                    
+                    {/* Sticky table headers */}
+                    <thead className="sticky top-0 bg-white z-10 select-none shadow-[0_1.5px_0_rgba(226,232,240,1)]">
+                      <tr>
+                        <th className="p-3.5 border-r border-slate-100 font-extrabold text-[#000839] bg-slate-50 text-center w-12 shrink-0">#</th>
+                        {previewData.columns.map((col: any) => {
+                          // Dynamic header styling based on column category
+                          let bgClass = "bg-slate-50 text-[#000839]";
+                          let badgeText = "Original";
+                          let badgeClass = "bg-slate-200/60 text-slate-500";
+                          
+                          if (col.type === "lookup") {
+                            bgClass = "bg-blue-50/30 text-blue-900";
+                            badgeText = "ID Lookup";
+                            badgeClass = "bg-blue-100/70 text-blue-600";
+                          } else if (col.type === "new_lookup") {
+                            bgClass = "bg-emerald-50/30 text-emerald-900";
+                            badgeText = "New Lookup";
+                            badgeClass = "bg-emerald-100 text-emerald-700";
+                          } else if (col.type === "new_constant") {
+                            bgClass = "bg-purple-50/30 text-purple-900";
+                            badgeText = "Constant";
+                            badgeClass = "bg-purple-100 text-purple-700";
+                          }
+                          
+                          return (
+                            <th 
+                              key={col.key} 
+                              className={`p-3.5 border-r border-slate-150 font-black whitespace-nowrap min-w-[160px] ${bgClass}`}
+                            >
+                              <div className="flex flex-col gap-1">
+                                <span className="font-extrabold uppercase tracking-tight">{col.name}</span>
+                                <span className={`inline-block self-start px-2 py-0.5 rounded text-[9.5px] font-black tracking-wide uppercase ${badgeClass}`}>
+                                  {badgeText}
+                                </span>
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    
+                    {/* Table Body rows */}
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-600">
+                      {previewData.rows.map((row: any, rIdx: number) => (
+                        <tr 
+                          key={rIdx} 
+                          className="hover:bg-slate-50/80 transition-colors odd:bg-white even:bg-slate-50/10"
+                        >
+                          <td className="p-3.5 border-r border-slate-100 font-extrabold text-slate-400 text-center bg-slate-50/40 select-none">
+                            {rIdx + 1}
+                          </td>
+                          {previewData.columns.map((col: any) => {
+                            const val = row[col.key];
+                            const isNull = val === null || val === undefined || val === "";
+                            
+                            // Highlight text colors based on column mapping types
+                            let cellTextClass = "text-slate-700";
+                            if (col.type === "lookup" || col.type === "new_lookup") {
+                              cellTextClass = isNull ? "text-slate-300" : "text-blue-700 font-bold font-mono text-[11.5px]";
+                            } else if (col.type === "new_constant") {
+                              cellTextClass = "text-purple-700 font-semibold";
+                            }
+                            
+                            return (
+                              <td 
+                                key={col.key} 
+                                className={`p-3.5 border-r border-slate-100 whitespace-nowrap truncate max-w-[240px] ${cellTextClass}`}
+                              >
+                                {isNull ? (
+                                  <span className="text-slate-350 italic">—</span>
+                                ) : (
+                                  String(val)
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+
+                  </table>
+                </div>
+                
+                {/* Visual grid bottom helper */}
+                {previewData.summary.total_rows > 50 && (
+                  <div className="p-3 bg-slate-50 border-t border-slate-150 text-center text-[12px] font-extrabold text-slate-400 select-none shrink-0">
+                    Showing first 50 rows of data. Click "Export Completed Excel" above to download the full {previewData.summary.total_rows} rows dataset.
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

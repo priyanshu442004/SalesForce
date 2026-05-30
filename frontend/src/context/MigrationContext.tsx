@@ -17,7 +17,6 @@ interface MigrationContextType {
   setUploadedFiles: React.Dispatch<React.SetStateAction<Record<string, UploadedFile | null>>>;
   clearFile: (slot: string) => void;
   handleFileUpload: (files: FileList | File[] | null, forcedSlot?: string) => void;
-  autofillMockFiles: () => void;
   isContinueEnabled: boolean;
   successRateCount: number;
   metricCount: {
@@ -30,6 +29,13 @@ interface MigrationContextType {
   setTransformationsView: (val: "list" | "create") => void;
   transformationsTab: string;
   setTransformationsTab: (val: string) => void;
+  
+  // REAL SERVER STATE INTEGRATIONS
+  previewData: any | null;
+  setPreviewData: React.Dispatch<React.SetStateAction<any | null>>;
+  generatePreview: () => Promise<void>;
+  isPreviewLoading: boolean;
+  previewError: string | null;
 }
 
 const MigrationContext = createContext<MigrationContextType | undefined>(undefined);
@@ -49,6 +55,24 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     progress: 0,
     failed: 0
   });
+
+  // Server state variables
+  const [previewData, setPreviewData] = useState<any | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  // Clear any existing server-side files on initial load to ensure a fresh upload session
+  useEffect(() => {
+    const clearServerFilesOnStart = async () => {
+      try {
+        await fetch("http://localhost:8000/api/clear-all-files", { method: "POST" });
+        console.log("Server migration files cleared for a fresh session.");
+      } catch (err) {
+        console.warn("Could not clear server files on mount:", err);
+      }
+    };
+    clearServerFilesOnStart();
+  }, []);
 
   // Numbers increment simulation
   useEffect(() => {
@@ -79,27 +103,33 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, []);
 
-  const detectFileSlot = (filename: string): string => {
-    const fn = filename.toLowerCase();
-    if (fn.includes("source") || fn.includes("customer") || fn.includes("data") || fn.includes("raw") || fn.includes("user")) {
-      return "source";
+  // Helper function to send files to the FastAPI server in the background
+  const uploadFileToServer = async (file: File, slot: string) => {
+    try {
+      const formData = new FormData();
+      formData.append(slot, file);
+      
+      const response = await fetch("http://localhost:8000/api/upload-migration-files", {
+        method: "POST",
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Upload returned status ${response.status}`);
+      }
+      
+      const resData = await response.json();
+      console.log(`Server upload completed for slot [${slot}]:`, resData);
+    } catch (err) {
+      console.error(`Error uploading file [${file.name}] for slot [${slot}] to backend:`, err);
     }
-    if (fn.includes("master") || fn.includes("salesforce") || fn.includes("metadata") || fn.includes("sf")) {
-      return "master";
-    }
-    if (fn.includes("mapping") || fn.includes("logic") || fn.includes("business") || fn.includes("rules") || fn.includes("map")) {
-      return "logic";
-    }
-    if (!uploadedFiles.source) return "source";
-    if (!uploadedFiles.master) return "master";
-    return "logic";
   };
 
   const handleFileUpload = (files: FileList | File[] | null, forcedSlot?: string) => {
     if (!files) return;
     const fileList = Array.from(files).slice(0, 3);
 
-    const newUploads: Record<string, { name: string; size: string }> = {};
+    const newUploads: Record<string, { file: File; name: string; size: string; slot: string }> = {};
     const usedSlots = new Set<string>();
 
     fileList.forEach((file) => {
@@ -132,7 +162,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
 
       usedSlots.add(slot);
       const sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
-      newUploads[slot] = { name: file.name, size: sizeStr };
+      newUploads[slot] = { file, name: file.name, size: sizeStr, slot };
     });
 
     setUploadedFiles((prev) => {
@@ -150,6 +180,12 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     });
 
     Object.keys(newUploads).forEach((slot) => {
+      const uploadDetails = newUploads[slot];
+      
+      // 1. Kick off real backend upload
+      uploadFileToServer(uploadDetails.file, slot);
+
+      // 2. Play beautiful micro-progress animation
       let prog = 0;
       const interval = setInterval(() => {
         prog += 8;
@@ -175,56 +211,44 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const clearFile = (slot: string) => {
+  const clearFile = async (slot: string) => {
     setUploadedFiles((prev) => ({
       ...prev,
       [slot]: null
     }));
+    try {
+      await fetch(`http://localhost:8000/api/clear-file/${slot}`, {
+        method: "DELETE"
+      });
+      console.log(`Server file in slot [${slot}] successfully cleared.`);
+    } catch (err) {
+      console.error(`Failed to clear slot [${slot}] on server:`, err);
+    }
   };
 
-  const autofillMockFiles = () => {
-    const mockData = [
-      { name: "customer_data.xlsx", size: 25585254, slot: "source" },
-      { name: "salesforce_master.xlsx", size: 13736345, slot: "master" },
-      { name: "mapping_logic.xlsx", size: 9227468, slot: "logic" }
-    ];
 
-    mockData.forEach((item) => {
-      const sizeStr = (item.size / (1024 * 1024)).toFixed(1) + " MB";
-      setUploadedFiles((prev) => ({
-        ...prev,
-        [item.slot]: {
-          name: item.name,
-          size: sizeStr,
-          loading: true,
-          progress: 0,
-          completed: false
-        }
-      }));
 
-      let prog = 0;
-      const interval = setInterval(() => {
-        prog += 10;
-        setUploadedFiles((prev) => {
-          const slotItem = prev[item.slot];
-          if (!slotItem) return prev;
-          const currentProg = Math.min(prog, 100);
-          return {
-            ...prev,
-            [item.slot]: {
-              ...slotItem,
-              progress: currentProg,
-              loading: currentProg < 100,
-              completed: currentProg >= 100
-            }
-          };
-        });
-
-        if (prog >= 100) {
-          clearInterval(interval);
-        }
-      }, 80);
-    });
+  // Triggers backend calculations and parses Excel preview
+  const generatePreview = async () => {
+    setIsPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const response = await fetch("http://localhost:8000/api/generate-preview", {
+        method: "POST"
+      });
+      if (!response.ok) {
+        const errorBody = await response.json();
+        throw new Error(errorBody.detail || "Server calculations failed.");
+      }
+      const data = await response.json();
+      setPreviewData(data);
+    } catch (err: any) {
+      console.error("Failed to compile Salesforce mapping preview:", err);
+      setPreviewError(err.message || "An unexpected error occurred during mappings generation.");
+      throw err;
+    } finally {
+      setIsPreviewLoading(false);
+    }
   };
 
   const [transformationsView, setTransformationsView] = useState<"list" | "create">("list");
@@ -244,14 +268,20 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         setUploadedFiles,
         clearFile,
         handleFileUpload,
-        autofillMockFiles,
         isContinueEnabled,
         successRateCount,
         metricCount,
         transformationsView,
         setTransformationsView,
         transformationsTab,
-        setTransformationsTab
+        setTransformationsTab,
+        
+        // SERVER EXPORTS
+        previewData,
+        setPreviewData,
+        generatePreview,
+        isPreviewLoading,
+        previewError
       }}
     >
       {children}

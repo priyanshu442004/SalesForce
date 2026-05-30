@@ -408,7 +408,7 @@ export default function TransformationsPage() {
   });
 
   return (
-    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden select-none bg-white">
+    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white">
       
       {/* CSS Animations Injection */}
       <style jsx global>{`
@@ -833,7 +833,7 @@ export default function TransformationsPage() {
                   </table>
                 </div>
 
-                <div className="pt-5 flex items-center justify-between text-[14px] text-slate-400 font-bold border-t border-slate-100/55 flex-none mt-1">
+                <div className="pt-5 pb-8 flex items-center justify-between text-[14px] text-slate-400 font-bold border-t border-slate-100/55 flex-none mt-1">
                   <span>Showing {activeData.rules.length} transformation records</span>
                   <span>Object: {selectedObject} Schema</span>
                 </div>
