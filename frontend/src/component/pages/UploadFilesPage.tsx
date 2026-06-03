@@ -470,7 +470,7 @@ export default function UploadFilesPage() {
                   <h3 className="text-[20px] lg:text-[23px] font-black text-[#000839] tracking-tight">Salesforce Client Data Preview</h3>
                 </div>
                 <p className="text-[13px] text-slate-400 font-bold">
-                  Here is the exact representation of <code className="text-[#002BFF] font-black">preview.xlsx</code> after processing with the Work Order mapping logic sheet.
+                  Here is the exact representation of <code className="text-[#002BFF] font-black">preview.xlsx</code> after processing with the first mapping logic sheet.
                 </p>
               </div>
 
@@ -478,7 +478,12 @@ export default function UploadFilesPage() {
               <div className="flex items-center gap-3.5 self-stretch sm:self-auto shrink-0">
                 <button
                   onClick={() => {
-                    window.open("http://localhost:8000/api/download-preview", "_blank");
+                    const link = document.createElement("a");
+                    link.href = "http://localhost:8000/api/download-preview";
+                    link.setAttribute("download", "preview.xlsx");
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                   }}
                   className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#107c41] hover:bg-[#0c5d31] text-white text-[13px] font-black transition-all shadow-md shadow-[#107c41]/10 active:scale-[0.98] select-none cursor-pointer"
                 >
@@ -575,41 +580,53 @@ export default function UploadFilesPage() {
                     
                     {/* Table Body rows */}
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-600">
-                      {previewData.rows.map((row: any, rIdx: number) => (
-                        <tr 
-                          key={rIdx} 
-                          className="hover:bg-slate-50/80 transition-colors odd:bg-white even:bg-slate-50/10"
-                        >
-                          <td className="p-3.5 border-r border-slate-100 font-extrabold text-slate-400 text-center bg-slate-50/40 select-none">
-                            {rIdx + 1}
-                          </td>
-                          {previewData.columns.map((col: any) => {
-                            const val = row[col.key];
-                            const isNull = val === null || val === undefined || val === "";
-                            
-                            // Highlight text colors based on column mapping types
-                            let cellTextClass = "text-slate-700";
-                            if (col.type === "lookup" || col.type === "new_lookup") {
-                              cellTextClass = isNull ? "text-slate-300" : "text-blue-700 font-bold font-mono text-[11.5px]";
-                            } else if (col.type === "new_constant") {
-                              cellTextClass = "text-purple-700 font-semibold";
-                            }
-                            
-                            return (
-                              <td 
-                                key={col.key} 
-                                className={`p-3.5 border-r border-slate-100 whitespace-nowrap truncate max-w-[240px] ${cellTextClass}`}
-                              >
-                                {isNull ? (
-                                  <span className="text-slate-350 italic">—</span>
-                                ) : (
-                                  String(val)
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
+                      {previewData.rows.map((row: any, rIdx: number) => {
+                        const isSourceRow = rIdx === 0;
+                        return (
+                          <tr 
+                            key={rIdx} 
+                            className={isSourceRow 
+                              ? "bg-slate-100/80 font-black border-b-2 border-slate-200" 
+                              : "hover:bg-slate-50/80 transition-colors odd:bg-white even:bg-slate-50/10"}
+                          >
+                            <td className={`p-3.5 border-r border-slate-100 font-extrabold text-center select-none ${
+                              isSourceRow ? "bg-slate-200 text-slate-700 italic text-[11px]" : "bg-slate-50/40 text-slate-400"
+                            }`}>
+                              {isSourceRow ? "Source" : rIdx}
+                            </td>
+                            {previewData.columns.map((col: any) => {
+                              const val = row[col.key];
+                              const isNull = val === null || val === undefined || val === "";
+                              
+                              // Highlight text colors based on column mapping types and source subheader row
+                              let cellTextClass = "text-slate-700";
+                              let cellBgClass = "";
+                              
+                              if (isSourceRow) {
+                                cellTextClass = "text-slate-800 font-black italic text-center text-[12.5px]";
+                                cellBgClass = "bg-slate-100/90";
+                              } else if (col.type === "lookup" || col.type === "new_lookup") {
+                                cellTextClass = isNull ? "text-slate-350" : "text-blue-700 font-bold font-mono text-[11.5px]";
+                              } else if (col.type === "new_constant") {
+                                cellTextClass = "text-purple-700 font-semibold";
+                              }
+                              
+                              return (
+                                <td 
+                                  key={col.key} 
+                                  className={`p-3.5 border-r border-slate-100 whitespace-nowrap truncate max-w-[240px] ${cellTextClass} ${cellBgClass}`}
+                                >
+                                  {isNull ? (
+                                    <span className="text-slate-350 italic">—</span>
+                                  ) : (
+                                    String(val)
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
                     </tbody>
 
                   </table>

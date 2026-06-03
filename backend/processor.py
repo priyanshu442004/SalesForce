@@ -75,11 +75,9 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
         
         # Read Mapping Logic
         logic_excel = pd.ExcelFile(logic_path)
-        # Find 'work order' sheet case-insensitively, or fall back to the very first sheet
-        wo_sheet = next((s for s in logic_excel.sheet_names if s.lower().strip() == "work order"), None)
-        if not wo_sheet:
-            print("Warning: 'Work Order' sheet not found in mapping logic. Falling back to the first sheet.")
-            wo_sheet = logic_excel.sheet_names[0]
+        # Always identify and read the very first sheet inside the mapping excel
+        wo_sheet = logic_excel.sheet_names[0]
+        print(f"Reading first sheet for mapping logic: '{wo_sheet}'")
             
         logic_df = pd.read_excel(logic_path, sheet_name=wo_sheet)
         
@@ -88,20 +86,42 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
         col_mapping = {}
         for c in logic_df.columns:
             c_clean = str(c).strip().lower()
-            if "source field" in c_clean:
+            if c_clean in ["source fields", "source field"]:
                 col_mapping["source_field"] = c
-            elif "target field" in c_clean or "netsuits" in c_clean:
+            elif c_clean in ["target fields", "target field", "netsuits"]:
                 col_mapping["target_field"] = c
-            elif "data type" in c_clean:
+            elif c_clean == "data type":
                 col_mapping["data_type"] = c
-            elif "default + format" in c_clean or "format" in c_clean:
+            elif c_clean == "default + format" or c_clean == "format":
                 col_mapping["rule"] = c
-            elif "master sheet" in c_clean or "rule" in c_clean or "master file" in c_clean:
+            elif c_clean == "master sheet" or c_clean == "rule" or c_clean == "master file":
                 col_mapping["master_sheet"] = c
-            elif "pk" in c_clean or "search column" in c_clean:
+            elif c_clean == "search column" or c_clean == "pk":
                 col_mapping["search_col"] = c
-            elif "fk" in c_clean or "copyable column" in c_clean:
+            elif c_clean == "copyable column" or c_clean == "fk":
                 col_mapping["copyable_col"] = c
+            elif c_clean in ["comment", "comments"]:
+                col_mapping["comments"] = c
+
+        # Fallbacks to loose matching if any key column was not resolved
+        for c in logic_df.columns:
+            c_clean = str(c).strip().lower()
+            if "source_field" not in col_mapping and "source field" in c_clean:
+                col_mapping["source_field"] = c
+            if "target_field" not in col_mapping and ("target field" in c_clean or "netsuits" in c_clean):
+                col_mapping["target_field"] = c
+            if "data_type" not in col_mapping and "data type" in c_clean:
+                col_mapping["data_type"] = c
+            if "rule" not in col_mapping and ("default + format" in c_clean or "format" in c_clean):
+                col_mapping["rule"] = c
+            if "master_sheet" not in col_mapping and ("master sheet" in c_clean or "rule" in c_clean or "master file" in c_clean):
+                col_mapping["master_sheet"] = c
+            if "search_col" not in col_mapping and ("search column" in c_clean or "pk" in c_clean):
+                col_mapping["search_col"] = c
+            if "copyable_col" not in col_mapping and ("copyable column" in c_clean or "fk" in c_clean):
+                col_mapping["copyable_col"] = c
+            if "comments" not in col_mapping and "comment" in c_clean:
+                col_mapping["comments"] = c
 
         print("Resolved Mapping Logic columns:")
         for k, v in col_mapping.items():
@@ -151,28 +171,29 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
                 print(f"Loading required master sheet: '{s_name}'")
                 master_sheets[s_name_clean] = pd.read_excel(master_path, sheet_name=s_name)
 
-        # 4. Cleanup Source Data (drop all-blank or all-null columns)
-        cleaned_columns = []
-        dropped_columns = []
+        # 4. Keep all columns from source file (no filtering of columns whose values are all blank or null)
+        columns_list = []
+        
+        # Add "uniqueID" as the first column
+        num_rows = len(source_df)
+        unique_ids = list(range(1, num_rows + 1))
+        columns_list.append({
+            "name": "uniqueID",
+            "values": unique_ids,
+            "type": "original",
+            "meta": "ID"
+        })
         
         for col in source_df.columns:
-            if is_column_all_empty_or_null(source_df[col]):
-                dropped_columns.append(col)
-            else:
-                cleaned_columns.append(col)
-                
-        print(f"Dropped {len(dropped_columns)} empty/NULL columns: {dropped_columns}")
-        cleaned_df = source_df[cleaned_columns].copy()
-        
-        # Initialize internal columns state tracking to handle duplicate headers beautifully
-        columns_list = []
-        for col in cleaned_df.columns:
-            vals = cleaned_df[col].replace({np.nan: None}).tolist()
+            vals = source_df[col].replace({np.nan: None}).tolist()
             columns_list.append({
                 "name": str(col).strip(),
                 "values": vals,
                 "type": "original"
             })
+            
+        dropped_columns = []
+        print("Retained all source columns (no filtering of empty/NULL columns). Added 'uniqueID' as the first column.")
             
         # Stats summary counters
         lookups_attempted = 0
@@ -238,6 +259,7 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
                     
                     master_df = master_sheets.get(sheet_name)
                     lookup_map = {}
+                    reverse_lookup_map = {}
                     
                     if master_df is not None:
                         # Match search column and copyable column case-insensitively and fuzzy-match
@@ -267,6 +289,12 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
                                 # Support floating matches e.g. 10016901.0 -> 10016901
                                 if k.endswith('.0'):
                                     lookup_map[k[:-2]] = v
+                                    
+                            if pd.notna(v) and pd.notna(r[search_col]):
+                                rev_k = str(v).strip().lower()
+                                reverse_lookup_map[rev_k] = r[search_col]
+                                if rev_k.endswith('.0'):
+                                    reverse_lookup_map[rev_k[:-2]] = r[search_col]
                     
                     new_values = []
                     for val in orig_vals:
@@ -277,12 +305,23 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
                         val_str = str(val).strip().lower()
                         val_clean = val_str[:-2] if val_str.endswith('.0') else val_str
                         
-                        # 1. Try exact match first
+                        # 1. Try exact match first on lookup_map
                         matched_val = lookup_map.get(val_clean)
                         
-                        # 2. Try fallback substring containment match (typo tolerance & text segments)
+                        # 2. Try exact match on reverse_lookup_map
+                        if matched_val is None:
+                            matched_val = reverse_lookup_map.get(val_clean)
+                        
+                        # 3. Try fallback substring containment match on lookup_map
                         if matched_val is None:
                             for master_k, master_v in lookup_map.items():
+                                if val_clean in master_k or master_k in val_clean:
+                                    matched_val = master_v
+                                    break
+                                    
+                        # 4. Try fallback substring containment match on reverse_lookup_map
+                        if matched_val is None:
+                            for master_k, master_v in reverse_lookup_map.items():
                                 if val_clean in master_k or master_k in val_clean:
                                     matched_val = master_v
                                     break
@@ -318,135 +357,136 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
                 sheet_name = sheet_ref.split(">")[0].strip().lower() if ">" in sheet_ref else sheet_ref.lower()
                 copyable_col = sheet_ref.split(">")[1].strip() if ">" in sheet_ref else copyable_col_name
                 
-                # Check for special AccountCarelinkID relation
-                if "accountcarelinkid" in sheet_name:
-                    carelink_vals = get_carelink_id_values()
-                    master_df = master_sheets.get("accountcarelinkid")
-                    lookup_map = {}
+                # Dynamic Relationship Resolver: dynamically find matching source columns, keys, and values.
+                # Completely schema-agnostic and will adapt to any uploaded files dynamically.
+                master_df = master_sheets.get(sheet_name)
+                new_values = []
+                
+                if master_df is not None:
+                    # 1. Determine target column to copy in master sheet (copy_col)
+                    copy_col = None
+                    if ">" in sheet_ref:
+                        copyable_col_from_ref = sheet_ref.split(">")[1].strip()
+                        copy_col = next((c for c in master_df.columns if str(c).strip().lower() == copyable_col_from_ref.lower() or copyable_col_from_ref.lower() in str(c).lower()), None)
                     
-                    if master_df is not None:
-                        search_col = next((c for c in master_df.columns if "carelink" in str(c).lower()), "Carelink_ID__c")
-                        
-                        copy_col = None
-                        if copyable_col:
-                            copy_col = next((c for c in master_df.columns if str(c).strip().lower() == copyable_col.lower() or copyable_col.lower() in str(c).lower()), None)
-                        if copy_col is None or copy_col not in master_df.columns:
-                            copy_col = next((c for c in master_df.columns if "id" in str(c).lower()), master_df.columns[-1])
+                    if copy_col is None and copyable_col_name:
+                        copy_col = next((c for c in master_df.columns if str(c).strip().lower() == copyable_col_name.lower() or copyable_col_name.lower() in str(c).lower()), None)
+                    
+                    if copy_col is None:
+                        copy_col = next((c for c in master_df.columns if "id" in str(c).lower()), master_df.columns[-1])
+                    
+                    # 2. Determine search key column in source data (source_key_col_name) and its values
+                    source_key_col_name = None
+                    master_pk_col_name = None
+                    
+                    # Prioritize explicitly defined search column for the current row
+                    curr_pk = str(rule.get(col_mapping.get("search_col", ""))).strip()
+                    if curr_pk and curr_pk.lower() != "nan":
+                        master_pk_col_name = curr_pk
+
+                    # Method A: Try to find another row in mapping logic that maps this same master sheet with a non-"Add new Field" source
+                    for _, other_rule in logic_df.iterrows():
+                        other_src = str(other_rule.get(col_mapping.get("source_field", ""))).strip()
+                        if other_src and other_src.lower() != "nan" and other_src.lower() != "add new field":
+                            other_sheet_val, other_rule_val = get_rule_and_sheet_vals(other_rule)
+                            other_sheet_ref = other_sheet_val if other_sheet_val and other_sheet_val.lower() != "nan" else other_rule_val
+                            other_sheet_name = other_sheet_ref.split(">")[0].strip().lower() if ">" in other_sheet_ref else other_sheet_ref.lower()
                             
-                        for _, r in master_df.iterrows():
-                            k = str(r[search_col]).strip().lower()
-                            if k.endswith('.0'): k = k[:-2]
-                            lookup_map[k] = r[copy_col]
-                            
-                    new_values = []
-                    if carelink_vals is not None:
-                        for val in carelink_vals:
-                            if pd.isna(val) or val is None:
-                                new_values.append(None)
-                            else:
-                                val_str = str(val).strip().lower()
-                                val_clean = val_str[:-2] if val_str.endswith('.0') else val_str
-                                
-                                matched = lookup_map.get(val_clean)
-                                if matched is None:
-                                    for master_k, master_v in lookup_map.items():
-                                        if val_clean in master_k or master_k in val_clean:
-                                            matched = master_v
-                                            break
-                                            
-                                if matched is not None:
-                                    new_values.append(matched)
-                                    lookups_successful += 1
-                                else:
-                                    new_values.append(None)
-                    else:
-                        new_values = [None] * len(columns_list[0]["values"])
-                        
-                # Check for special Pricebook lookup matched against 'Funding Source'
-                elif "pricebook" in sheet_name:
-                    # Fuzzy match Funding Source column in source data
-                    funding_vals = get_original_col_values("Funding Source")
-                    if funding_vals is None:
-                        for col in columns_list:
-                            n = col["name"].strip().lower()
-                            if "funding" in n or "source" in n or "price" in n:
-                                funding_vals = col["values"]
+                            if other_sheet_name == sheet_name:
+                                source_key_col_name = other_src
+                                if master_pk_col_name is None:
+                                    master_pk_col_name = str(other_rule.get(col_mapping.get("search_col", ""))).strip()
                                 break
-                    if funding_vals is None:
-                        funding_vals = columns_list[0]["values"]
-                        
-                    master_df = master_sheets.get("pricebook")
-                    lookup_map = {}
                     
-                    if master_df is not None:
-                        search_col = next((c for c in master_df.columns if "name" in str(c).lower() or "excel sheet" in str(c).lower() or "sheet name" in str(c).lower()), master_df.columns[-1])
-                        
-                        copy_col = None
-                        if copyable_col:
-                            copy_col = next((c for c in master_df.columns if str(c).strip().lower() == copyable_col.lower() or copyable_col.lower() in str(c).lower()), None)
-                        if copy_col is None or copy_col not in master_df.columns:
-                            copy_col = next((c for c in master_df.columns if "id" in str(c).lower()), master_df.columns[0])
-                            
-                        for _, r in master_df.iterrows():
-                            k = str(r[search_col]).strip().lower()
-                            lookup_map[k] = r[copy_col]
-                            
-                    new_values = []
-                    if funding_vals is not None:
-                        for val in funding_vals:
-                            if pd.isna(val) or val is None:
-                                new_values.append(None)
-                            else:
-                                val_str = str(val).strip().lower()
-                                val_clean = val_str[:-2] if val_str.endswith('.0') else val_str
-                                
-                                matched = lookup_map.get(val_clean)
-                                if matched is None:
-                                    for master_k, master_v in lookup_map.items():
-                                        if val_clean in master_k or master_k in val_clean:
-                                            matched = master_v
-                                            break
-                                            
-                                if matched is not None:
-                                    new_values.append(matched)
-                                    lookups_successful += 1
-                                else:
-                                    new_values.append(None)
+                    # Method B: Parse the comment field of the current row to find a matching source column name
+                    if source_key_col_name is None:
+                        comment_val = str(rule.get(col_mapping.get("comments", ""))).strip().lower()
+                        if comment_val and comment_val != "nan":
+                            sorted_source_cols = sorted([col["name"] for col in columns_list if col["type"] == "original"], key=len, reverse=True)
+                            for s_col in sorted_source_cols:
+                                if s_col.lower() in comment_val:
+                                    source_key_col_name = s_col
+                                    break
+                                    
+                    # Method C: Special defaults based on sheet signatures
+                    if source_key_col_name is None and "pricebook" in sheet_name:
+                        funding_exists = any(col["name"].strip().lower() == "funding source" for col in columns_list)
+                        if funding_exists:
+                            source_key_col_name = next(col["name"] for col in columns_list if col["name"].strip().lower() == "funding source")
+                    
+                    # Resolve values
+                    if source_key_col_name is not None:
+                        source_key_vals = get_original_col_values(source_key_col_name)
                     else:
-                        new_values = [None] * len(columns_list[0]["values"])
+                        # Method D: Fallback to schema-agnostic ID resolver
+                        source_key_vals = get_carelink_id_values()
                         
-                # Generic schema-agnostic fallback Add new Field lookup
-                else:
-                    carelink_vals = get_carelink_id_values()
-                    master_df = master_sheets.get(sheet_name)
-                    lookup_map = {}
-                    
-                    if master_df is not None:
-                        search_col = next((c for c in master_df.columns if str(c).strip().lower() == search_col_name.lower() or search_col_name.lower() in str(c).lower()), master_df.columns[0])
-                        
-                        copy_col = None
-                        if copyable_col:
-                            copy_col = next((c for c in master_df.columns if str(c).strip().lower() == copyable_col.lower() or copyable_col.lower() in str(c).lower()), None)
-                        if copy_col is None or copy_col not in master_df.columns:
-                            copy_col = next((c for c in master_df.columns if "id" in str(c).lower()), master_df.columns[-1])
+                    # 3. Determine search column in the master sheet (master_pk_col)
+                    if master_pk_col_name is None or master_pk_col_name.lower() == "nan" or not master_pk_col_name:
+                        # In case neither curr_pk nor Method A succeeded, try again with default curr_pk (redundancy fallback)
+                        curr_pk = str(rule.get(col_mapping.get("search_col", ""))).strip()
+                        if curr_pk and curr_pk.lower() != "nan":
+                            master_pk_col_name = curr_pk
                             
-                        for _, r in master_df.iterrows():
-                            k = str(r[search_col]).strip().lower()
+                    master_pk_col = None
+                    if master_pk_col_name:
+                        master_pk_col = next((c for c in master_df.columns if str(c).strip().lower() == master_pk_col_name.lower() or master_pk_col_name.lower() in str(c).lower()), None)
+                    
+                    if master_pk_col is None and source_key_col_name:
+                        master_pk_col = next((c for c in master_df.columns if str(c).strip().lower() == source_key_col_name.lower() or source_key_col_name.lower() in str(c).lower()), None)
+                    
+                    if master_pk_col is None:
+                        if "pricebook" in sheet_name:
+                            master_pk_col = next((c for c in master_df.columns if "name" in str(c).lower() or "excel sheet" in str(c).lower() or "sheet name" in str(c).lower()), master_df.columns[-1])
+                        elif "accountcarelinkid" in sheet_name:
+                            master_pk_col = next((c for c in master_df.columns if "carelink" in str(c).lower()), "Carelink_ID__c")
+                        else:
+                            master_pk_col = next((c for c in master_df.columns if "id" in str(c).lower() or "key" in str(c).lower()), master_df.columns[0])
+                            
+                    if master_pk_col is None or master_pk_col not in master_df.columns:
+                        master_pk_col = master_df.columns[0]
+                        
+                    # 4. Build Lookup Map
+                    lookup_map = {}
+                    reverse_lookup_map = {}
+                    for _, r in master_df.iterrows():
+                        k = str(r[master_pk_col]).strip().lower()
+                        v = r[copy_col]
+                        if pd.notna(v):
                             if k.endswith('.0'): k = k[:-2]
-                            lookup_map[k] = r[copy_col]
+                            lookup_map[k] = v
                             
-                    new_values = []
-                    if carelink_vals is not None:
-                        for val in carelink_vals:
+                        if pd.notna(v) and pd.notna(r[master_pk_col]):
+                            rev_k = str(v).strip().lower()
+                            if rev_k.endswith('.0'): rev_k = rev_k[:-2]
+                            reverse_lookup_map[rev_k] = r[master_pk_col]
+                        
+                    # 5. Perform Mapping
+                    if source_key_vals is not None:
+                        for val in source_key_vals:
                             if pd.isna(val) or val is None:
                                 new_values.append(None)
                             else:
                                 val_str = str(val).strip().lower()
                                 val_clean = val_str[:-2] if val_str.endswith('.0') else val_str
                                 
+                                # 1. Try exact match first on lookup_map
                                 matched = lookup_map.get(val_clean)
+                                
+                                # 2. Try exact match on reverse_lookup_map
+                                if matched is None:
+                                    matched = reverse_lookup_map.get(val_clean)
+                                    
+                                # 3. Try fallback substring match on lookup_map
                                 if matched is None:
                                     for master_k, master_v in lookup_map.items():
+                                        if val_clean in master_k or master_k in val_clean:
+                                            matched = master_v
+                                            break
+                                            
+                                # 4. Try fallback substring match on reverse_lookup_map
+                                if matched is None:
+                                    for master_k, master_v in reverse_lookup_map.items():
                                         if val_clean in master_k or master_k in val_clean:
                                             matched = master_v
                                             break
@@ -458,7 +498,9 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
                                     new_values.append(None)
                     else:
                         new_values = [None] * len(columns_list[0]["values"])
-                        
+                else:
+                    new_values = [None] * len(columns_list[0]["values"])
+                    
                 columns_list.append({
                     "name": target_field,
                     "values": new_values,
@@ -501,6 +543,63 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
                     "meta": "Constant"
                 })
                 
+        # Resolve duplicate names by prefixing original columns with "__" if a mapped column has the same name
+        # Mapped columns are those with type != "original"
+        mapped_names = {col["name"].strip().lower(): col["name"] for col in columns_list if col["type"] != "original"}
+        
+        for col in columns_list:
+            if col["type"] == "original":
+                col_name_lower = col["name"].strip().lower()
+                if col_name_lower in mapped_names:
+                    orig_name = col["name"]
+                    col["name"] = f"__{orig_name}"
+                    print(f"Renaming original column '{orig_name}' to '__{orig_name}' due to collision with mapped column '{mapped_names[col_name_lower]}'.")
+
+        # Resolve target field for each column and prepend it as the first row of data
+        source_to_target = {}
+        for _, rule in logic_df.iterrows():
+            src = get_val(rule, "source_field")
+            tgt = get_val(rule, "target_field")
+            if src and src.lower() != "nan" and tgt and tgt.lower() != "nan":
+                source_to_target[src.lower().strip()] = tgt.strip()
+                
+        for col in columns_list:
+            if col["name"] == "uniqueID":
+                target_field_val = "uniqueID"
+            elif col["type"] in ["new_lookup", "new_constant"]:
+                target_field_val = col["name"]
+            else:
+                # Resolve using clean original name
+                name_clean = col["name"]
+                if name_clean.startswith("__"):
+                    name_clean = name_clean[2:]
+                
+                name_clean_lower = name_clean.lower().strip()
+                
+                # Check stored target_field
+                if "target_field" in col:
+                    target_field_val = col["target_field"]
+                # Check matching source field
+                elif name_clean_lower in source_to_target:
+                    target_field_val = source_to_target[name_clean_lower]
+                # Check standard lookup meta target field
+                elif col.get("meta", "").startswith("Lookup (") and col["meta"].endswith(")"):
+                    target_field_val = col["meta"][8:-1]
+                # Fallback to the clean name itself if it matches any target field in mapping logic
+                else:
+                    matched_tgt = None
+                    for _, rule in logic_df.iterrows():
+                        tgt = get_val(rule, "target_field")
+                        if tgt.lower().strip() == name_clean_lower:
+                            matched_tgt = tgt
+                            break
+                    target_field_val = matched_tgt if matched_tgt else ""
+            
+            # Store resolved target field
+            col["target_field_val"] = target_field_val
+            # Prepend the original Source column name as the first value in the values list
+            col["values"].insert(0, col["name"])
+
         # 6. Save target preview.xlsx
         print(f"Saving finalized preview data to {output_path}...")
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -509,7 +608,7 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
         col_names = []
         for col in columns_list:
             series_list.append(pd.Series(col["values"]))
-            col_names.append(col["name"])
+            col_names.append(col["target_field_val"])
             
         final_df = pd.concat(series_list, axis=1)
         final_df.columns = col_names
@@ -549,6 +648,8 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
             # Format Headers
             for col_idx in range(1, len(columns_list) + 1):
                 cell = worksheet.cell(row=1, column=col_idx)
+                # Overwrite value with clean target field name to strip pandas .1, .2 duplicate column suffixes
+                cell.value = columns_list[col_idx - 1]["target_field_val"]
                 cell.font = header_font
                 cell.fill = header_fill
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -561,10 +662,19 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
                 worksheet.row_dimensions[row_idx].height = 20
                 is_even = (row_idx % 2 == 0)
                 
+                is_subheader_row = (row_idx == 2)
+                
                 for col_idx in range(1, len(columns_list) + 1):
                     cell = worksheet.cell(row=row_idx, column=col_idx)
                     cell.border = thin_border
                     
+                    if is_subheader_row:
+                        # Style Subheader Row with premium styling (contains original Source column names)
+                        cell.fill = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid") # premium slate-200 fill
+                        cell.font = Font(name="Segoe UI", size=10, bold=True, italic=True, color="1E293B") # dark slate bold italic
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+                        continue
+                        
                     if is_even:
                         cell.fill = zebra_fill
                         
@@ -613,7 +723,7 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
         for col_idx, col in enumerate(columns_list):
             ui_columns.append({
                 "key": f"col_{col_idx}",
-                "name": col["name"],
+                "name": col["target_field_val"],
                 "type": col["type"],
                 "meta": col.get("meta", "")
             })
@@ -623,7 +733,7 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
             "columns": ui_columns,
             "rows": preview_rows,
             "summary": {
-                "total_rows": len(final_df),
+                "total_rows": len(final_df) - 1, # Exclude target fields row
                 "total_columns": len(columns_list),
                 "cleaned_columns_count": len(dropped_columns),
                 "cleaned_columns_list": dropped_columns,
