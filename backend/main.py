@@ -4,6 +4,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from processor import process_preview
+from comparison import compare_excel_files
 
 app = FastAPI(
     title="Data Migration Tool API",
@@ -31,6 +32,8 @@ FILE_PATHS = {
     "source": os.path.join(UPLOAD_DIR, "source_data.xlsx"),
     "master": os.path.join(UPLOAD_DIR, "salesforce_master.xlsx"),
     "logic": os.path.join(UPLOAD_DIR, "mapping_logic.xlsx"),
+    "base_file": os.path.join(UPLOAD_DIR, "base_file.xlsx"),
+    "new_file": os.path.join(UPLOAD_DIR, "new_file.xlsx"),
     "preview": os.path.join(PROCESSED_DIR, "preview.xlsx")
 }
 
@@ -135,6 +138,56 @@ async def upload_migration_files(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+
+@app.post("/api/upload-comparison-files")
+async def upload_comparison_files(
+    base_file: UploadFile = File(None),
+    new_file: UploadFile = File(None)
+):
+    """
+    Accepts comparison file uploads and stores them in the uploads directory.
+    """
+    saved_files = []
+
+    try:
+        if base_file:
+            with open(FILE_PATHS["base_file"], "wb") as buffer:
+                shutil.copyfileobj(base_file.file, buffer)
+            saved_files.append("base_file")
+
+        if new_file:
+            with open(FILE_PATHS["new_file"], "wb") as buffer:
+                shutil.copyfileobj(new_file.file, buffer)
+            saved_files.append("new_file")
+
+        return {
+            "success": True,
+            "message": f"Successfully uploaded and saved: {', '.join(saved_files)}",
+            "files": saved_files
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Comparison file upload failed: {str(e)}")
+
+@app.post("/api/compare-files")
+def compare_files(key_column: str = None):
+    """
+    Compare the uploaded base and new files and return a structured comparison report.
+    """
+    missing = [
+        slot for slot in ["base_file", "new_file"] if not os.path.exists(FILE_PATHS[slot])
+    ]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot compare files. Missing uploaded files on server: {', '.join(missing)}"
+        )
+
+    report = compare_excel_files(
+        FILE_PATHS["base_file"],
+        FILE_PATHS["new_file"],
+        key_column=key_column,
+    )
+    return report
 
 @app.post("/api/generate-preview")
 def generate_preview():
