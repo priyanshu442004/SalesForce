@@ -51,6 +51,9 @@ export default function UploadFilesPage() {
     previewError
   } = useMigration();
 
+  const [schemaLoading, setSchemaLoading] = useState(false);
+  const [schemaResult, setSchemaResult] = useState<any | null>(null);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -419,6 +422,105 @@ export default function UploadFilesPage() {
             <polyline points="12 5 19 12 12 19" />
           </svg>
         </button>
+      </div>
+
+      {/* Schema Validation Section */}
+      <div className="mt-6 p-5 bg-white border border-slate-100 rounded-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h4 className="text-[15px] font-black text-[#000839]">Schema Validation</h4>
+            <p className="text-[13px] text-slate-400 font-bold">Validate Source columns against Mapping Logic Source fields.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={async () => {
+                setSchemaResult(null);
+                setSchemaLoading(true);
+                try {
+                  const resp = await fetch("http://localhost:8000/api/validate-schema", { method: "POST" });
+                  if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || "Schema validation failed");
+                  }
+                  const data = await resp.json();
+                  setSchemaResult(data);
+                } catch (e) {
+                  console.error(e);
+                  setSchemaResult({ schema_valid: false, source_field_count: 0, mapping_field_count: 0, matched_field_count: 0, missing_fields: [], additional_fields: [], error: String(e) });
+                } finally {
+                  setSchemaLoading(false);
+                }
+              }}
+              disabled={!isContinueEnabled || schemaLoading}
+              className={`px-4 py-2 rounded-xl font-black text-sm transition-all ${isContinueEnabled ? "bg-amber-500 text-white hover:bg-amber-600" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
+            >
+              {schemaLoading ? "Validating..." : "Validate Schema"}
+            </button>
+          </div>
+        </div>
+
+        {/* Status Banner */}
+        {schemaResult && (
+          <div className={`p-4 rounded-lg mb-4 ${schemaResult.schema_valid ? "bg-emerald-50 border border-emerald-100 text-emerald-700" : "bg-amber-50 border border-amber-100 text-amber-700"}`}>
+            <div className="flex items-center gap-3">
+              <div className="text-[20px] font-black">
+                {schemaResult.schema_valid ? "✓" : "⚠"}
+              </div>
+              <div className="font-black text-sm">
+                {schemaResult.schema_valid ? "Schema Valid" : "Schema Validation Issues Found"}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div className="p-3 bg-[#f8fafc] border border-slate-100 rounded-lg">
+            <div className="text-[12px] text-slate-400 font-bold uppercase">Source Fields</div>
+            <div className="text-[18px] font-black mt-1">{schemaResult ? schemaResult.source_field_count : "—"}</div>
+          </div>
+          <div className="p-3 bg-[#f3e8ff] border border-slate-100 rounded-lg">
+            <div className="text-[12px] text-slate-500 font-bold uppercase">Mapping Fields</div>
+            <div className="text-[18px] font-black mt-1">{schemaResult ? schemaResult.mapping_field_count : "—"}</div>
+          </div>
+          <div className="p-3 bg-[#eaf5ff] border border-slate-100 rounded-lg">
+            <div className="text-[12px] text-slate-500 font-bold uppercase">Matched Fields</div>
+            <div className="text-[18px] font-black mt-1">{schemaResult ? schemaResult.matched_field_count : "—"}</div>
+          </div>
+          <div className="p-3 bg-[#fff9e6] border border-slate-100 rounded-lg">
+            <div className="text-[12px] text-rose-500 font-bold uppercase">Missing Fields</div>
+            <div className="text-[18px] font-black mt-1">{schemaResult ? schemaResult.missing_fields.length : "—"}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h5 className="text-[13px] font-black mb-2">Missing Fields</h5>
+            {schemaResult && schemaResult.missing_fields.length === 0 && (
+              <div className="text-sm text-slate-500">No missing fields.</div>
+            )}
+            {schemaResult && schemaResult.missing_fields.length > 0 && (
+              <ul className="list-disc list-inside text-sm text-amber-700">
+                {schemaResult.missing_fields.map((m: string, idx: number) => (
+                  <li key={idx}>{m}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <h5 className="text-[13px] font-black mb-2">Additional Fields</h5>
+            {schemaResult && schemaResult.additional_fields.length === 0 && (
+              <div className="text-sm text-slate-500">No additional fields.</div>
+            )}
+            {schemaResult && schemaResult.additional_fields.length > 0 && (
+              <ul className="list-disc list-inside text-sm text-slate-600">
+                {schemaResult.additional_fields.map((a: string, idx: number) => (
+                  <li key={idx}>{a}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 1. GLASSMORPHIC SERVER CALCULATION LOADING DIALOG */}

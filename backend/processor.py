@@ -751,3 +751,83 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
             "error": str(e),
             "traceback": traceback.format_exc()
         }
+
+
+def validate_schema(source_path: str, logic_path: str) -> dict:
+    """
+    Validates schema between source Excel and mapping logic Excel.
+
+    - Reads all column headers from the first sheet of the source Excel.
+    - Reads all values from Column A of the first sheet in the mapping logic file,
+      ignoring the header row (Column A header expected to be 'Source fields').
+    - Comparison is case-insensitive, ignores spaces and underscores, and trims.
+    Returns the structure specified by the frontend.
+    """
+    try:
+        if not os.path.exists(source_path):
+            raise FileNotFoundError(f"Source file not found at {source_path}")
+        if not os.path.exists(logic_path):
+            raise FileNotFoundError(f"Mapping Logic file not found at {logic_path}")
+
+        # Read source headers (first sheet)
+        src_df = pd.read_excel(source_path, nrows=0)
+        source_columns = [str(c) for c in src_df.columns]
+
+        # Read mapping logic column A (first sheet)
+        logic_excel = pd.ExcelFile(logic_path)
+        logic_sheet = logic_excel.sheet_names[0]
+        # Read only first column (A)
+        logic_df = pd.read_excel(logic_path, sheet_name=logic_sheet, usecols=[0])
+        # The header row is included as the column name; values are the rest
+        mapping_header = list(logic_df.columns)[0]
+        mapping_values = logic_df.iloc[:, 0].astype(object).fillna("").tolist()
+
+        # Remove header row if present as first value (some files may include header as first row)
+        # But spec says Column A always has header 'Source fields' and ignore header row
+        # So drop any value equal to the header (case-insensitive)
+        cleaned_mapping = []
+        for v in mapping_values:
+            vs = str(v).strip()
+            if vs == "":
+                continue
+            if vs.strip().lower() == str(mapping_header).strip().lower():
+                continue
+            cleaned_mapping.append(vs)
+
+        # Normalization helper
+        import re
+        def _norm(s: str) -> str:
+            if s is None:
+                return ""
+            s2 = str(s).strip().lower()
+            s2 = re.sub(r"[_\s]+", "", s2)
+            return s2
+
+        src_norm_map = { _norm(orig): orig for orig in source_columns }
+        map_norm_map = { _norm(orig): orig for orig in cleaned_mapping }
+
+        src_norm_set = set(k for k in src_norm_map.keys() if k)
+        map_norm_set = set(k for k in map_norm_map.keys() if k)
+
+        matched_norm = src_norm_set & map_norm_set
+
+        missing_norm = map_norm_set - src_norm_set
+        additional_norm = src_norm_set - map_norm_set
+
+        missing_fields = [map_norm_map[n] for n in sorted(missing_norm)]
+        additional_fields = [src_norm_map[n] for n in sorted(additional_norm)]
+
+        result = {
+            "schema_valid": len(missing_fields) == 0,
+            "source_field_count": len(source_columns),
+            "mapping_field_count": len(cleaned_mapping),
+            "matched_field_count": len(matched_norm),
+            "missing_fields": missing_fields,
+            "additional_fields": additional_fields
+        }
+
+        return {"success": True, "result": result}
+
+    except Exception as e:
+        traceback.print_exc()
+        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}

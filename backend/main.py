@@ -162,6 +162,35 @@ def generate_preview():
         
     return res
 
+
+@app.post("/api/validate-schema")
+def validate_schema():
+    """
+    Validates schema between uploaded source and mapping logic files.
+    Uses processor.validate_schema and returns the result payload.
+    """
+    # Ensure source and logic files exist
+    missing = []
+    for slot in ["source", "logic"]:
+        if not os.path.exists(FILE_PATHS[slot]):
+            missing.append(slot)
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Cannot validate schema. Missing uploaded files: {', '.join(missing)}")
+
+    res = validate_schema_result = None
+    try:
+        res = process_preview  # unused placeholder to ensure import
+    except Exception:
+        pass
+
+    # Call the new validate function in processor
+    from processor import validate_schema as _validate
+    out = _validate(FILE_PATHS["source"], FILE_PATHS["logic"])
+    if not out.get("success"):
+        raise HTTPException(status_code=500, detail=out.get("error", "Validation failed"))
+
+    return out["result"]
+
 @app.get("/api/download-preview")
 def download_preview():
     """
