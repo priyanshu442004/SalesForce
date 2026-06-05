@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMigration } from "@/context/MigrationContext";
+import * as XLSX from "xlsx";
 
 // Premium detailed custom document SVG icon
 function DocumentSvg({ className = "", size = 48 }: { className?: string; size?: number }) {
@@ -51,12 +52,37 @@ export default function UploadFilesPage() {
     previewError
   } = useMigration();
 
+  type SchemaResult = {
+    schema_valid: boolean;
+    source_field_count: number;
+    mapping_field_count: number;
+    matched_field_count: number;
+    missing_fields: string[];
+    additional_fields: string[];
+    error?: string;
+  };
+
   const [schemaLoading, setSchemaLoading] = useState(false);
-  const [schemaResult, setSchemaResult] = useState<any | null>(null);
+  const [schemaResult, setSchemaResult] = useState<SchemaResult | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const downloadDiscrepancyReport = () => {
+    if (!schemaResult) return;
+
+    const rows = [
+      ["Type", "Field Name"],
+      ...schemaResult.missing_fields.map((field) => ["Missing", field]),
+      ...schemaResult.additional_fields.map((field) => ["Additional", field]),
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Schema_Discrepancies");
+    XLSX.writeFile(workbook, "schema_discrepancy_report.xlsx");
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -461,13 +487,18 @@ export default function UploadFilesPage() {
 
         {/* Status Banner */}
         {schemaResult && (
-          <div className={`p-4 rounded-lg mb-4 ${schemaResult.schema_valid ? "bg-emerald-50 border border-emerald-100 text-emerald-700" : "bg-amber-50 border border-amber-100 text-amber-700"}`}>
+          <div className={`p-4 rounded-lg mb-4 ${schemaResult.schema_valid ? "bg-emerald-50 border border-emerald-100 text-emerald-700" : "bg-rose-50 border border-rose-100 text-rose-700"}`}>
             <div className="flex items-center gap-3">
               <div className="text-[20px] font-black">
                 {schemaResult.schema_valid ? "✓" : "⚠"}
               </div>
-              <div className="font-black text-sm">
-                {schemaResult.schema_valid ? "Schema Valid" : "Schema Validation Issues Found"}
+              <div>
+                <div className="font-black text-sm">
+                  {schemaResult.schema_valid ? "Schema Validation Passed" : "Schema Validation Failed"}
+                </div>
+                <div className={`text-sm ${schemaResult.schema_valid ? "text-emerald-700" : "text-rose-700"}`}>
+                  {schemaResult.schema_valid ? "Ready for AI Transformation" : "Schema discrepancies were detected."}
+                </div>
               </div>
             </div>
           </div>
@@ -493,34 +524,41 @@ export default function UploadFilesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h5 className="text-[13px] font-black mb-2">Missing Fields</h5>
-            {schemaResult && schemaResult.missing_fields.length === 0 && (
-              <div className="text-sm text-slate-500">No missing fields.</div>
+        {schemaResult && !schemaResult.schema_valid && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {schemaResult.missing_fields.length > 0 && (
+              <div>
+                <h5 className="text-[13px] font-black mb-2">Missing Fields</h5>
+                <ul className="list-disc list-inside text-sm text-rose-700">
+                  {schemaResult.missing_fields.map((m: string, idx: number) => (
+                    <li key={idx}>{m}</li>
+                  ))}
+                </ul>
+              </div>
             )}
-            {schemaResult && schemaResult.missing_fields.length > 0 && (
-              <ul className="list-disc list-inside text-sm text-amber-700">
-                {schemaResult.missing_fields.map((m: string, idx: number) => (
-                  <li key={idx}>{m}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div>
-            <h5 className="text-[13px] font-black mb-2">Additional Fields</h5>
-            {schemaResult && schemaResult.additional_fields.length === 0 && (
-              <div className="text-sm text-slate-500">No additional fields.</div>
-            )}
-            {schemaResult && schemaResult.additional_fields.length > 0 && (
-              <ul className="list-disc list-inside text-sm text-slate-600">
-                {schemaResult.additional_fields.map((a: string, idx: number) => (
-                  <li key={idx}>{a}</li>
-                ))}
-              </ul>
+            {schemaResult.additional_fields.length > 0 && (
+              <div>
+                <h5 className="text-[13px] font-black mb-2">Additional Fields</h5>
+                <ul className="list-disc list-inside text-sm text-rose-700">
+                  {schemaResult.additional_fields.map((a: string, idx: number) => (
+                    <li key={idx}>{a}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
-        </div>
+        )}
+
+        {!schemaResult?.schema_valid && (
+          <div className="mt-4">
+            <button
+              onClick={downloadDiscrepancyReport}
+              className="px-4 py-3 rounded-xl bg-rose-600 text-white font-black text-sm hover:bg-rose-700 transition-colors"
+            >
+              Download Discrepancy Report
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 1. GLASSMORPHIC SERVER CALCULATION LOADING DIALOG */}
