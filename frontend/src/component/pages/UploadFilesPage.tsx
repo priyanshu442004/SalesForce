@@ -547,8 +547,8 @@ export default function UploadFilesPage() {
 
     const rows = [
       ["Type", "Field Name"],
-      ...schemaResult.missing_fields.map((field) => ["Missing", field]),
-      ...schemaResult.additional_fields.map((field) => ["Additional", field]),
+      ...schemaResult.missing_fields.map((field) => ["Missing from Source Data", field]),
+      ...schemaResult.additional_fields.map((field) => ["Missing from Mapping Logic", field]),
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet(rows);
@@ -675,33 +675,7 @@ export default function UploadFilesPage() {
           ))}
         </section>
 
-        <section
-          onDragOver={(event) => {
-            event.preventDefault();
-            setIsDragging(true);
-          }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={(event) => {
-            event.preventDefault();
-            setIsDragging(false);
-            if (event.dataTransfer.files?.length) uploadFiles(event.dataTransfer.files);
-          }}
-          onClick={() => globalInputRef.current?.click()}
-          className={cx(
-            "flex cursor-pointer items-center gap-4 rounded-xl border border-dashed px-5 py-4 transition-all duration-200",
-            isDragging ? "border-blue-500 bg-blue-50 shadow-sm" : "border-slate-300 bg-white/80 hover:border-blue-300 hover:bg-blue-50/40"
-          )}
-        >
-          <input ref={globalInputRef} type="file" multiple accept=".xlsx, .xls, .csv" className="hidden" onChange={(event) => uploadFiles(event.target.files)} />
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
-            <CloudUpload size={21} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-slate-800">Drop all three files here to auto-sort</p>
-            <p className="mt-0.5 text-xs text-slate-500">Excel or CSV files. Click to browse from your computer.</p>
-          </div>
-          <ChevronRight size={18} className="hidden text-slate-400 sm:block" />
-        </section>
+        
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
@@ -778,8 +752,8 @@ export default function UploadFilesPage() {
 
               {!schemaResult.schema_valid && (schemaResult.missing_fields.length > 0 || schemaResult.additional_fields.length > 0) && (
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <DiscrepancyPanel title="Missing fields" fields={schemaResult.missing_fields} description="Required by mapping logic but absent from source data." />
-                  <DiscrepancyPanel title="Additional fields" fields={schemaResult.additional_fields} description="Present in source data but not referenced by mapping logic." />
+                  <DiscrepancyPanel title="Missing from source data" fields={schemaResult.missing_fields} description="Required by mapping logic but absent from source data." />
+                  <DiscrepancyPanel title="Missing from mapping logic" fields={schemaResult.additional_fields} description="Present in source data but not referenced by mapping logic." />
                 </div>
               )}
             </div>
