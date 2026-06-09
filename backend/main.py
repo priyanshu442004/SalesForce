@@ -3,6 +3,7 @@ import shutil
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from data_validation import run_data_validation, write_validation_report
 from processor import process_preview
 
 app = FastAPI(
@@ -33,6 +34,7 @@ FILE_PATHS = {
     "logic": os.path.join(UPLOAD_DIR, "mapping_logic.xlsx"),
     "preview": os.path.join(PROCESSED_DIR, "preview.xlsx")
 }
+DATA_VALIDATION_REPORT_PATH = os.path.join(PROCESSED_DIR, "data_validation_report.xlsx")
 
 @app.get("/")
 def read_root():
@@ -72,6 +74,12 @@ def clear_all_files():
                 deleted.append(slot)
             except Exception as e:
                 print(f"Failed to delete {path}: {e}")
+    if os.path.exists(DATA_VALIDATION_REPORT_PATH):
+        try:
+            os.remove(DATA_VALIDATION_REPORT_PATH)
+            deleted.append("data_validation_report")
+        except Exception as e:
+            print(f"Failed to delete {DATA_VALIDATION_REPORT_PATH}: {e}")
     return {"success": True, "deleted": deleted}
 
 @app.delete("/api/clear-file/{slot}")
@@ -96,6 +104,12 @@ def clear_file_endpoint(slot: str):
                 deleted.append("preview")
             except Exception as e:
                 print(f"Failed to delete preview file: {e}")
+        if os.path.exists(DATA_VALIDATION_REPORT_PATH):
+            try:
+                os.remove(DATA_VALIDATION_REPORT_PATH)
+                deleted.append("data_validation_report")
+            except Exception as e:
+                print(f"Failed to delete data validation report: {e}")
                 
         return {"success": True, "deleted": deleted}
     
@@ -191,6 +205,52 @@ def validate_schema():
 
     return out["result"]
 
+@app.post("/api/validate-data")
+def validate_data():
+    """
+    Validates source data values using uploaded mapping logic data type rules.
+    Generates data_validation_report.xlsx when issues are found.
+    """
+    missing = []
+    for slot in ["source", "logic"]:
+        if not os.path.exists(FILE_PATHS[slot]):
+            missing.append(slot)
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Cannot validate data. Missing uploaded files: {', '.join(missing)}")
+
+    if os.path.exists(DATA_VALIDATION_REPORT_PATH):
+        try:
+            os.remove(DATA_VALIDATION_REPORT_PATH)
+        except Exception as e:
+            print(f"Failed to delete previous data validation report: {e}")
+
+    out = run_data_validation(FILE_PATHS["source"], FILE_PATHS["logic"])
+    if not out.get("success"):
+        raise HTTPException(status_code=500, detail=out.get("error", "Data validation failed"))
+
+    if out.get("total_issues", 0) > 0:
+        write_validation_report(out["issues"], DATA_VALIDATION_REPORT_PATH)
+
+    return out
+
+
+@app.get("/api/download-data-validation-report")
+def download_data_validation_report():
+    """
+    Downloads the generated data validation report.
+    """
+    if not os.path.exists(DATA_VALIDATION_REPORT_PATH):
+        raise HTTPException(
+            status_code=404,
+            detail="Data validation report not found. Please run data validation first."
+        )
+
+    return FileResponse(
+        path=DATA_VALIDATION_REPORT_PATH,
+        filename="data_validation_report.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
 @app.get("/api/download-preview")
 def download_preview():
     """
@@ -208,4 +268,3 @@ def download_preview():
         filename="preview.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-

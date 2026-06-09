@@ -41,6 +41,22 @@ type SchemaResult = {
   error?: string;
 };
 
+type DataValidationIssue = {
+  row: number;
+  field: string;
+  issue_type: string;
+  value: string;
+  expected: string;
+};
+
+type DataValidationResult = {
+  success: boolean;
+  total_records: number;
+  total_issues: number;
+  issues: DataValidationIssue[];
+  error?: string;
+};
+
 type PreviewColumn = {
   key: string;
   name: string;
@@ -479,6 +495,8 @@ export default function UploadFilesPage() {
   const [isShowingPreview, setIsShowingPreview] = useState(false);
   const [schemaLoading, setSchemaLoading] = useState(false);
   const [schemaResult, setSchemaResult] = useState<SchemaResult | null>(null);
+  const [dataValidationLoading, setDataValidationLoading] = useState(false);
+  const [dataValidationResult, setDataValidationResult] = useState<DataValidationResult | null>(null);
 
   const {
     uploadedFiles,
@@ -497,11 +515,32 @@ export default function UploadFilesPage() {
     logic: logicInputRef,
   };
 
+  const resetValidationResults = () => {
+    setSchemaResult(null);
+    setDataValidationResult(null);
+  };
+
+  const uploadFiles = (files: FileList | null, slot?: FileSlot) => {
+    resetValidationResults();
+    handleFileUpload(files, slot);
+  };
+
+  const clearUploadedFile = (slot: FileSlot) => {
+    resetValidationResults();
+    clearFile(slot);
+  };
+
   const uploadedCount = FILE_SLOTS.filter(({ slot }) => uploadedFiles[slot]?.completed).length;
   const canContinueAfterSchema =
     schemaResult?.schema_valid === true &&
     schemaResult.missing_fields.length === 0 &&
     schemaResult.additional_fields.length === 0;
+  const canContinueAfterDataValidation =
+    dataValidationResult?.success === true &&
+    dataValidationResult.total_issues === 0;
+  const hasDataValidationIssues =
+    dataValidationResult?.success === true &&
+    dataValidationResult.total_issues > 0;
 
   const downloadDiscrepancyReport = () => {
     if (!schemaResult) return;
@@ -520,6 +559,7 @@ export default function UploadFilesPage() {
 
   const validateSchema = async () => {
     setSchemaResult(null);
+    setDataValidationResult(null);
     setSchemaLoading(true);
     try {
       const resp = await fetch("http://localhost:8000/api/validate-schema", { method: "POST" });
@@ -545,6 +585,42 @@ export default function UploadFilesPage() {
     }
   };
 
+  const validateData = async () => {
+    if (!canContinueAfterSchema) return;
+
+    setDataValidationResult(null);
+    setDataValidationLoading(true);
+    try {
+      const resp = await fetch("http://localhost:8000/api/validate-data", { method: "POST" });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || "Data validation failed");
+      }
+      const data = await resp.json();
+      setDataValidationResult(data);
+    } catch (error) {
+      console.error(error);
+      setDataValidationResult({
+        success: false,
+        total_records: 0,
+        total_issues: 0,
+        issues: [],
+        error: String(error),
+      });
+    } finally {
+      setDataValidationLoading(false);
+    }
+  };
+
+  const downloadValidationReport = () => {
+    const link = document.createElement("a");
+    link.href = "http://localhost:8000/api/download-data-validation-report";
+    link.setAttribute("download", "data_validation_report.xlsx");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50/80">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-5 py-7 sm:px-7 lg:px-9 lg:py-8">
@@ -555,7 +631,7 @@ export default function UploadFilesPage() {
             type="file"
             accept=".xlsx, .xls, .csv"
             className="hidden"
-            onChange={(event) => handleFileUpload(event.target.files, config.slot)}
+            onChange={(event) => uploadFiles(event.target.files, config.slot)}
           />
         ))}
 
@@ -594,7 +670,7 @@ export default function UploadFilesPage() {
               config={config}
               file={uploadedFiles[config.slot]}
               onUpload={() => inputRefs[config.slot].current?.click()}
-              onClear={() => clearFile(config.slot)}
+              onClear={() => clearUploadedFile(config.slot)}
             />
           ))}
         </section>
@@ -608,7 +684,7 @@ export default function UploadFilesPage() {
           onDrop={(event) => {
             event.preventDefault();
             setIsDragging(false);
-            if (event.dataTransfer.files?.length) handleFileUpload(event.dataTransfer.files);
+            if (event.dataTransfer.files?.length) uploadFiles(event.dataTransfer.files);
           }}
           onClick={() => globalInputRef.current?.click()}
           className={cx(
@@ -616,7 +692,7 @@ export default function UploadFilesPage() {
             isDragging ? "border-blue-500 bg-blue-50 shadow-sm" : "border-slate-300 bg-white/80 hover:border-blue-300 hover:bg-blue-50/40"
           )}
         >
-          <input ref={globalInputRef} type="file" multiple accept=".xlsx, .xls, .csv" className="hidden" onChange={(event) => handleFileUpload(event.target.files)} />
+          <input ref={globalInputRef} type="file" multiple accept=".xlsx, .xls, .csv" className="hidden" onChange={(event) => uploadFiles(event.target.files)} />
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
             <CloudUpload size={21} />
           </span>
@@ -743,11 +819,135 @@ export default function UploadFilesPage() {
                 <Eye size={15} />
                 Preview transformed data
               </Button>
-              <Button type="button" variant="dark" onClick={() => canContinueAfterSchema && router.push("/mapping")} disabled={!canContinueAfterSchema}>
-                Continue to AI Mapping
+              <Button type="button" variant="dark" onClick={validateData} disabled={!canContinueAfterSchema || dataValidationLoading}>
+                {dataValidationLoading ? "Validating data" : "Continue to Data Validation"}
                 <ArrowRight size={15} />
               </Button>
             </div>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
+          <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+            <div className="flex items-start gap-3.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+                <FileCheck2 size={20} />
+              </span>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-[15px] font-bold text-slate-900">Data validation</h3>
+                  {!dataValidationResult && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Pending</span>}
+                  {canContinueAfterDataValidation && (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-100">Passed</span>
+                  )}
+                  {dataValidationResult && !canContinueAfterDataValidation && (
+                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 ring-1 ring-rose-100">Needs review</span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">Validate source values against mapping logic data types and allowed values.</p>
+              </div>
+            </div>
+            <Button type="button" onClick={validateData} disabled={!canContinueAfterSchema || dataValidationLoading}>
+              {dataValidationLoading ? <LoaderCircle size={15} className="animate-spin" /> : <FileCheck2 size={15} />}
+              {dataValidationLoading ? "Validating data" : "Validate Data"}
+            </Button>
+          </div>
+
+          {dataValidationLoading ? (
+            <div className="px-5 py-8 lg:px-6">
+              <div className="mx-auto max-w-md text-center">
+                <LoaderCircle size={28} className="mx-auto animate-spin text-emerald-600" />
+                <h4 className="mt-3 text-sm font-bold text-slate-800">Checking data quality</h4>
+                <p className="mt-1 text-xs text-slate-500">Reviewing dates, numbers, emails, phones, checkboxes, and picklists.</p>
+                <div className="mt-4 h-1 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full w-2/3 animate-pulse rounded-full bg-emerald-600" />
+                </div>
+              </div>
+            </div>
+          ) : dataValidationResult ? (
+            <div className="p-5 lg:p-6">
+              <div
+                className={cx(
+                  "flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between",
+                  canContinueAfterDataValidation ? "border-emerald-200 bg-emerald-50/70" : "border-rose-200 bg-rose-50/70"
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <span className={cx("flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm", canContinueAfterDataValidation ? "text-emerald-700" : "text-rose-700")}>
+                    {canContinueAfterDataValidation ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
+                  </span>
+                  <div>
+                    <h4 className={cx("text-sm font-bold", canContinueAfterDataValidation ? "text-emerald-900" : "text-rose-900")}>
+                      {canContinueAfterDataValidation ? "Data Validation Passed" : "Data Quality Issues Found"}
+                    </h4>
+                    <p className={cx("mt-1 text-xs", canContinueAfterDataValidation ? "text-emerald-700" : "text-rose-700")}>
+                      {canContinueAfterDataValidation ? "No data quality issues were found. The files are ready for AI mapping." : dataValidationResult.error || `${dataValidationResult.total_issues} issue${dataValidationResult.total_issues === 1 ? "" : "s"} found. Review the table or download the validation report.`}
+                    </p>
+                  </div>
+                </div>
+                {hasDataValidationIssues && (
+                  <Button type="button" variant="danger" onClick={downloadValidationReport}>
+                    <Download size={14} />
+                    Download Validation Report
+                  </Button>
+                )}
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <MetricTile label="Total records" value={dataValidationResult.total_records} helper="Rows checked in source data" icon={Table2} />
+                <MetricTile label="Total issues" value={dataValidationResult.total_issues} helper="Data quality issues found" icon={AlertTriangle} tone={dataValidationResult.total_issues === 0 ? "emerald" : "rose"} />
+              </div>
+
+              {hasDataValidationIssues && (
+                <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                      <thead className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                        <tr>
+                          <th className="px-4 py-3">Row</th>
+                          <th className="px-4 py-3">Field</th>
+                          <th className="px-4 py-3">Issue Type</th>
+                          <th className="px-4 py-3">Actual Value</th>
+                          <th className="px-4 py-3">Expected</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
+                        {dataValidationResult.issues.map((issue, index) => (
+                          <tr key={`${issue.row}-${issue.field}-${index}`} className="hover:bg-slate-50">
+                            <td className="whitespace-nowrap px-4 py-3 font-bold tabular-nums text-slate-900">{issue.row}</td>
+                            <td className="whitespace-nowrap px-4 py-3 font-semibold">{issue.field}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-rose-700">{issue.issue_type}</td>
+                            <td className="max-w-[260px] truncate px-4 py-3">{issue.value}</td>
+                            <td className="max-w-[360px] truncate px-4 py-3">{issue.expected}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center px-5 py-9 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                <FileCheck2 size={22} />
+              </span>
+              <h4 className="mt-3 text-sm font-bold text-slate-800">{canContinueAfterSchema ? "Ready for data validation" : "Complete schema validation first"}</h4>
+              <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
+                {canContinueAfterSchema ? "Continue to data validation to check source values against the mapping logic rules." : "Data validation becomes available only after schema validation has zero discrepancies."}
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              {canContinueAfterDataValidation ? <CheckCircle2 size={15} className="text-emerald-600" /> : <AlertTriangle size={15} className="text-slate-400" />}
+              <span>{canContinueAfterDataValidation ? "Data validation complete. Ready for AI mapping." : "Resolve data validation issues before continuing to the next step."}</span>
+            </div>
+            <Button type="button" variant="dark" onClick={() => canContinueAfterDataValidation && router.push("/mapping")} disabled={!canContinueAfterDataValidation}>
+              Continue to AI Mapping
+              <ArrowRight size={15} />
+            </Button>
           </div>
         </section>
 

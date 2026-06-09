@@ -7,7 +7,7 @@ import pandas as pd
 
 
 EMAIL_RE = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$")
-PHONE_ALLOWED_RE = re.compile(r"^[+\d().\-\s]+$")
+PHONE_ALLOWED_RE = re.compile(r"^[+\d\-\s]+$")
 
 
 ValidationIssue = dict[str, Any]
@@ -57,18 +57,15 @@ def validate_email(value: Any, _format: Any = None) -> bool:
 
 def validate_phone(value: Any, _format: Any = None) -> bool:
     phone = str(value).strip()
-    digits = re.sub(r"\D", "", phone)
-    return PHONE_ALLOWED_RE.fullmatch(phone) is not None and 7 <= len(digits) <= 15
+    return PHONE_ALLOWED_RE.fullmatch(phone) is not None
 
 
 def validate_checkbox(value: Any, _format: Any = None) -> bool:
-    if isinstance(value, bool):
+    options = parse_picklist_options(_format)
+    if not options:
         return True
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return value in (0, 1)
-    if isinstance(value, str):
-        return value.strip().lower() in {"true", "false", "yes", "no", "y", "n", "1", "0"}
-    return False
+    allowed = {option.strip().lower() for option in options}
+    return str(value).strip().lower() in allowed
 
 
 def parse_picklist_options(format_value: Any) -> list[str]:
@@ -88,7 +85,8 @@ def validate_picklist(value: Any, format_value: Any = None) -> bool:
     options = parse_picklist_options(format_value)
     if not options:
         return True
-    return str(value).strip() in options
+    allowed = {option.strip().lower() for option in options}
+    return str(value).strip().lower() in allowed
 
 
 def validate_picklist_multiselect(value: Any, format_value: Any = None) -> bool:
@@ -96,10 +94,12 @@ def validate_picklist_multiselect(value: Any, format_value: Any = None) -> bool:
     if not options:
         return True
 
-    selected_values = [item.strip() for item in str(value).split(";") if item.strip()]
+    import re
+    selected_values = [item.strip() for item in re.split(r"[,/;]", str(value)) if item.strip()]
     if not selected_values:
         return True
-    return all(item in options for item in selected_values)
+    allowed = {option.strip().lower() for option in options}
+    return any(item.lower() in allowed for item in selected_values)
 
 
 VALIDATORS: dict[str, tuple[Callable[[Any, Any], bool], str, str]] = {
@@ -108,19 +108,19 @@ VALIDATORS: dict[str, tuple[Callable[[Any, Any], bool], str, str]] = {
     "date&time": (validate_datetime, "Invalid DateTime", "Valid date and time format"),
     "date & time": (validate_datetime, "Invalid DateTime", "Valid date and time format"),
     "number": (validate_number, "Invalid Number", "Numeric value"),
-    "email": (validate_email, "Invalid Email", "Valid email format"),
+    "email": (validate_email, "Invalid Email", "Valid email address"),
     "phone": (validate_phone, "Invalid Phone", "Valid phone number format"),
-    "checkbox": (validate_checkbox, "Invalid Checkbox", "Boolean value"),
+    "checkbox": (validate_checkbox, "Invalid Checkbox", "One of the configured checkbox values"),
     "picklist": (validate_picklist, "Invalid Picklist", "One of the configured picklist values"),
     "picklist(multiselect)": (
         validate_picklist_multiselect,
         "Invalid Picklist(Multiselect)",
-        "Semicolon-separated configured picklist values",
+        "Comma-separated configured picklist values",
     ),
     "picklist (multiselect)": (
         validate_picklist_multiselect,
         "Invalid Picklist(Multiselect)",
-        "Semicolon-separated configured picklist values",
+        "Comma-separated configured picklist values",
     ),
 }
 
@@ -214,3 +214,20 @@ def run_data_validation(source_path: str, logic_path: str) -> dict[str, Any]:
         }
     except Exception as exc:
         return {"success": False, "error": str(exc)}
+
+
+def write_validation_report(issues: list[ValidationIssue], output_path: str) -> None:
+    report_df = pd.DataFrame(
+        [
+            {
+                "Row": issue.get("row"),
+                "Field": issue.get("field"),
+                "Issue Type": issue.get("issue_type"),
+                "Actual Value": issue.get("value"),
+                "Expected": issue.get("expected"),
+            }
+            for issue in issues
+        ],
+        columns=["Row", "Field", "Issue Type", "Actual Value", "Expected"],
+    )
+    report_df.to_excel(output_path, index=False)
