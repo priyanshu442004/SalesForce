@@ -132,12 +132,28 @@ def validate_picklist_multiselect(value: Any, format_value: Any = None) -> bool:
         return True
 
     import re
-    selected_values = [item.strip() for item in re.split(r"[,/;]", str(value)) if item.strip()]
+
+    selected_values = [
+        item.strip().lower()
+        for item in re.split(r"[,/;]", str(value))
+        if item.strip()
+    ]
+
     if not selected_values:
         return True
-    allowed = {option.strip().lower() for option in options}
-    return any(item.lower() in allowed for item in selected_values)
 
+    allowed = set()
+
+    for option in options:
+        option = option.strip()
+
+        if "=" in option:
+            source_val, target_val = option.split("=", 1)
+            allowed.add(source_val.strip().lower())
+        else:
+            allowed.add(option.lower())
+
+    return any(item in allowed for item in selected_values)
 
 VALIDATORS: dict[str, tuple[Callable[[Any, Any], bool], str, str]] = {
     "date": (validate_date, "Invalid Date", "Valid date format"),
@@ -181,8 +197,19 @@ def read_mapping_rules(logic_path: str) -> pd.DataFrame:
 def expected_message(data_type: str, format_value: Any, fallback: str) -> str:
     if data_type in {"picklist", "picklist(multiselect)", "picklist (multiselect)"}:
         options = parse_picklist_options(format_value)
-        if options:
-            return "One of: " + ", ".join(options)
+
+        cleaned_options = []
+
+        for option in options:
+            if "=" in option:
+                source_val, _ = option.split("=", 1)
+                cleaned_options.append(source_val.strip())
+            else:
+                cleaned_options.append(option)
+
+        if cleaned_options:
+            return "One of: " + ", ".join(cleaned_options)
+
     return fallback
 
 

@@ -126,6 +126,25 @@ def transform_mapped_value(value: Any, value_mapping: dict[str, str], data_type:
         if normalized in {"true", "false"}:
             return normalized.upper()
 
+    # Multiselect Picklist
+    if data_type in {"picklist(multiselect)", "picklistmultiselect"}:
+        import re
+
+        selected_values = [
+            item.strip()
+            for item in re.split(r"[,/;]", str(value))
+            if item.strip()
+        ]
+
+        transformed_values = []
+
+        for item in selected_values:
+            mapped = value_mapping.get(item.lower())
+            if mapped:
+                transformed_values.append(mapped)
+
+        return ";".join(transformed_values)
+
     return value_mapping.get(normalized, "")
 
 
@@ -154,17 +173,23 @@ def load_transform_rules(logic_path: str) -> dict[str, dict[str, Any]]:
         data_type = normalize_type(row.get(columns["data_type"]))
         format_value = row.get(columns["format"])
 
+        if "sourcing" in source_field.lower():
+            print("SOURCE =", repr(source_field))
+            print("TYPE =", repr(data_type))
+            print("FORMAT =", repr(format_value))
+
         if not source_field or source_field.lower() == "add new field":
-            continue
-        if data_type in {"picklist(multiselect)", "picklistmultiselect"}:
             continue
 
         value_mapping = parse_value_mapping(format_value)
         is_date = data_type == "date"
         is_datetime = data_type in {"datetime", "date&time"}
-        if not value_mapping and not is_date and not is_datetime:
+        is_multiselect = data_type in {"picklist(multiselect)", "picklistmultiselect"}
+
+        if not value_mapping and not is_date and not is_datetime and not is_multiselect:
             continue
 
+        print(source_field, "->", repr(data_type))
         rules[source_field.strip().lower()] = {
             "source_field": source_field,
             "data_type": data_type,
@@ -204,24 +229,46 @@ def transform_source_data(source_path: str, logic_path: str, output_path: str) -
 
     for column in source_df.columns:
         source_column_name = str(column).strip()
+
+        # Always include original column with __ prefix
         output_columns.append(source_df[column])
-        output_headers.append(source_column_name)
+        output_headers.append(f"__{source_column_name}")
 
         rule = transform_rules.get(source_column_name.lower())
         if rule is None:
             continue
 
-        transformed_column_name = f"__{source_column_name}"
-        output_columns.append(pd.Series(apply_transform_rule(source_df[column], rule)))
-        output_headers.append(transformed_column_name)
+        transformed_values = apply_transform_rule(source_df[column], rule)
+
+        original_values = [
+            "" if is_blank(v) else str(v).strip()
+            for v in source_df[column].tolist()
+        ]
+
+        transformed_values_clean = [
+            "" if is_blank(v) else str(v).strip()
+            for v in transformed_values
+        ]
+
+        # Add transformed column only if at least one value changed
+        if original_values == transformed_values_clean:
+            continue
+
+        output_columns.append(pd.Series(transformed_values))
+        output_headers.append(source_column_name)
         transformed_columns.append(source_column_name)
 
     transformed_df = pd.concat(output_columns, axis=1) if output_columns else pd.DataFrame()
     transformed_df.columns = output_headers
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-        transformed_df.to_excel(writer, index=False, sheet_name="Transformed Data")
+        transformed_df.to_excel(
+            writer,
+            index=False,
+            sheet_name="Transformed Data"
+        )
 
     return {
         "success": True,
