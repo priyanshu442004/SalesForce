@@ -71,10 +71,6 @@ def validate_checkbox(value: Any, _format: Any = None) -> bool:
 
     normalized = str(value).strip().lower()
 
-    if normalized == "yes":
-        normalized = "true"
-    elif normalized == "no":
-        normalized = "false"
 
     allowed = set()
 
@@ -83,7 +79,7 @@ def validate_checkbox(value: Any, _format: Any = None) -> bool:
 
         if "=" in option:
             left, right = option.split("=", 1)
-            allowed.add(right.strip().lower())
+            allowed.add(left.strip().lower())
         else:
             allowed.add(option.lower())
     
