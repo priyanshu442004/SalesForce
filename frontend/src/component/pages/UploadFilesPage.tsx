@@ -561,6 +561,7 @@ export default function UploadFilesPage() {
     setSchemaResult(null);
     setDataValidationResult(null);
     setSchemaLoading(true);
+    let isSchemaValid = false;
     try {
       const resp = await fetch("http://localhost:8000/api/validate-schema", { method: "POST" });
       if (!resp.ok) {
@@ -569,6 +570,9 @@ export default function UploadFilesPage() {
       }
       const data = await resp.json();
       setSchemaResult(data);
+      if (data.schema_valid === true && data.missing_fields?.length === 0 && data.additional_fields?.length === 0) {
+        isSchemaValid = true;
+      }
     } catch (error) {
       console.error(error);
       setSchemaResult({
@@ -583,10 +587,14 @@ export default function UploadFilesPage() {
     } finally {
       setSchemaLoading(false);
     }
+
+    if (isSchemaValid) {
+      await validateData(true);
+    }
   };
 
-  const validateData = async () => {
-    if (!canContinueAfterSchema) return;
+  const validateData = async (force = false) => {
+    if (force !== true && !canContinueAfterSchema) return;
 
     setDataValidationResult(null);
     setDataValidationLoading(true);
@@ -792,10 +800,6 @@ export default function UploadFilesPage() {
               >
                 <Eye size={15} />
                 Preview transformed data
-              </Button>
-              <Button type="button" variant="dark" onClick={validateData} disabled={!canContinueAfterSchema || dataValidationLoading}>
-                {dataValidationLoading ? "Validating data" : "Continue to Data Validation"}
-                <ArrowRight size={15} />
               </Button>
             </div>
           </div>

@@ -64,8 +64,20 @@ def validate_checkbox(value: Any, _format: Any = None) -> bool:
     options = parse_picklist_options(_format)
     if not options:
         return True
+
+    # Mentor rule: blank = False
+    if value is None or str(value).strip() == "":
+        return True
+
+    normalized = str(value).strip().lower()
+
+    if normalized == "yes":
+        normalized = "true"
+    elif normalized == "no":
+        normalized = "false"
+
     allowed = {option.strip().lower() for option in options}
-    return str(value).strip().lower() in allowed
+    return normalized in allowed
 
 
 def parse_picklist_options(format_value: Any) -> list[str]:
