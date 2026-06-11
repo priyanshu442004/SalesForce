@@ -497,6 +497,8 @@ export default function UploadFilesPage() {
   const [schemaResult, setSchemaResult] = useState<SchemaResult | null>(null);
   const [dataValidationLoading, setDataValidationLoading] = useState(false);
   const [dataValidationResult, setDataValidationResult] = useState<DataValidationResult | null>(null);
+  const [transformLoading, setTransformLoading] = useState(false);
+  const [transformError, setTransformError] = useState<string | null>(null);
 
   const {
     uploadedFiles,
@@ -518,6 +520,7 @@ export default function UploadFilesPage() {
   const resetValidationResults = () => {
     setSchemaResult(null);
     setDataValidationResult(null);
+    setTransformError(null);
   };
 
   const uploadFiles = (files: FileList | null, slot?: FileSlot) => {
@@ -560,6 +563,7 @@ export default function UploadFilesPage() {
   const validateSchema = async () => {
     setSchemaResult(null);
     setDataValidationResult(null);
+    setTransformError(null);
     setSchemaLoading(true);
     let isSchemaValid = false;
     try {
@@ -597,6 +601,7 @@ export default function UploadFilesPage() {
     if (force !== true && !canContinueAfterSchema) return;
 
     setDataValidationResult(null);
+    setTransformError(null);
     setDataValidationLoading(true);
     try {
       const resp = await fetch("http://localhost:8000/api/validate-data", { method: "POST" });
@@ -627,6 +632,35 @@ export default function UploadFilesPage() {
     document.body.appendChild(link);
     link.click();
     link.remove();
+  };
+
+  const transformData = async () => {
+    if (!canContinueAfterDataValidation) return;
+
+    setTransformLoading(true);
+    setTransformError(null);
+    try {
+      const response = await fetch("http://localhost:8000/api/transform-data", { method: "POST" });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.detail || "Data transformation failed");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.setAttribute("download", "transformed_data.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error(error);
+      setTransformError(error instanceof Error ? error.message : "Data transformation failed");
+    } finally {
+      setTransformLoading(false);
+    }
   };
 
   return (
@@ -920,14 +954,29 @@ export default function UploadFilesPage() {
           <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-6">
             <div className="flex items-center gap-2 text-xs text-slate-500">
               {canContinueAfterDataValidation ? <CheckCircle2 size={15} className="text-emerald-600" /> : <AlertTriangle size={15} className="text-slate-400" />}
-              <span>{canContinueAfterDataValidation ? "Data validation complete. Ready for AI mapping." : "Resolve data validation issues before continuing to the next step."}</span>
+              <span>{canContinueAfterDataValidation ? "Data validation complete. Ready to transform." : "Resolve data validation issues before continuing to the next step."}</span>
             </div>
-            <Button type="button" variant="dark" onClick={() => canContinueAfterDataValidation && router.push("/mapping")} disabled={!canContinueAfterDataValidation}>
-              Continue to AI Mapping
-              <ArrowRight size={15} />
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {canContinueAfterDataValidation && (
+                <Button type="button" variant="primary" onClick={transformData} disabled={transformLoading}>
+                  {transformLoading ? <LoaderCircle size={15} className="animate-spin" /> : <FileSpreadsheet size={15} />}
+                  {transformLoading ? "Transforming data" : "Transform Data"}
+                </Button>
+              )}
+              <Button type="button" variant="dark" onClick={() => canContinueAfterDataValidation && router.push("/mapping")} disabled={!canContinueAfterDataValidation}>
+                Continue to AI Mapping
+                <ArrowRight size={15} />
+              </Button>
+            </div>
           </div>
         </section>
+
+        {transformError && (
+          <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
+            <XCircle size={17} className="shrink-0" />
+            <span>{transformError}</span>
+          </div>
+        )}
 
         {previewError && (
           <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">

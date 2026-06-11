@@ -76,7 +76,17 @@ def validate_checkbox(value: Any, _format: Any = None) -> bool:
     elif normalized == "no":
         normalized = "false"
 
-    allowed = {option.strip().lower() for option in options}
+    allowed = set()
+
+    for option in options:
+        option = option.strip()
+
+        if "=" in option:
+            left, right = option.split("=", 1)
+            allowed.add(right.strip().lower())
+        else:
+            allowed.add(option.lower())
+    
     return normalized in allowed
 
 
@@ -97,7 +107,22 @@ def validate_picklist(value: Any, format_value: Any = None) -> bool:
     options = parse_picklist_options(format_value)
     if not options:
         return True
-    allowed = {option.strip().lower() for option in options}
+    allowed = set()
+
+    for option in options:
+        option = option.strip()
+
+        if "=" in option:
+            source_val, target_val = option.split("=", 1)
+
+        # During validation we validate SOURCE values
+            allowed.add(source_val.strip().lower())
+        else:
+            allowed.add(option.lower())
+    if "HOUL=HOUL" in str(format_value):
+        print("PICKLIST FORMAT =", format_value)
+        print("PICKLIST OPTIONS =", options)
+        print("VALUE =", value)
     return str(value).strip().lower() in allowed
 
 

@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from data_validation import run_data_validation, write_validation_report
 from processor import process_preview
+from transformer import transform_source_data
 
 app = FastAPI(
     title="Data Migration Tool API",
@@ -35,6 +36,7 @@ FILE_PATHS = {
     "preview": os.path.join(PROCESSED_DIR, "preview.xlsx")
 }
 DATA_VALIDATION_REPORT_PATH = os.path.join(PROCESSED_DIR, "data_validation_report.xlsx")
+TRANSFORMED_DATA_PATH = os.path.join(PROCESSED_DIR, "transformed_data.xlsx")
 
 @app.get("/")
 def read_root():
@@ -80,6 +82,12 @@ def clear_all_files():
             deleted.append("data_validation_report")
         except Exception as e:
             print(f"Failed to delete {DATA_VALIDATION_REPORT_PATH}: {e}")
+    if os.path.exists(TRANSFORMED_DATA_PATH):
+        try:
+            os.remove(TRANSFORMED_DATA_PATH)
+            deleted.append("transformed_data")
+        except Exception as e:
+            print(f"Failed to delete {TRANSFORMED_DATA_PATH}: {e}")
     return {"success": True, "deleted": deleted}
 
 @app.delete("/api/clear-file/{slot}")
@@ -110,6 +118,12 @@ def clear_file_endpoint(slot: str):
                 deleted.append("data_validation_report")
             except Exception as e:
                 print(f"Failed to delete data validation report: {e}")
+        if os.path.exists(TRANSFORMED_DATA_PATH):
+            try:
+                os.remove(TRANSFORMED_DATA_PATH)
+                deleted.append("transformed_data")
+            except Exception as e:
+                print(f"Failed to delete transformed data file: {e}")
                 
         return {"success": True, "deleted": deleted}
     
@@ -232,6 +246,35 @@ def validate_data():
         write_validation_report(out["issues"], DATA_VALIDATION_REPORT_PATH)
 
     return out
+
+
+@app.post("/api/transform-data")
+def transform_data():
+    """
+    Transforms source values using uploaded mapping logic rules and returns
+    an Excel file with original and transformed columns side by side.
+    """
+    missing = []
+    for slot in ["source", "logic"]:
+        if not os.path.exists(FILE_PATHS[slot]):
+            missing.append(slot)
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Cannot transform data. Missing uploaded files: {', '.join(missing)}")
+
+    try:
+        transform_source_data(
+            source_path=FILE_PATHS["source"],
+            logic_path=FILE_PATHS["logic"],
+            output_path=TRANSFORMED_DATA_PATH,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Data transformation failed: {str(exc)}")
+
+    return FileResponse(
+        path=TRANSFORMED_DATA_PATH,
+        filename="transformed_data.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 
 @app.get("/api/download-data-validation-report")
