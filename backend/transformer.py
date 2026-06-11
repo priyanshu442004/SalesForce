@@ -119,7 +119,14 @@ def parse_datetime(value: Any) -> pd.Timestamp | None:
 def transform_mapped_value(value: Any, value_mapping: dict[str, str], data_type: str) -> str:
     if is_blank(value):
         return "False" if data_type == "checkbox" else ""
-    return value_mapping.get(clean_cell(value).lower(), "")
+
+    normalized = clean_cell(value).lower()
+
+    if data_type == "checkbox":
+        if normalized in {"true", "false"}:
+            return normalized.upper()
+
+    return value_mapping.get(normalized, "")
 
 
 def transform_date_value(value: Any, format_value: Any) -> str:
