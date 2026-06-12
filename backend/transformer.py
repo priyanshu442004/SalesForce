@@ -173,11 +173,6 @@ def load_transform_rules(logic_path: str) -> dict[str, dict[str, Any]]:
         data_type = normalize_type(row.get(columns["data_type"]))
         format_value = row.get(columns["format"])
 
-        if "sourcing" in source_field.lower():
-            print("SOURCE =", repr(source_field))
-            print("TYPE =", repr(data_type))
-            print("FORMAT =", repr(format_value))
-
         if not source_field or source_field.lower() == "add new field":
             continue
 
@@ -189,7 +184,6 @@ def load_transform_rules(logic_path: str) -> dict[str, dict[str, Any]]:
         if not value_mapping and not is_date and not is_datetime and not is_multiselect:
             continue
 
-        print(source_field, "->", repr(data_type))
         rules[source_field.strip().lower()] = {
             "source_field": source_field,
             "data_type": data_type,
