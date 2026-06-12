@@ -255,7 +255,7 @@ def transform_data():
     an Excel file with original and transformed columns side by side.
     """
     missing = []
-    for slot in ["source", "logic"]:
+    for slot in ["source", "logic", "master"]:
         if not os.path.exists(FILE_PATHS[slot]):
             missing.append(slot)
     if missing:
@@ -265,6 +265,7 @@ def transform_data():
         transform_source_data(
             source_path=FILE_PATHS["source"],
             logic_path=FILE_PATHS["logic"],
+            master_path=FILE_PATHS["master"],
             output_path=TRANSFORMED_DATA_PATH,
         )
     except Exception as exc:
