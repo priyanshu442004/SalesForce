@@ -818,7 +818,7 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
         additional_fields = [src_norm_map[n] for n in sorted(additional_norm)]
 
         result = {
-            "schema_valid": len(missing_fields) == 0,
+            "schema_valid": len(missing_fields) == 0 and len(additional_fields) == 0,
             "source_field_count": len(source_columns),
             "mapping_field_count": len(cleaned_mapping),
             "matched_field_count": len(matched_norm),
