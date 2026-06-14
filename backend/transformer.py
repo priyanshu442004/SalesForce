@@ -360,7 +360,7 @@ def transform_source_data(source_path: str, logic_path: str, master_path: str, o
 
         # Always include original column with __ prefix
         output_columns.append(source_df[column])
-        output_headers.append(f"__{source_column_name}")
+        output_headers.append(source_column_name)
 
         rule = transform_rules.get(source_column_name.lower())
         if rule is None:
@@ -384,7 +384,7 @@ def transform_source_data(source_path: str, logic_path: str, master_path: str, o
         # Add transformed column only if at least one value changed
         if original_values == transformed_values_clean:
             continue
-
+        output_headers[-1] = f"__{source_column_name}"
         output_columns.append(pd.Series(transformed_values))
         output_headers.append(source_column_name)
         transformed_columns.append(source_column_name)

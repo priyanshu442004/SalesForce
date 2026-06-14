@@ -149,7 +149,7 @@ def validate_picklist_multiselect(value: Any, format_value: Any = None) -> bool:
         else:
             allowed.add(option.lower())
 
-    return any(item in allowed for item in selected_values)
+    return all(item in allowed for item in selected_values)
 
 VALIDATORS: dict[str, tuple[Callable[[Any, Any], bool], str, str]] = {
     "date": (validate_date, "Invalid Date", "Valid date format"),
