@@ -238,7 +238,8 @@ def validate_data():
         except Exception as e:
             print(f"Failed to delete previous data validation report: {e}")
 
-    out = run_data_validation(FILE_PATHS["source"], FILE_PATHS["logic"])
+    master_path = FILE_PATHS["master"] if os.path.exists(FILE_PATHS["master"]) else None
+    out = run_data_validation(FILE_PATHS["source"], FILE_PATHS["logic"], master_path=master_path)
     if not out.get("success"):
         raise HTTPException(status_code=500, detail=out.get("error", "Data validation failed"))
 

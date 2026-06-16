@@ -39,10 +39,21 @@ def resolve_mapping_columns(logic_df: pd.DataFrame) -> dict[str, Any]:
         if normalized in {"source fields", "source field"}:
             columns["source_field"] = column
 
-        elif normalized == "data type":
+        elif normalized in {
+            "is mandatory / primary?",
+            "mandatory / primary",
+            "mandatory/primary"
+        }:
+            columns["mandatory_primary"] = column
+
+        elif normalized in {"transformation type", "data type"}:
             columns["data_type"] = column
 
-        elif normalized in {"default + format", "format"}:
+        elif normalized in {
+            "transformation + cleaning",
+            "default + format",
+            "format"
+        }:
             columns["format"] = column
 
         elif normalized in {
@@ -61,6 +72,7 @@ def resolve_mapping_columns(logic_df: pd.DataFrame) -> dict[str, Any]:
             columns["search_column"] = column
 
         elif normalized in {
+            "lookup value id",
             "copyable column",
             "copyablecolumn",
             "copy column",
