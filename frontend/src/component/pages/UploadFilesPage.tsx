@@ -859,7 +859,7 @@ export default function UploadFilesPage() {
                 <p className="mt-1 text-xs leading-5 text-slate-500">Validate source values against mapping logic data types and allowed values.</p>
               </div>
             </div>
-            <Button type="button" onClick={validateData} disabled={!canContinueAfterSchema || dataValidationLoading}>
+            <Button type="button" onClick={() => validateData()} disabled={!canContinueAfterSchema || dataValidationLoading}>
               {dataValidationLoading ? <LoaderCircle size={15} className="animate-spin" /> : <FileCheck2 size={15} />}
               {dataValidationLoading ? "Validating data" : "Validate Data"}
             </Button>
