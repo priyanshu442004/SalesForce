@@ -3,8 +3,10 @@ import shutil
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from data_validation import run_data_validation, write_validation_report
 from processor import process_preview
 from comparison import compare_excel_files
+from transformer import transform_source_data
 
 app = FastAPI(
     title="Data Migration Tool API",
@@ -36,6 +38,8 @@ FILE_PATHS = {
     "new_file": os.path.join(UPLOAD_DIR, "new_file.xlsx"),
     "preview": os.path.join(PROCESSED_DIR, "preview.xlsx")
 }
+DATA_VALIDATION_REPORT_PATH = os.path.join(PROCESSED_DIR, "data_validation_report.xlsx")
+TRANSFORMED_DATA_PATH = os.path.join(PROCESSED_DIR, "transformed_data.xlsx")
 
 @app.get("/")
 def read_root():
@@ -75,6 +79,18 @@ def clear_all_files():
                 deleted.append(slot)
             except Exception as e:
                 print(f"Failed to delete {path}: {e}")
+    if os.path.exists(DATA_VALIDATION_REPORT_PATH):
+        try:
+            os.remove(DATA_VALIDATION_REPORT_PATH)
+            deleted.append("data_validation_report")
+        except Exception as e:
+            print(f"Failed to delete {DATA_VALIDATION_REPORT_PATH}: {e}")
+    if os.path.exists(TRANSFORMED_DATA_PATH):
+        try:
+            os.remove(TRANSFORMED_DATA_PATH)
+            deleted.append("transformed_data")
+        except Exception as e:
+            print(f"Failed to delete {TRANSFORMED_DATA_PATH}: {e}")
     return {"success": True, "deleted": deleted}
 
 @app.delete("/api/clear-file/{slot}")
@@ -99,6 +115,18 @@ def clear_file_endpoint(slot: str):
                 deleted.append("preview")
             except Exception as e:
                 print(f"Failed to delete preview file: {e}")
+        if os.path.exists(DATA_VALIDATION_REPORT_PATH):
+            try:
+                os.remove(DATA_VALIDATION_REPORT_PATH)
+                deleted.append("data_validation_report")
+            except Exception as e:
+                print(f"Failed to delete data validation report: {e}")
+        if os.path.exists(TRANSFORMED_DATA_PATH):
+            try:
+                os.remove(TRANSFORMED_DATA_PATH)
+                deleted.append("transformed_data")
+            except Exception as e:
+                print(f"Failed to delete transformed data file: {e}")
                 
         return {"success": True, "deleted": deleted}
     
@@ -215,6 +243,111 @@ def generate_preview():
         
     return res
 
+
+@app.post("/api/validate-schema")
+def validate_schema():
+    """
+    Validates schema between uploaded source and mapping logic files.
+    Uses processor.validate_schema and returns the result payload.
+    """
+    # Ensure source and logic files exist
+    missing = []
+    for slot in ["source", "logic"]:
+        if not os.path.exists(FILE_PATHS[slot]):
+            missing.append(slot)
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Cannot validate schema. Missing uploaded files: {', '.join(missing)}")
+
+    res = validate_schema_result = None
+    try:
+        res = process_preview  # unused placeholder to ensure import
+    except Exception:
+        pass
+
+    # Call the new validate function in processor
+    from processor import validate_schema as _validate
+    out = _validate(FILE_PATHS["source"], FILE_PATHS["logic"])
+    if not out.get("success"):
+        raise HTTPException(status_code=500, detail=out.get("error", "Validation failed"))
+
+    return out["result"]
+
+@app.post("/api/validate-data")
+def validate_data():
+    """
+    Validates source data values using uploaded mapping logic data type rules.
+    Generates data_validation_report.xlsx when issues are found.
+    """
+    missing = []
+    for slot in ["source", "logic"]:
+        if not os.path.exists(FILE_PATHS[slot]):
+            missing.append(slot)
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Cannot validate data. Missing uploaded files: {', '.join(missing)}")
+
+    if os.path.exists(DATA_VALIDATION_REPORT_PATH):
+        try:
+            os.remove(DATA_VALIDATION_REPORT_PATH)
+        except Exception as e:
+            print(f"Failed to delete previous data validation report: {e}")
+
+    out = run_data_validation(FILE_PATHS["source"], FILE_PATHS["logic"])
+    if not out.get("success"):
+        raise HTTPException(status_code=500, detail=out.get("error", "Data validation failed"))
+
+    if out.get("total_issues", 0) > 0:
+        write_validation_report(out["issues"], DATA_VALIDATION_REPORT_PATH)
+
+    return out
+
+
+@app.post("/api/transform-data")
+def transform_data():
+    """
+    Transforms source values using uploaded mapping logic rules and returns
+    an Excel file with original and transformed columns side by side.
+    """
+    missing = []
+    for slot in ["source", "logic", "master"]:
+        if not os.path.exists(FILE_PATHS[slot]):
+            missing.append(slot)
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Cannot transform data. Missing uploaded files: {', '.join(missing)}")
+
+    try:
+        transform_source_data(
+            source_path=FILE_PATHS["source"],
+            logic_path=FILE_PATHS["logic"],
+            master_path=FILE_PATHS["master"],
+            output_path=TRANSFORMED_DATA_PATH,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Data transformation failed: {str(exc)}")
+
+    return FileResponse(
+        path=TRANSFORMED_DATA_PATH,
+        filename="transformed_data.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+@app.get("/api/download-data-validation-report")
+def download_data_validation_report():
+    """
+    Downloads the generated data validation report.
+    """
+    if not os.path.exists(DATA_VALIDATION_REPORT_PATH):
+        raise HTTPException(
+            status_code=404,
+            detail="Data validation report not found. Please run data validation first."
+        )
+
+    return FileResponse(
+        path=DATA_VALIDATION_REPORT_PATH,
+        filename="data_validation_report.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
 @app.get("/api/download-preview")
 def download_preview():
     """
@@ -232,4 +365,3 @@ def download_preview():
         filename="preview.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
