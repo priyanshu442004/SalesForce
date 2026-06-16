@@ -1,19 +1,20 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { NEXT_PUBLIC_API_URL } from "@/lib/config";
 
 // Document SVG icon (reused from UploadFilesPage)
 function DocumentSvg({ className = "", size = 48 }: { className?: string; size?: number }) {
   return (
-    <svg 
-      width={size} 
-      height={Math.round(size * 1.2)} 
-      viewBox="0 0 24 28" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2.5" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
+    <svg
+      width={size}
+      height={Math.round(size * 1.2)}
+      viewBox="0 0 24 28"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       className={className}
     >
       <path d="M14.5 2H6a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
@@ -155,7 +156,7 @@ export default function ComparisonPage() {
       formData.append("base_file", baseFile.file);
       formData.append("new_file", newFile.file);
 
-      const uploadResponse = await fetch("http://localhost:8000/api/upload-comparison-files", {
+      const uploadResponse = await fetch(`${NEXT_PUBLIC_API_URL}/api/upload-comparison-files`, {
         method: "POST",
         body: formData,
       });
@@ -167,7 +168,7 @@ export default function ComparisonPage() {
       // Step 2: Compare files
       const queryParam = keyColumn ? `?key_column=${encodeURIComponent(keyColumn)}` : "";
       const compareResponse = await fetch(
-        `http://localhost:8000/api/compare-files${queryParam}`,
+        `${NEXT_PUBLIC_API_URL}/api/compare-files${queryParam}`,
         {
           method: "POST",
         }
@@ -429,11 +430,10 @@ export default function ComparisonPage() {
         <button
           onClick={handleCompare}
           disabled={!baseFile.file || !newFile.file || isComparing}
-          className={`w-full py-4 px-6 rounded-xl text-[15px] font-black tracking-wide flex items-center justify-center gap-2.5 shadow-sm transition-all duration-300 ${
-            baseFile.file && newFile.file && !isComparing
+          className={`w-full py-4 px-6 rounded-xl text-[15px] font-black tracking-wide flex items-center justify-center gap-2.5 shadow-sm transition-all duration-300 ${baseFile.file && newFile.file && !isComparing
               ? "bg-[#002BFF] hover:bg-blue-700 text-white cursor-pointer active:scale-[0.98] shadow-md shadow-blue-500/10"
               : "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
-          }`}
+            }`}
         >
           {isComparing ? (
             <>

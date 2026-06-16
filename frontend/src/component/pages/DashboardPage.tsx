@@ -70,7 +70,15 @@ function useCountUpDecimal(target: number, duration: number = 800, delay: number
 }
 
 export default function DashboardPage() {
-  const { metricCount, successRateCount } = useMigration();
+  const {
+    currentUser,
+    currentProject,
+    revertFileToVersion,
+    revertOutputToVersion,
+    metricCount,
+    successRateCount
+  } = useMigration();
+
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
   const [animateProgress, setAnimateProgress] = useState(false);
 
@@ -116,7 +124,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden animate-fade-in-up">
+    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white">
       
       <style jsx global>{`
         @keyframes drawStroke {
@@ -165,7 +173,9 @@ export default function DashboardPage() {
         </div>
         
         <div className="space-y-0.5">
-          <h2 className="text-[19px] lg:text-[21px] font-black text-slate-800 tracking-tight leading-snug">Good Morning, Admin</h2>
+          <h2 className="text-[19px] lg:text-[21px] font-black text-slate-800 tracking-tight leading-snug">
+            Good Morning, {currentUser?.name || "Tester"}
+          </h2>
           <p className="text-[13.5px] lg:text-[14.5px] text-slate-400 leading-normal font-bold">Welcome back to AI-Powered Migration Platform</p>
         </div>
       </div>
@@ -256,7 +266,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts & Actions Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 flex-1 min-h-[500px] lg:min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 flex-none">
         
         {/* Migration Activity Line Chart Panel */}
         <div className="lg:col-span-6 bg-white border border-slate-200/60 rounded-2xl p-5 lg:p-6 flex flex-col justify-between shadow-[0_3px_12px_rgba(148,163,184,0.03)] h-full overflow-hidden">
@@ -281,7 +291,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Animated SVG */}
-          <div className="relative flex-1 min-h-[220px] lg:min-h-0 w-full mt-4 lg:mt-5 flex items-end">
+          <div className="relative flex-1 min-h-[220px] w-full mt-4 lg:mt-5 flex items-end">
             <svg className="w-full h-full" viewBox="0 0 450 180" preserveAspectRatio="none">
               
               {/* Horizontal grids */}
@@ -416,7 +426,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Vector Donut Circle progress loader */}
-          <div className="relative flex-1 flex items-center justify-center my-4 min-h-[180px] lg:min-h-0 w-full group">
+          <div className="relative flex-1 flex items-center justify-center my-4 min-h-[180px] w-full group">
             <div className="w-44 h-44 lg:w-48 lg:h-48 relative flex items-center justify-center transition-transform duration-350 group-hover:scale-103">
               <svg className="w-full h-full transform -rotate-90">
                 <circle
@@ -522,7 +532,7 @@ export default function DashboardPage() {
                 <div className="w-8.5 h-8.5 rounded-full bg-sky-100/80 text-sky-600 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
                   <Icon name="download" size={14} />
                 </div>
-                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 transition-colors group-hover:text-sky-600">Export preview.xlsx</span>
+                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 transition-colors group-hover:text-sky-600">Export Preview</span>
               </div>
             </Link>
 
@@ -530,6 +540,101 @@ export default function DashboardPage() {
         </div>
 
       </div>
+
+      {/* Version Control / Rollback Control Center */}
+      {currentProject && (
+        <div className="bg-white border border-slate-200/60 rounded-2xl p-5 lg:p-6 shadow-[0_3px_12px_rgba(148,163,184,0.03)] space-y-4 flex-none">
+          <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+            <div>
+              <h4 className="text-[15px] font-black text-slate-800 tracking-tight">Project Version Rollback Control Center</h4>
+              <p className="text-[12px] font-bold text-slate-400">Restore or roll back files and outputs dynamically from Neon S3 history.</p>
+            </div>
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full ring-1 ring-blue-100">
+              {currentProject.name}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Uploaded Files History */}
+            <div className="space-y-3">
+              <h5 className="text-[13px] font-black text-slate-700">Uploaded File Versions</h5>
+              <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
+                {currentProject.files && currentProject.files.length > 0 ? (
+                  currentProject.files.map((file: any) => (
+                    <div key={file.id} className="bg-white border border-slate-100 rounded-lg p-2.5 flex items-center justify-between text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                      <div className="space-y-0.5 min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase shrink-0 ${
+                            file.slot === "source" ? "bg-emerald-50 text-emerald-700" :
+                            file.slot === "master" ? "bg-blue-50 text-blue-700" :
+                            "bg-violet-50 text-violet-700"
+                          }`}>
+                            {file.slot}
+                          </span>
+                          <span className="font-bold text-slate-800 truncate block max-w-[150px]">{file.fileName}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-medium">{new Date(file.uploadedAt).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {file.isActive ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/50 text-[10px] font-black">Active</span>
+                        ) : (
+                          <button
+                            onClick={() => revertFileToVersion(file.id)}
+                            className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[10px] font-black text-blue-600 transition-all cursor-pointer"
+                          >
+                            Revert
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-6 text-slate-400 font-bold text-xs">No uploaded file history.</div>
+                )}
+              </div>
+            </div>
+
+            {/* Generated Outputs History */}
+            <div className="space-y-3">
+              <h5 className="text-[13px] font-black text-slate-700">Generated Output Runs</h5>
+              <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
+                {currentProject.outputs && currentProject.outputs.length > 0 ? (
+                  currentProject.outputs.map((out: any) => (
+                    <div key={out.id} className="bg-white border border-slate-100 rounded-lg p-2.5 flex items-center justify-between text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                      <div className="space-y-0.5 min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[9px] font-black uppercase shrink-0">
+                            {out.fileType.replace("_", " ")}
+                          </span>
+                          <span className="font-bold text-slate-800 truncate block max-w-[150px]">{out.fileName}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {new Date(out.generatedAt).toLocaleString()} {out.recordsCount > 0 ? `(${out.recordsCount} records)` : ""}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {out.isActive ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/50 text-[10px] font-black">Active</span>
+                        ) : (
+                          <button
+                            onClick={() => revertOutputToVersion(out.id)}
+                            className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[10px] font-black text-blue-600 transition-all cursor-pointer"
+                          >
+                            Revert
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-6 text-slate-400 font-bold text-xs">No generated output runs history.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -27,6 +27,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useMigration } from "@/context/MigrationContext";
+import { NEXT_PUBLIC_API_URL } from "@/lib/config";
 import type { UploadedFile } from "@/context/MigrationContext";
 
 type FileSlot = "source" | "master" | "logic";
@@ -54,6 +55,7 @@ type DataValidationResult = {
   total_records: number;
   total_issues: number;
   issues: DataValidationIssue[];
+  reportS3Key?: string | null;
   error?: string;
 };
 
@@ -74,6 +76,7 @@ type PreviewData = {
   };
   columns: PreviewColumn[];
   rows: Array<Record<string, unknown>>;
+  previewS3Key?: string;
 };
 
 const FILE_SLOTS: Array<{
@@ -84,31 +87,31 @@ const FILE_SLOTS: Array<{
   helper: string;
   tone: "emerald" | "blue" | "violet";
 }> = [
-  {
-    slot: "source",
-    step: "01",
-    title: "Source Data",
-    description: "Raw records exported from the source system.",
-    helper: "Required source workbook",
-    tone: "emerald",
-  },
-  {
-    slot: "master",
-    step: "02",
-    title: "Salesforce Master Metadata",
-    description: "Reference sheets for Salesforce targets and IDs.",
-    helper: "Required metadata workbook",
-    tone: "blue",
-  },
-  {
-    slot: "logic",
-    step: "03",
-    title: "Mapping Logic",
-    description: "Field mapping, data types, defaults, and rules.",
-    helper: "Required mapping workbook",
-    tone: "violet",
-  },
-];
+    {
+      slot: "source",
+      step: "01",
+      title: "Source Data",
+      description: "Raw records exported from the source system.",
+      helper: "Required source workbook",
+      tone: "emerald",
+    },
+    {
+      slot: "master",
+      step: "02",
+      title: "Salesforce Master Metadata",
+      description: "Reference sheets for Salesforce targets and IDs.",
+      helper: "Required metadata workbook",
+      tone: "blue",
+    },
+    {
+      slot: "logic",
+      step: "03",
+      title: "Mapping Logic",
+      description: "Field mapping, data types, defaults, and rules.",
+      helper: "Required mapping workbook",
+      tone: "violet",
+    },
+  ];
 
 const toneStyles = {
   emerald: {
@@ -236,7 +239,7 @@ function UploadCard({
                 <div className="h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-slate-200">
                   <div className={cx("h-full rounded-full transition-all duration-150", styles.progress)} style={{ width: `${file.progress}%` }} />
                 </div>
-                <p className="mt-2 text-[11px] font-medium text-slate-500">Saving securely to the backend workspace.</p>
+                <p className="mt-2 text-[11px] font-medium text-slate-500">Saving securely to the S3 workspace.</p>
               </div>
             ) : isComplete ? (
               <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3.5">
@@ -377,18 +380,20 @@ function PreviewModal({
               </span>
             </div>
             <h3 className="text-xl font-bold tracking-tight text-slate-950">Salesforce Client Data Preview</h3>
-            <p className="mt-1 text-xs text-slate-500">Processed output generated from the uploaded migration files.</p>
+            <p className="mt-1 text-xs text-slate-500">Processed output generated from the uploaded migration S3 files.</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
               onClick={() => {
+                if (!previewData.previewS3Key) return;
                 const link = document.createElement("a");
-                link.href = "http://localhost:8000/api/download-preview";
+                link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(previewData.previewS3Key)}`;
                 link.setAttribute("download", "preview.xlsx");
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
               }}
+              disabled={!previewData.previewS3Key}
               className="bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700"
             >
               <Download size={15} />
@@ -489,18 +494,28 @@ export default function UploadFilesPage() {
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const masterInputRef = useRef<HTMLInputElement>(null);
   const logicInputRef = useRef<HTMLInputElement>(null);
-  const globalInputRef = useRef<HTMLInputElement>(null);
 
-  const [isDragging, setIsDragging] = useState(false);
-  const [isShowingPreview, setIsShowingPreview] = useState(false);
   const [schemaLoading, setSchemaLoading] = useState(false);
   const [schemaResult, setSchemaResult] = useState<SchemaResult | null>(null);
   const [dataValidationLoading, setDataValidationLoading] = useState(false);
   const [dataValidationResult, setDataValidationResult] = useState<DataValidationResult | null>(null);
   const [transformLoading, setTransformLoading] = useState(false);
   const [transformError, setTransformError] = useState<string | null>(null);
+  const [isShowingPreview, setIsShowingPreview] = useState(false);
+
+  // States for inline workspace selection/creation
+  const [newProjName, setNewProjName] = useState("");
+  const [selectedProjId, setSelectedProjId] = useState("");
+  const [isSubmittingProj, setIsSubmittingProj] = useState(false);
+  const [projTab, setProjTab] = useState<"select" | "create">("select");
 
   const {
+    currentUser,
+    currentProject,
+    setCurrentProject,
+    projectList,
+    createProject,
+    selectProject,
     uploadedFiles,
     handleFileUpload,
     clearFile,
@@ -509,12 +524,28 @@ export default function UploadFilesPage() {
     generatePreview,
     isPreviewLoading,
     previewError,
+    updateProjectStage,
+    logActivity
   } = useMigration();
+
+  React.useEffect(() => {
+    if (projectList.length > 0 && !selectedProjId) {
+      setSelectedProjId(projectList[0].id);
+    }
+  }, [projectList, selectedProjId]);
 
   const inputRefs = {
     source: sourceInputRef,
     master: masterInputRef,
     logic: logicInputRef,
+  };
+
+  const getActiveKeys = () => {
+    const activeFiles = currentProject?.files || [];
+    const sourceKey = activeFiles.find((f: any) => f.slot === "source" && f.isActive)?.s3Key;
+    const masterKey = activeFiles.find((f: any) => f.slot === "master" && f.isActive)?.s3Key;
+    const logicKey = activeFiles.find((f: any) => f.slot === "logic" && f.isActive)?.s3Key;
+    return { sourceKey, masterKey, logicKey };
   };
 
   const resetValidationResults = () => {
@@ -532,6 +563,139 @@ export default function UploadFilesPage() {
     resetValidationResults();
     clearFile(slot);
   };
+
+  const handleCreateProjectInline = async () => {
+    if (!newProjName.trim() || isSubmittingProj) return;
+    setIsSubmittingProj(true);
+    try {
+      const project = await createProject(newProjName);
+      if (project) {
+        setNewProjName("");
+        resetValidationResults();
+        await selectProject(project.id);
+      }
+    } catch (err) {
+      console.error("Error creating project inline:", err);
+    } finally {
+      setIsSubmittingProj(false);
+    }
+  };
+
+  const handleSelectProjectInline = async () => {
+    if (!selectedProjId || isSubmittingProj) return;
+    setIsSubmittingProj(true);
+    try {
+      await selectProject(selectedProjId);
+      resetValidationResults();
+    } catch (err) {
+      console.error("Error selecting project inline:", err);
+    } finally {
+      setIsSubmittingProj(false);
+    }
+  };
+
+  if (!currentProject) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8 bg-slate-50/50 min-h-[calc(100vh-60px)]">
+        <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+          {/* Header */}
+          <div className="bg-slate-900 px-6 py-5 text-white">
+            <div className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-widest text-blue-400">
+              <Sparkles size={14} className="animate-pulse" />
+              Setup Workspace
+            </div>
+            <h3 className="mt-1.5 text-lg font-bold">Select or Create a Project</h3>
+            <p className="mt-1 text-xs text-slate-300 leading-relaxed">
+              You must choose an active project workspace to begin uploading and validating migration files.
+            </p>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-slate-200 bg-slate-50">
+            <button
+              onClick={() => setProjTab("select")}
+              className={cx(
+                "flex-1 py-3 text-center text-xs font-bold transition-all border-b-2 focus:outline-none",
+                projTab === "select"
+                  ? "border-blue-600 text-blue-600 bg-white"
+                  : "border-transparent text-slate-500 hover:text-slate-900"
+              )}
+            >
+              Continue Existing Project
+            </button>
+            <button
+              onClick={() => setProjTab("create")}
+              className={cx(
+                "flex-1 py-3 text-center text-xs font-bold transition-all border-b-2 focus:outline-none",
+                projTab === "create"
+                  ? "border-blue-600 text-blue-600 bg-white"
+                  : "border-transparent text-slate-500 hover:text-slate-900"
+              )}
+            >
+              Create New Project
+            </button>
+          </div>
+
+          {/* Form Area */}
+          <div className="p-6 bg-white">
+            {projTab === "select" ? (
+              <div className="space-y-4">
+                {projectList.length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-xs text-slate-400 font-medium">No projects found. Please create a new project to get started.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Select Project Workspace</label>
+                    <select
+                      value={selectedProjId}
+                      onChange={(e) => setSelectedProjId(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      {projectList.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.stage.replace("_", " ")})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <Button
+                  onClick={handleSelectProjectInline}
+                  disabled={!selectedProjId || isSubmittingProj}
+                  className="w-full py-3 text-xs"
+                >
+                  {isSubmittingProj ? "Opening Workspace..." : "Open Workspace"}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Project Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Acme Q3 Salesforce Migration"
+                    value={newProjName}
+                    onChange={(e) => setNewProjName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 placeholder:text-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+
+                <Button
+                  onClick={handleCreateProjectInline}
+                  disabled={!newProjName.trim() || isSubmittingProj}
+                  className="w-full py-3 text-xs"
+                >
+                  {isSubmittingProj ? "Creating Project..." : "Create & Launch Workspace"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const uploadedCount = FILE_SLOTS.filter(({ slot }) => uploadedFiles[slot]?.completed).length;
   const canContinueAfterSchema =
@@ -566,8 +730,16 @@ export default function UploadFilesPage() {
     setTransformError(null);
     setSchemaLoading(true);
     let isSchemaValid = false;
+
+    const { sourceKey, logicKey } = getActiveKeys();
+    if (!sourceKey || !logicKey) {
+      setSchemaLoading(false);
+      return;
+    }
+
     try {
-      const resp = await fetch("http://localhost:8000/api/validate-schema", { method: "POST" });
+      const url = `${NEXT_PUBLIC_API_URL}/api/validate-schema?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const resp = await fetch(url, { method: "POST" });
       if (!resp.ok) {
         const err = await resp.json();
         throw new Error(err.detail || "Schema validation failed");
@@ -577,6 +749,10 @@ export default function UploadFilesPage() {
       if (data.schema_valid === true && data.missing_fields?.length === 0 && data.additional_fields?.length === 0) {
         isSchemaValid = true;
       }
+
+      // Update Project progress stage to VALIDATING/SCHEMA
+      await updateProjectStage("SCHEMA_VALIDATED", 35);
+      await logActivity("System", currentUser?.name || "Tester", "Completed Schema Validation", "Success");
     } catch (error) {
       console.error(error);
       setSchemaResult({
@@ -588,6 +764,7 @@ export default function UploadFilesPage() {
         additional_fields: [],
         error: String(error),
       });
+      await logActivity("System", currentUser?.name || "Tester", `Schema validation failed: ${String(error)}`, "Failed");
     } finally {
       setSchemaLoading(false);
     }
@@ -603,14 +780,44 @@ export default function UploadFilesPage() {
     setDataValidationResult(null);
     setTransformError(null);
     setDataValidationLoading(true);
+
+    const { sourceKey, logicKey } = getActiveKeys();
+    if (!sourceKey || !logicKey) {
+      setDataValidationLoading(false);
+      return;
+    }
+
     try {
-      const resp = await fetch("http://localhost:8000/api/validate-data", { method: "POST" });
+      const url = `${NEXT_PUBLIC_API_URL}/api/validate-data?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "x-project-id": currentProject.id
+        }
+      });
       if (!resp.ok) {
         const err = await resp.json();
         throw new Error(err.detail || "Data validation failed");
       }
       const data = await resp.json();
       setDataValidationResult(data);
+
+      // Save validation report output in DB
+      if (data.reportS3Key) {
+        await fetch(`/api/projects/${currentProject.id}/outputs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: "data_validation_report.xlsx",
+            fileType: "validation_report",
+            s3Key: data.reportS3Key,
+            recordsCount: data.total_issues
+          })
+        });
+      }
+
+      await updateProjectStage("DATA_VALIDATED", 55);
+      await logActivity("System", currentUser?.name || "Tester", `Completed Data validation. Issues count: ${data.total_issues}`, "Success");
     } catch (error) {
       console.error(error);
       setDataValidationResult({
@@ -620,14 +827,17 @@ export default function UploadFilesPage() {
         issues: [],
         error: String(error),
       });
+      await logActivity("System", currentUser?.name || "Tester", `Data validation failed: ${String(error)}`, "Failed");
     } finally {
       setDataValidationLoading(false);
     }
   };
 
   const downloadValidationReport = () => {
+    const reportKey = dataValidationResult?.reportS3Key;
+    if (!reportKey) return;
     const link = document.createElement("a");
-    link.href = "http://localhost:8000/api/download-data-validation-report";
+    link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(reportKey)}`;
     link.setAttribute("download", "data_validation_report.xlsx");
     document.body.appendChild(link);
     link.click();
@@ -639,25 +849,57 @@ export default function UploadFilesPage() {
 
     setTransformLoading(true);
     setTransformError(null);
+
+    const { sourceKey, masterKey, logicKey } = getActiveKeys();
+    if (!sourceKey || !masterKey || !logicKey) {
+      setTransformLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch("http://localhost:8000/api/transform-data", { method: "POST" });
+      const url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(sourceKey)}&master_key=${encodeURIComponent(masterKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "x-project-id": currentProject.id
+        }
+      });
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
         throw new Error(errorBody?.detail || "Data transformation failed");
       }
 
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.setAttribute("download", "transformed_data.xlsx");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      const data = await response.json();
+
+      // Register transformed file in DB output history
+      if (data.transformedS3Key) {
+        await fetch(`/api/projects/${currentProject.id}/outputs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: data.fileName || "transformed_data.xlsx",
+            fileType: "transformed_data",
+            s3Key: data.transformedS3Key,
+            recordsCount: dataValidationResult?.total_records || 0
+          })
+        });
+
+        // Trigger file download
+        const downloadUrl = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(data.transformedS3Key)}`;
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.setAttribute("download", data.fileName || "transformed_data.xlsx");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+
+      await updateProjectStage("TRANSFORMED", 100);
+      await logActivity("System", currentUser?.name || "Tester", "Completed Data Transformation", "Success");
     } catch (error) {
       console.error(error);
       setTransformError(error instanceof Error ? error.message : "Data transformation failed");
+      await logActivity("System", currentUser?.name || "Tester", `Data transformation failed: ${error instanceof Error ? error.message : ""}`, "Failed");
     } finally {
       setTransformLoading(false);
     }
@@ -679,13 +921,24 @@ export default function UploadFilesPage() {
 
         <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-blue-700">
+            <div className="mb-2 flex items-center gap-2.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-blue-700">
               <Sparkles size={14} />
               Migration setup
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-500">Active Project:</span>
+              <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-normal ring-1 ring-blue-100">
+                {currentProject.name}
+              </span>
+              <button
+                onClick={() => setCurrentProject(null)}
+                className="text-slate-400 transition-colors hover:text-rose-600 text-[10px] font-bold underline"
+              >
+                Switch Project
+              </button>
             </div>
             <h2 className="text-2xl font-bold tracking-[-0.025em] text-slate-950 sm:text-[28px]">Prepare your migration files</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Upload the required workbooks, validate source fields against mapping logic, then continue once the schema is clean.
+              Upload the required workbooks to S3, validate source fields against mapping logic, then continue once the schema is clean.
             </p>
           </div>
 
@@ -716,8 +969,6 @@ export default function UploadFilesPage() {
             />
           ))}
         </section>
-
-        
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
@@ -893,7 +1144,7 @@ export default function UploadFilesPage() {
                       {canContinueAfterDataValidation ? "Data Validation Passed" : "Data Quality Issues Found"}
                     </h4>
                     <p className={cx("mt-1 text-xs", canContinueAfterDataValidation ? "text-emerald-700" : "text-rose-700")}>
-                      {canContinueAfterDataValidation ? "No data quality issues were found. The files are ready for AI mapping." : dataValidationResult.error || `${dataValidationResult.total_issues} issue${dataValidationResult.total_issues === 1 ? "" : "s"} found. Review the table or download the validation report.`}
+                      {canContinueAfterDataValidation ? "No data quality issues were found. The files are ready for S3 transformation." : dataValidationResult.error || `${dataValidationResult.total_issues} issue${dataValidationResult.total_issues === 1 ? "" : "s"} found. Review the table or download the validation report.`}
                     </p>
                   </div>
                 </div>
@@ -993,7 +1244,7 @@ export default function UploadFilesPage() {
               <LoaderCircle size={27} className="animate-spin" />
             </span>
             <h3 className="mt-5 text-lg font-bold tracking-tight text-slate-950">Preparing transformed preview</h3>
-            <p className="mt-2 text-xs leading-5 text-slate-500">Applying mapping logic, Salesforce lookups, and output formatting.</p>
+            <p className="mt-2 text-xs leading-5 text-slate-500">Applying mapping logic, Salesforce lookups, and S3 formatting.</p>
             <div className="mt-5 space-y-2 text-left text-xs">
               {["Files uploaded", "Schema context loaded", "Applying Salesforce mappings"].map((item, index) => (
                 <div key={item} className={cx("flex items-center gap-2.5 rounded-lg px-3 py-2", index < 2 ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700")}>

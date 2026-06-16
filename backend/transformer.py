@@ -206,11 +206,11 @@ def transform_datetime_value(value: Any) -> str:
 
 
 def load_transform_rules(logic_path: str) -> dict[str, dict[str, Any]]:
-    logic_excel = pd.ExcelFile(logic_path)
-    logic_df = pd.read_excel(
-        logic_path,
-        sheet_name=logic_excel.sheet_names[0]
-    )
+    with pd.ExcelFile(logic_path) as logic_excel:
+        logic_df = pd.read_excel(
+            logic_excel,
+            sheet_name=logic_excel.sheet_names[0]
+        )
 
     columns = resolve_mapping_columns(logic_df)
 
@@ -349,45 +349,45 @@ def transform_source_data(source_path: str, logic_path: str, master_path: str, o
 
     source_df = pd.read_excel(source_path)
     transform_rules = load_transform_rules(logic_path)
-    master_excel = pd.ExcelFile(master_path)
 
     output_columns: list[pd.Series] = []
     output_headers: list[str] = []
     transformed_columns: list[str] = []
 
-    for column in source_df.columns:
-        source_column_name = str(column).strip()
+    with pd.ExcelFile(master_path) as master_excel:
+        for column in source_df.columns:
+            source_column_name = str(column).strip()
 
-        # Always include original column with __ prefix
-        output_columns.append(source_df[column])
-        output_headers.append(source_column_name)
+            # Always include original column with __ prefix
+            output_columns.append(source_df[column])
+            output_headers.append(source_column_name)
 
-        rule = transform_rules.get(source_column_name.lower())
-        if rule is None:
-            continue
+            rule = transform_rules.get(source_column_name.lower())
+            if rule is None:
+                continue
 
-        if rule["data_type"] == "lookup":
-            transformed_values = apply_lookup_rule(source_df[column], rule, master_excel)
-        else:
-            transformed_values = apply_transform_rule(source_df[column], rule)
+            if rule["data_type"] == "lookup":
+                transformed_values = apply_lookup_rule(source_df[column], rule, master_excel)
+            else:
+                transformed_values = apply_transform_rule(source_df[column], rule)
 
-        original_values = [
-            "" if is_blank(v) else str(v).strip()
-            for v in source_df[column].tolist()
-        ]
+            original_values = [
+                "" if is_blank(v) else str(v).strip()
+                for v in source_df[column].tolist()
+            ]
 
-        transformed_values_clean = [
-            "" if is_blank(v) else str(v).strip()
-            for v in transformed_values
-        ]
+            transformed_values_clean = [
+                "" if is_blank(v) else str(v).strip()
+                for v in transformed_values
+            ]
 
-        # Add transformed column only if at least one value changed
-        if original_values == transformed_values_clean:
-            continue
-        output_headers[-1] = f"__{source_column_name}"
-        output_columns.append(pd.Series(transformed_values))
-        output_headers.append(source_column_name)
-        transformed_columns.append(source_column_name)
+            # Add transformed column only if at least one value changed
+            if original_values == transformed_values_clean:
+                continue
+            output_headers[-1] = f"__{source_column_name}"
+            output_columns.append(pd.Series(transformed_values))
+            output_headers.append(source_column_name)
+            transformed_columns.append(source_column_name)
 
     transformed_df = pd.concat(output_columns, axis=1) if output_columns else pd.DataFrame()
     transformed_df.columns = output_headers

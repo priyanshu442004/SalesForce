@@ -9,7 +9,9 @@ import { useMigration } from "../context/MigrationContext";
 export default function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { transformationsView, transformationsTab } = useMigration();
+  const { transformationsView, transformationsTab, currentUser } = useMigration();
+
+  if (!currentUser) return null;
 
   const getPageTitle = () => {
     const clean = (title:any) => title.replace(/^\d+\.\s*/, "").replace(/\s*-\s*Layer\s*\d+$/i, "");

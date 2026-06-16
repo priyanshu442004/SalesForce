@@ -1,0 +1,77 @@
+// db/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../frontend/node_modules/.prisma/client"
+}
+
+model User {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  email     String    @unique
+  password  String    @default("12345678")
+  createdAt DateTime  @default(now())
+  projects  Project[]
+}
+
+model Project {
+  id           String                  @id @default(uuid())
+  name         String
+  status       String                  @default("In Progress") // "Completed", "In Progress", "Failed"
+  progress     Float                   @default(0.0)           // 0 to 100
+  stage        String                  @default("upload")      // "upload", "validation", "mapping", "transform", "export"
+  recordsCount Int                     @default(0)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  
+  userId       String
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  files        UploadedFileReference[]
+  activities   ActivityHistory[]
+  outputs      OutputHistory[]
+}
+
+model UploadedFileReference {
+  id         String   @id @default(uuid())
+  slot       String   // "source", "master", "logic", "base_file", "new_file"
+  fileName   String
+  fileSize   String
+  s3Key      String
+  uploadedAt DateTime @default(now())
+  isActive   Boolean  @default(true)
+  
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ActivityHistory {
+  id          String   @id @default(uuid())
+  timestamp   DateTime @default(now())
+  category    String   // "Transformation", "Mapping", "Validation", "Upload", "System"
+  actor       String
+  description String
+  status      String   // "Success", "Warning", "Error"
+  
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model OutputHistory {
+  id           String   @id @default(uuid())
+  fileName     String
+  fileType     String   // "preview", "validation_report", "transformed_data"
+  s3Key        String
+  recordsCount Int      @default(0)
+  generatedAt  DateTime @default(now())
+  isActive     Boolean  @default(true)
+  
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useMigration } from "@/context/MigrationContext";
 
 interface AuditLog {
   timestamp: string;
@@ -42,19 +43,39 @@ export default function ActivityLogPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
+  const { currentProject } = useMigration();
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const logs: AuditLog[] = [
-    { timestamp: "2026-05-27 19:15:32", category: "Transformation", actor: "System AI", description: "Executed picklist standard mappings for Account Type", status: "Success" },
-    { timestamp: "2026-05-27 19:12:44", category: "Mapping", actor: "admin@salesforce.migrate", description: "Approved schema mappings for Opportunity.StageName", status: "Success" },
-    { timestamp: "2026-05-27 19:08:11", category: "Validation", actor: "System AI", description: "Detected 25 missing required fields in Account.Name", status: "Warning" },
-    { timestamp: "2026-05-27 18:55:02", category: "Upload", actor: "admin@salesforce.migrate", description: "Uploaded Customer_Records_v3.csv (12.4 KB)", status: "Success" },
-    { timestamp: "2026-05-27 18:40:19", category: "System", actor: "System", description: "Initialized workspace context database configurations", status: "Success" },
-    { timestamp: "2026-05-27 18:32:05", category: "Validation", actor: "System AI", description: "Flagged 136 records with invalid date patterns in Start_Date__c", status: "Warning" },
-    { timestamp: "2026-05-27 18:15:44", category: "Transformation", actor: "admin@salesforce.migrate", description: "Created new Date conversion transformation rule", status: "Success" }
-  ];
+  if (!currentProject) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 min-h-[calc(100vh-80px)] bg-slate-50">
+        <div className="max-w-md text-center space-y-4">
+          <h3 className="text-xl font-black text-slate-800">No active project workspace</h3>
+          <p className="text-sm text-slate-500 font-medium">
+            Please select or create a project first to view the activity audit logs.
+          </p>
+          <Link
+            href="/projects"
+            className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700"
+          >
+            Go to Projects
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Parse real activities from the project DB state
+  const logs: AuditLog[] = (currentProject.activities || []).map((act: any) => ({
+    timestamp: new Date(act.timestamp).toLocaleString(),
+    category: act.category as any,
+    actor: act.actor,
+    description: act.description,
+    status: act.status as any,
+  }));
 
   const filteredLogs = logs.filter(log => {
     const matchesSearch = log.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -62,6 +83,11 @@ export default function ActivityLogPage() {
     const matchesCategory = selectedCategory === "All" || log.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const warningCount = logs.filter(l => l.status === "Warning").length;
+  const errorCount = logs.filter(l => l.status === "Error").length;
+  const successCount = logs.filter(l => l.status === "Success").length;
+  const successRate = logs.length > 0 ? Math.round((successCount / logs.length) * 100) : 100;
 
   return (
     <div className="p-5 sm:p-7 lg:p-9 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden select-none bg-white">
@@ -98,14 +124,14 @@ export default function ActivityLogPage() {
       {/* Title and Description */}
       <div className="flex-none flex flex-col space-y-1 border-b border-slate-100/60 pb-3.5 opacity-0 animate-scale-up" style={{ animationDelay: "100ms" }}>
         <h3 className="text-[20px] font-black text-[#000839]">
-          System Activity Log
+          System Activity Log — {currentProject.name}
         </h3>
         <span className="text-[14.5px] font-bold text-slate-400">
-          Review real-time operations, job histories, API calls, and validation details.
+          Review real-time operations, file history, and S3 validation audit trails.
         </span>
       </div>
 
-      {/* Header Metric Cards for Premium Visual Polish */}
+      {/* Header Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "150ms" }}>
         
         {/* Metric 1: Total Operations */}
@@ -119,12 +145,12 @@ export default function ActivityLogPage() {
           <div className="space-y-0.5">
             <span className="block text-[13.5px] font-bold text-slate-400">Total Operations</span>
             <span className="block text-[25px] font-black text-[#000839]">
-              <AnimatedCount target={128} />
+              <AnimatedCount target={logs.length} />
             </span>
           </div>
         </div>
 
-        {/* Metric 2: Warnings Triggered */}
+        {/* Metric 2: Warnings/Errors */}
         <div className="bg-white border border-slate-100 rounded-2xl p-5.5 flex items-center gap-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
           <div className="w-12 h-12 bg-amber-50 border border-amber-500/20 text-[#d97706] rounded-xl flex items-center justify-center">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -134,9 +160,9 @@ export default function ActivityLogPage() {
             </svg>
           </div>
           <div className="space-y-0.5">
-            <span className="block text-[13.5px] font-bold text-slate-400">Warnings Triggered</span>
+            <span className="block text-[13.5px] font-bold text-slate-400">Warnings/Errors</span>
             <span className="block text-[25px] font-black text-[#d97706]">
-              <AnimatedCount target={2} />
+              <AnimatedCount target={warningCount + errorCount} />
             </span>
           </div>
         </div>
@@ -151,12 +177,12 @@ export default function ActivityLogPage() {
           <div className="space-y-0.5">
             <span className="block text-[13.5px] font-bold text-slate-400">Success Rate</span>
             <span className="block text-[25px] font-black text-[#137333]">
-              <AnimatedCount target={100} suffix="%" />
+              <AnimatedCount target={successRate} suffix="%" />
             </span>
           </div>
         </div>
 
-        {/* Metric 4: API Connections */}
+        {/* Metric 4: Active Files */}
         <div className="bg-white border border-slate-100 rounded-2xl p-5.5 flex items-center gap-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
           <div className="w-12 h-12 bg-purple-50 border border-purple-500/20 text-[#7c3aed] rounded-xl flex items-center justify-center">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -165,9 +191,9 @@ export default function ActivityLogPage() {
             </svg>
           </div>
           <div className="space-y-0.5">
-            <span className="block text-[13.5px] font-bold text-slate-400">API Handshakes</span>
+            <span className="block text-[13.5px] font-bold text-slate-400">Active Files</span>
             <span className="block text-[25px] font-black text-[#7c3aed]">
-              <AnimatedCount target={42} />
+              <AnimatedCount target={currentProject.files?.filter((f: any) => f.isActive).length || 0} />
             </span>
           </div>
         </div>
@@ -216,7 +242,7 @@ export default function ActivityLogPage() {
 
       </div>
 
-      {/* Main Logs Table Grid with Larger Fonts & Row Animations */}
+      {/* Main Logs Table Grid */}
       <div className="flex-1 bg-white border border-slate-200/90 rounded-2xl p-6 lg:p-7 shadow-[0_2px_12px_rgba(0,0,0,0.008)] min-h-[350px] overflow-hidden flex flex-col opacity-0 animate-scale-up" style={{ animationDelay: "250ms" }}>
         <div className="overflow-x-auto flex-1 min-h-0">
           <table className="w-full text-left border-collapse min-w-[800px]">

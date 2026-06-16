@@ -8,23 +8,23 @@ import Icon from "./Icon";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { sidebarCollapsed, setSidebarCollapsed } = useMigration();
+  const { sidebarCollapsed, setSidebarCollapsed, currentUser, setCurrentUser, currentProject } = useMigration();
+
+  if (!currentUser) return null;
 
   const navItems = [
-  { name: "Dashboard", path: "/", icon: "dashboard" },
-  { name: "Upload Files", path: "/upload", icon: "upload" },
-
-  { name: "Compare Files", path: "/comparison", icon: "shuffle" },
-
-  { name: "AI Mapping", path: "/mapping", icon: "database" },
-  { name: "Transformations", path: "/transformations", icon: "shuffle" },
-  { name: "Validation", path: "/validation", icon: "shield" },
-  { name: "Export", path: "/export", icon: "download" },
-  { name: "Projects", path: "/projects", icon: "folder" },
-  { name: "Activity Log", path: "/activity-log", icon: "activity" },
-  { name: "Settings", path: "/settings", icon: "settings" },
-  { name: "Help & Support", path: "/help", icon: "help" }
-];
+    { name: "Dashboard", path: "/", icon: "dashboard" },
+    { name: "Upload Files", path: "/upload", icon: "upload" },
+    { name: "Compare Files", path: "/comparison", icon: "shuffle" },
+    { name: "AI Mapping", path: "/mapping", icon: "database" },
+    { name: "Transformations", path: "/transformations", icon: "shuffle" },
+    { name: "Validation", path: "/validation", icon: "shield" },
+    { name: "Export", path: "/export", icon: "download" },
+    { name: "Projects", path: "/projects", icon: "folder" },
+    { name: "Activity Log", path: "/activity-log", icon: "activity" },
+    { name: "Settings", path: "/settings", icon: "settings" },
+    { name: "Help & Support", path: "/help", icon: "help" }
+  ];
 
   return (
     <aside 
@@ -35,57 +35,66 @@ export default function Sidebar() {
       <div className="space-y-7">
         
         {/* Header Brand Area */}
-        <div className="flex items-center justify-between py-4.5 border-b border-[#1e293b]/40 overflow-hidden">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-[36px] h-[36px] rounded-[11px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0 transition-transform duration-350 hover:scale-105">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+        <div className="flex flex-col border-b border-[#1e293b]/40 pb-4 overflow-hidden">
+          <div className="flex items-center justify-between py-2.5">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-[36px] h-[36px] rounded-[11px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0 transition-transform duration-350 hover:scale-105">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="M12 8v8" />
+                  <path d="M9 11h6" />
+                </svg>
+              </div>
+              <span 
+                className={`font-extrabold text-white text-[15px] tracking-wider uppercase whitespace-nowrap transition-all duration-300 ease-in-out ${
+                  sidebarCollapsed ? "opacity-0 w-0 max-w-0 ml-0 overflow-hidden pointer-events-none" : "opacity-100 ml-1.5"
+                }`}
               >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                <path d="M12 8v8" />
-                <path d="M9 11h6" />
-              </svg>
+                AI Migrate
+              </span>
             </div>
-            <span 
-              className={`font-extrabold text-white text-[15px] tracking-wider uppercase whitespace-nowrap transition-all duration-300 ease-in-out ${
-                sidebarCollapsed ? "opacity-0 w-0 max-w-0 ml-0 overflow-hidden pointer-events-none" : "opacity-100 ml-1.5"
-              }`}
+            
+            <button 
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-1 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors duration-250 shrink-0 select-none ml-1 cursor-pointer focus:outline-none"
             >
-              AI Migrate
-            </span>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.5" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className={`transform transition-transform duration-350 ${sidebarCollapsed ? "rotate-180" : ""}`}
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
           </div>
-          
-          <button 
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="p-1 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors duration-250 shrink-0 select-none ml-1 cursor-pointer focus:outline-none"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="16" 
-              height="16" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className={`transform transition-transform duration-350 ${sidebarCollapsed ? "rotate-180" : ""}`}
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
+
+          {currentProject && !sidebarCollapsed && (
+            <div className="mt-3.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[11px] font-black tracking-wide truncate flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+              Project: <span className="font-extrabold text-white truncate">{currentProject.name}</span>
+            </div>
+          )}
         </div>
 
         {/* Navigation Menu Links */}
-        <nav className="space-y-1.5 max-h-[calc(100vh-190px)] overflow-y-auto pr-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <nav className="space-y-1.5 max-h-[calc(100vh-230px)] overflow-y-auto pr-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {navItems.map((item, idx) => {
             const isActive = pathname === item.path;
             return (
@@ -135,17 +144,37 @@ export default function Sidebar() {
               sidebarCollapsed ? "opacity-0 w-0 max-w-0 overflow-hidden pointer-events-none" : "opacity-100 ml-1"
             }`}
           >
-            <span className="text-[12.5px] font-extrabold text-white leading-tight truncate">Admin User</span>
-            <span className="text-[10px] text-slate-500 truncate">admin@domain.com</span>
+            <span className="text-[12.5px] font-extrabold text-white leading-tight truncate">
+              {currentUser?.name || ""}
+            </span>
+            <span className="text-[10px] text-slate-500 truncate">
+              {currentUser?.email || ""}
+            </span>
           </div>
         </div>
-        <span 
-          className={`text-[10.5px] font-extrabold text-slate-500 pr-1 select-none transition-all duration-300 ease-in-out ${
-            sidebarCollapsed ? "opacity-0 w-0 max-w-0 overflow-hidden pointer-events-none" : "opacity-100"
-          }`}
+        
+        {/* Logout Button */}
+        <button
+          onClick={() => setCurrentUser(null)}
+          title="Logout"
+          className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors select-none cursor-pointer focus:outline-none"
         >
-          1.1.0
-        </span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+        </button>
       </div>
     </aside>
   );
