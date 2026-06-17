@@ -8,6 +8,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Header, For
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from data_validation import run_data_validation, write_validation_report
+from data_cleaning import run_data_cleaning
 from processor import process_preview
 from comparison import compare_excel_files
 from transformer import transform_source_data
@@ -229,6 +230,56 @@ def validate_schema(
         if temp_logic and os.path.exists(temp_logic):
             os.remove(temp_logic)
 
+@app.post("/api/clean-data")
+def clean_data(
+    source_key: str = Query(...),
+    logic_key: str = Query(...),
+    x_project_id: str = Header(None)
+):
+    """
+    Cleans source data and uploads the cleaned file to S3.
+    Returns summary statistics and a detailed change log.
+    """
+    project_id = x_project_id or str(uuid.uuid4())
+    temp_source = None
+    temp_logic = None
+    temp_cleaned_path = None
+
+    try:
+        temp_source = temp_download(source_key)
+        temp_logic = temp_download(logic_key)
+
+        out = run_data_cleaning(temp_source, temp_logic)
+        if not out.get("success"):
+            raise HTTPException(status_code=500, detail=out.get("error", "Data cleaning failed"))
+
+        # Save cleaned DataFrame to a temp Excel file and upload to S3
+        temp_fd, temp_cleaned_path = tempfile.mkstemp(suffix=".xlsx")
+        os.close(temp_fd)
+
+        cleaned_df = out["cleaned_df"]
+        cleaned_df.to_excel(temp_cleaned_path, index=False)
+
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        s3_cleaned_key = f"projects/{project_id}/uploads/source_cleaned/{timestamp}_cleaned_source.xlsx"
+        upload_to_s3(temp_cleaned_path, s3_cleaned_key)
+
+        return {
+            "success": True,
+            "cleanedS3Key": s3_cleaned_key,
+            "summary": out["summary"],
+            "changes": out["changes"],
+            "total_changes": out["total_changes"],
+        }
+    finally:
+        if temp_source and os.path.exists(temp_source):
+            os.remove(temp_source)
+        if temp_logic and os.path.exists(temp_logic):
+            os.remove(temp_logic)
+        if temp_cleaned_path and os.path.exists(temp_cleaned_path):
+            os.remove(temp_cleaned_path)
+
+
 @app.post("/api/validate-data")
 def validate_data(
     source_key: str = Query(...),
@@ -269,6 +320,7 @@ def validate_data(
             
         return {
             "success": True,
+            "total_records": out.get("total_records", 0),
             "total_issues": out.get("total_issues", 0),
             "summary": out.get("summary", {}),
             "issues": out.get("issues", []),

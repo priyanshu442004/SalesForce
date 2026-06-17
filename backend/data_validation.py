@@ -20,7 +20,10 @@ def is_blank(value: Any) -> bool:
         return True
     if pd.isna(value):
         return True
-    return isinstance(value, str) and value.strip() == ""
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped == "" or stripped == "NULL"
+    return False
 
 
 def validate_date(value: Any, _format: Any = None) -> bool:
@@ -515,13 +518,13 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
 
 
 def validate_source_data(source_path: str, logic_path: str, master_path: Optional[str] = None) -> list[ValidationIssue]:
-    source_df = pd.read_excel(source_path)
+    source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
     return validate_source_dataframe(source_df, logic_path, master_path=master_path)
 
 
 def run_data_validation(source_path: str, logic_path: str, master_path: Optional[str] = None) -> dict[str, Any]:
     try:
-        source_df = pd.read_excel(source_path)
+        source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
         issues = validate_source_dataframe(source_df, logic_path, master_path=master_path)
         return {
             "success": True,

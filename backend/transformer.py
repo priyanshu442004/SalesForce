@@ -15,7 +15,10 @@ def is_blank(value: Any) -> bool:
         return True
     if pd.isna(value):
         return True
-    return isinstance(value, str) and value.strip() == ""
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped == "" or stripped == "NULL"
+    return False
 
 
 def clean_cell(value: Any) -> str:
@@ -294,25 +297,32 @@ def load_transform_rules(logic_path: str) -> dict[str, dict[str, Any]]:
     return rules
 
 
+def _is_null_sentinel(value: Any) -> bool:
+    """True when the value is the literal string 'NULL' written by data_cleaning.py."""
+    return isinstance(value, str) and value.strip() == "NULL"
+
+
 def apply_transform_rule(series: pd.Series, rule: dict[str, Any]) -> list[str]:
     data_type = rule["data_type"]
 
-    if rule["value_mapping"]:
-        return [
-            transform_mapped_value(value, rule["value_mapping"], data_type)
-            for value in series.tolist()
-        ]
+    def _transform_one(value: Any) -> str:
+        # Preserve NULL sentinel — do not apply any transformation rule to it.
+        if _is_null_sentinel(value):
+            return "NULL"
 
-    if data_type == "lookup":
-        return ["LOOKUP" for _ in series.tolist()]
+        if rule["value_mapping"]:
+            return transform_mapped_value(value, rule["value_mapping"], data_type)
 
-    if data_type == "date":
-        return [transform_date_value(value, rule["format"]) for value in series.tolist()]
+        if data_type == "date":
+            return transform_date_value(value, rule["format"])
 
-    if data_type in {"datetime", "date&time"}:
-        return [transform_datetime_value(value) for value in series.tolist()]
+        if data_type in {"datetime", "date&time"}:
+            return transform_datetime_value(value)
 
-    return [""] * len(series)
+        return ""
+
+    return [_transform_one(v) for v in series.tolist()]
+
 
 def apply_lookup_rule(
     series: pd.Series,
@@ -344,10 +354,12 @@ def apply_lookup_rule(
     results = []
 
     for value in series.tolist():
+        # Preserve NULL sentinel — do not attempt a lookup for it.
+        if _is_null_sentinel(value):
+            results.append("NULL")
+            continue
         source_value = clean_cell(value)
-        results.append(
-            lookup_map.get(source_value, "")
-        )
+        results.append(lookup_map.get(source_value, ""))
 
     return results
 
@@ -359,7 +371,7 @@ def transform_source_data(source_path: str, logic_path: str, master_path: str, o
     if not os.path.exists(master_path):
         raise FileNotFoundError(f"Master file not found at {master_path}")
 
-    source_df = pd.read_excel(source_path)
+    source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
     transform_rules = load_transform_rules(logic_path)
 
     output_columns: list[pd.Series] = []

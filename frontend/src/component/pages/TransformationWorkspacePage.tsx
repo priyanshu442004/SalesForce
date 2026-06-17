@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  AtSign,
   Check,
   CheckCircle2,
   Database,
@@ -16,9 +17,11 @@ import {
   FileSpreadsheet,
   LoaderCircle,
   RefreshCw,
+  Scissors,
   ShieldCheck,
   Sparkles,
   Table2,
+  Trash2,
   Wand2,
   Wrench,
   X,
@@ -57,6 +60,30 @@ type DataValidationResult = {
   total_issues: number;
   issues: DataValidationIssue[];
   reportS3Key?: string | null;
+  error?: string;
+};
+
+type CleaningChange = {
+  row: number;
+  column: string;
+  original_value: string;
+  cleaned_value: string;
+  rule: string;
+};
+
+type CleaningResult = {
+  success: boolean;
+  cleanedS3Key: string | null;
+  summary: {
+    total_rows_processed: number;
+    rows_removed: number;
+    values_trimmed: number;
+    extra_spaces_fixed: number;
+    email_corrections: number;
+    null_conversions: number;
+  };
+  changes: CleaningChange[];
+  total_changes: number;
   error?: string;
 };
 
@@ -225,20 +252,6 @@ function PreviewModal({
             <p className="mt-1 text-xs text-slate-500">Processed output generated from the uploaded migration files.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              onClick={() => {
-                const link = document.createElement("a");
-                link.href = "http://localhost:8000/api/download-preview";
-                link.setAttribute("download", "preview.xlsx");
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }}
-              className="bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700"
-            >
-              <Download size={15} />
-              Export Excel
-            </Button>
             <button
               onClick={onClose}
               aria-label="Close preview"
@@ -337,12 +350,14 @@ function TabBar({
   tabs,
   active,
   schemaResult,
+  cleaningResult,
   dataValidationResult,
   onChange,
 }: {
   tabs: readonly Tab[];
   active: Tab;
   schemaResult: SchemaResult | null;
+  cleaningResult: CleaningResult | null;
   dataValidationResult: DataValidationResult | null;
   onChange: (tab: Tab) => void;
 }) {
@@ -350,6 +365,12 @@ function TabBar({
     if (tab === "Schema Validation") {
       if (!schemaResult) return null;
       return schemaResult.schema_valid && schemaResult.missing_fields.length === 0 && schemaResult.additional_fields.length === 0
+        ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        : <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />;
+    }
+    if (tab === "Data Cleaning") {
+      if (!cleaningResult) return null;
+      return cleaningResult.success
         ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
         : <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />;
     }
@@ -399,6 +420,10 @@ export default function TransformationWorkspacePage() {
   const [schemaLoading, setSchemaLoading] = useState(false);
   const [schemaResult, setSchemaResult] = useState<SchemaResult | null>(null);
 
+  const [cleaningLoading, setCleaningLoading] = useState(false);
+  const [cleaningResult, setCleaningResult] = useState<CleaningResult | null>(null);
+  const [cleanedSourceKey, setCleanedSourceKey] = useState<string | null>(null);
+
   const [dataValidationLoading, setDataValidationLoading] = useState(false);
   const [dataValidationResult, setDataValidationResult] = useState<DataValidationResult | null>(null);
 
@@ -437,6 +462,9 @@ export default function TransformationWorkspacePage() {
     schemaResult.missing_fields.length === 0 &&
     schemaResult.additional_fields.length === 0;
 
+  const canTriggerCleaning = canContinueAfterSchema;
+  const canContinueAfterCleaning = cleaningResult !== null && cleaningResult.success === true;
+
   const canContinueAfterDataValidation =
     dataValidationResult?.success === true && dataValidationResult.total_issues === 0;
 
@@ -444,11 +472,24 @@ export default function TransformationWorkspacePage() {
     dataValidationResult?.success === true && dataValidationResult.total_issues > 0;
 
   // ---------------------------------------------------------------------------
+  // Error detail parser
+  // ---------------------------------------------------------------------------
+
+  function parseError(detail: any, fallback: string): string {
+    if (Array.isArray(detail)) {
+      return detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ");
+    }
+    return typeof detail === "string" ? detail : fallback;
+  }
+
+  // ---------------------------------------------------------------------------
   // API calls
   // ---------------------------------------------------------------------------
 
   const validateSchema = async () => {
     setSchemaResult(null);
+    setCleaningResult(null);
+    setCleanedSourceKey(null);
     setDataValidationResult(null);
     setTransformError(null);
     setSchemaLoading(true);
@@ -465,14 +506,7 @@ export default function TransformationWorkspacePage() {
       const resp = await fetch(url, { method: "POST" });
       if (!resp.ok) {
         const err = await resp.json();
-        const detail = err.detail;
-        throw new Error(
-          Array.isArray(detail)
-            ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
-            : typeof detail === "string"
-            ? detail
-            : "Schema validation failed"
-        );
+        throw new Error(parseError(err.detail, "Schema validation failed"));
       }
       const data = await resp.json();
       setSchemaResult(data);
@@ -497,43 +531,92 @@ export default function TransformationWorkspacePage() {
     }
 
     if (passed) {
-      await validateData(true);
+      setActiveTab("Data Cleaning");
     }
   };
 
-  const validateData = async (force = false) => {
-    if (force !== true && !canContinueAfterSchema) return;
-
+  const runDataCleaning = async () => {
+    setCleaningResult(null);
+    setCleanedSourceKey(null);
     setDataValidationResult(null);
     setTransformError(null);
-    setDataValidationLoading(true);
+    setCleaningLoading(true);
 
     const { sourceKey, logicKey } = getActiveKeys();
     if (!sourceKey || !logicKey) {
-      setDataValidationLoading(false);
+      setCleaningLoading(false);
       return;
     }
 
     try {
-      const url = `${NEXT_PUBLIC_API_URL}/api/validate-data?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const url = `${NEXT_PUBLIC_API_URL}/api/clean-data?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
       const resp = await fetch(url, {
         method: "POST",
         headers: { "x-project-id": currentProject?.id ?? "" },
       });
       if (!resp.ok) {
         const err = await resp.json();
-        const detail = err.detail;
-        throw new Error(
-          Array.isArray(detail)
-            ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
-            : typeof detail === "string"
-            ? detail
-            : "Data validation failed"
-        );
+        throw new Error(parseError(err.detail, "Data cleaning failed"));
+      }
+      const data = await resp.json();
+      setCleaningResult(data);
+      setCleanedSourceKey(data.cleanedS3Key || null);
+      await updateProjectStage("DATA_CLEANED", 45);
+      await logActivity(
+        "System",
+        currentUser?.name || "System",
+        `Data cleaning complete. ${data.total_changes} change${data.total_changes === 1 ? "" : "s"} applied.`,
+        "Success"
+      );
+    } catch (error) {
+      setCleaningResult({
+        success: false,
+        cleanedS3Key: null,
+        summary: {
+          total_rows_processed: 0,
+          rows_removed: 0,
+          values_trimmed: 0,
+          extra_spaces_fixed: 0,
+          email_corrections: 0,
+          null_conversions: 0,
+        },
+        changes: [],
+        total_changes: 0,
+        error: String(error),
+      });
+      await logActivity("System", currentUser?.name || "System", `Data cleaning failed: ${String(error)}`, "Failed");
+    } finally {
+      setCleaningLoading(false);
+    }
+  };
+
+  const validateData = async (force = false) => {
+    if (force !== true && !canContinueAfterCleaning) return;
+
+    setDataValidationResult(null);
+    setTransformError(null);
+    setDataValidationLoading(true);
+
+    const { sourceKey, logicKey } = getActiveKeys();
+    const effectiveSourceKey = cleanedSourceKey || sourceKey;
+    if (!effectiveSourceKey || !logicKey) {
+      setDataValidationLoading(false);
+      return;
+    }
+
+    try {
+      const url = `${NEXT_PUBLIC_API_URL}/api/validate-data?source_key=${encodeURIComponent(effectiveSourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "x-project-id": currentProject?.id ?? "" },
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(parseError(err.detail, "Data validation failed"));
       }
       const data = await resp.json();
       setDataValidationResult(data);
-      await updateProjectStage("DATA_VALIDATED", 55);
+      await updateProjectStage("DATA_VALIDATED", 65);
       await logActivity("System", currentUser?.name || "System", `Data validation complete. Issues: ${data.total_issues ?? 0}`, "Success");
     } catch (error) {
       setDataValidationResult({
@@ -551,17 +634,27 @@ export default function TransformationWorkspacePage() {
 
   const downloadDiscrepancyReport = () => {
     if (!schemaResult) return;
-
     const rows = [
       ["Type", "Field Name"],
-      ...schemaResult.missing_fields.map((field) => ["Missing from Source Data", field]),
-      ...schemaResult.additional_fields.map((field) => ["Missing from Mapping Logic", field]),
+      ...schemaResult.missing_fields.map((f) => ["Missing from Source Data", f]),
+      ...schemaResult.additional_fields.map((f) => ["Missing from Mapping Logic", f]),
     ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Schema_Discrepancies");
+    XLSX.writeFile(wb, "schema_discrepancy_report.xlsx");
+  };
 
-    const worksheet = XLSX.utils.aoa_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Schema_Discrepancies");
-    XLSX.writeFile(workbook, "schema_discrepancy_report.xlsx");
+  const downloadCleaningReport = () => {
+    if (!cleaningResult?.changes.length) return;
+    const rows = [
+      ["Row", "Column", "Original Value", "Cleaned Value", "Cleaning Rule"],
+      ...cleaningResult.changes.map((c) => [c.row, c.column, c.original_value, c.cleaned_value, c.rule]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Cleaning_Report");
+    XLSX.writeFile(wb, "data_cleaning_report.xlsx");
   };
 
   const downloadValidationReport = () => {
@@ -581,27 +674,21 @@ export default function TransformationWorkspacePage() {
     setTransformError(null);
 
     const { sourceKey, masterKey, logicKey } = getActiveKeys();
-    if (!sourceKey || !masterKey || !logicKey) {
+    const effectiveSourceKey = cleanedSourceKey || sourceKey;
+    if (!effectiveSourceKey || !masterKey || !logicKey) {
       setTransformLoading(false);
       return;
     }
 
     try {
-      const url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(sourceKey)}&master_key=${encodeURIComponent(masterKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(effectiveSourceKey)}&master_key=${encodeURIComponent(masterKey)}&logic_key=${encodeURIComponent(logicKey)}`;
       const response = await fetch(url, {
         method: "POST",
         headers: { "x-project-id": currentProject?.id ?? "" },
       });
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
-        const detail = errorBody?.detail;
-        throw new Error(
-          Array.isArray(detail)
-            ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
-            : typeof detail === "string"
-            ? detail
-            : "Data transformation failed"
-        );
+        throw new Error(parseError(errorBody?.detail, "Data transformation failed"));
       }
       const data = await response.json();
       if (data.transformedS3Key) {
@@ -752,7 +839,7 @@ export default function TransformationWorkspacePage() {
           )}
           <span>
             {canContinueAfterSchema
-              ? "Schema valid. Data validation has been queued automatically."
+              ? "Schema valid. Proceed to data cleaning."
               : "Run schema validation and resolve discrepancies before continuing."}
           </span>
         </div>
@@ -771,28 +858,241 @@ export default function TransformationWorkspacePage() {
 
   const renderDataCleaning = () => (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
-      <div className="flex items-start gap-3.5 border-b border-slate-200 px-5 py-5 lg:px-6">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
-          <Wrench size={20} />
-        </span>
-        <div>
-          <h3 className="text-[15px] font-bold text-slate-900">Data Cleaning</h3>
-          <p className="mt-1 text-xs leading-5 text-slate-500">Auto-correction and rule-based data cleaning before transformation.</p>
+      {/* Header */}
+      <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+        <div className="flex items-start gap-3.5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+            <Wrench size={20} />
+          </span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-[15px] font-bold text-slate-900">Data Cleaning</h3>
+              {!cleaningResult && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  {canTriggerCleaning ? "Ready" : "Pending"}
+                </span>
+              )}
+              {cleaningResult?.success && (
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-100">
+                  {cleaningResult.total_changes === 0 ? "No Changes" : "Completed"}
+                </span>
+              )}
+              {cleaningResult && !cleaningResult.success && (
+                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 ring-1 ring-rose-100">Failed</span>
+              )}
+            </div>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Auto-correct and standardize source data before validation.</p>
+          </div>
         </div>
+        <Button type="button" onClick={runDataCleaning} disabled={!canTriggerCleaning || cleaningLoading}>
+          {cleaningLoading ? <LoaderCircle size={15} className="animate-spin" /> : <Wrench size={15} />}
+          {cleaningLoading ? "Cleaning data…" : cleaningResult ? "Re-run Cleaning" : "Run Data Cleaning"}
+        </Button>
       </div>
 
-      <div className="flex flex-col items-center justify-center px-5 py-12 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-amber-100">
-          <Wrench size={26} />
-        </span>
-        <h4 className="mt-4 text-sm font-bold text-slate-800">Coming soon</h4>
-        <p className="mt-2 max-w-sm rounded-xl border border-slate-200 bg-slate-50/80 px-5 py-4 text-xs leading-6 text-slate-500">
-          Auto correction and cleaning rules will be displayed here.
-        </p>
-      </div>
+      {/* Body */}
+      {cleaningLoading ? (
+        <div className="px-5 py-8 lg:px-6">
+          <div className="mx-auto max-w-md text-center">
+            <LoaderCircle size={28} className="mx-auto animate-spin text-amber-600" />
+            <h4 className="mt-3 text-sm font-bold text-slate-800">Applying cleaning rules</h4>
+            <p className="mt-1 text-xs text-slate-500">Trimming spaces, fixing emails, removing blank rows, and normalising values.</p>
+            <div className="mt-4 h-1 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full w-3/4 animate-pulse rounded-full bg-amber-500" />
+            </div>
+          </div>
+        </div>
+      ) : cleaningResult ? (
+        <div className="p-5 lg:p-6">
+          {/* Banner */}
+          <div
+            className={cx(
+              "flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between",
+              cleaningResult.success
+                ? cleaningResult.total_changes > 0
+                  ? "border-amber-200 bg-amber-50/70"
+                  : "border-emerald-200 bg-emerald-50/70"
+                : "border-rose-200 bg-rose-50/70"
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className={cx(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm",
+                  cleaningResult.success
+                    ? cleaningResult.total_changes > 0 ? "text-amber-600" : "text-emerald-700"
+                    : "text-rose-700"
+                )}
+              >
+                {cleaningResult.success ? (
+                  cleaningResult.total_changes > 0 ? <Wrench size={20} /> : <CheckCircle2 size={20} />
+                ) : (
+                  <XCircle size={20} />
+                )}
+              </span>
+              <div>
+                <h4
+                  className={cx(
+                    "text-sm font-bold",
+                    cleaningResult.success
+                      ? cleaningResult.total_changes > 0 ? "text-amber-900" : "text-emerald-900"
+                      : "text-rose-900"
+                  )}
+                >
+                  {cleaningResult.success
+                    ? cleaningResult.total_changes > 0
+                      ? "Data Cleaning Completed Successfully"
+                      : "No Cleaning Required"
+                    : "Data Cleaning Failed"}
+                </h4>
+                <p
+                  className={cx(
+                    "mt-1 text-xs",
+                    cleaningResult.success
+                      ? cleaningResult.total_changes > 0 ? "text-amber-700" : "text-emerald-700"
+                      : "text-rose-700"
+                  )}
+                >
+                  {cleaningResult.success
+                    ? cleaningResult.total_changes > 0
+                      ? `${cleaningResult.total_changes} change${cleaningResult.total_changes === 1 ? "" : "s"} applied to the source dataset. The cleaned file will be used for all subsequent steps.`
+                      : "The source data is already clean. No modifications were necessary."
+                    : cleaningResult.error || "An error occurred during cleaning."}
+                </p>
+              </div>
+            </div>
+            {cleaningResult.success && cleaningResult.total_changes > 0 && (
+              <Button type="button" variant="secondary" onClick={downloadCleaningReport}>
+                <Download size={14} />
+                Download Report
+              </Button>
+            )}
+          </div>
 
-      <div className="flex items-center justify-end border-t border-slate-200 bg-slate-50/70 px-5 py-4 lg:px-6">
-        <Button type="button" variant="secondary" onClick={() => setActiveTab("Data Validation")}>
+          {/* Summary metrics */}
+          {cleaningResult.success && (
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+              <MetricTile
+                label="Rows processed"
+                value={cleaningResult.summary.total_rows_processed}
+                helper="Total rows in source"
+                icon={Table2}
+              />
+              <MetricTile
+                label="Rows removed"
+                value={cleaningResult.summary.rows_removed}
+                helper="Blank rows deleted"
+                icon={Trash2}
+                tone={cleaningResult.summary.rows_removed > 0 ? "rose" : "slate"}
+              />
+              <MetricTile
+                label="Values trimmed"
+                value={cleaningResult.summary.values_trimmed}
+                helper="Leading/trailing spaces"
+                icon={Scissors}
+                tone={cleaningResult.summary.values_trimmed > 0 ? "amber" : "slate"}
+              />
+              <MetricTile
+                label="Spaces fixed"
+                value={cleaningResult.summary.extra_spaces_fixed}
+                helper="Extra internal spaces"
+                icon={RefreshCw}
+                tone={cleaningResult.summary.extra_spaces_fixed > 0 ? "amber" : "slate"}
+              />
+              <MetricTile
+                label="Email fixes"
+                value={cleaningResult.summary.email_corrections}
+                helper="Email auto-corrections"
+                icon={AtSign}
+                tone={cleaningResult.summary.email_corrections > 0 ? "blue" : "slate"}
+              />
+              <MetricTile
+                label="Null conversions"
+                value={cleaningResult.summary.null_conversions}
+                helper="Empty → NULL"
+                icon={XCircle}
+                tone={cleaningResult.summary.null_conversions > 0 ? "amber" : "slate"}
+              />
+            </div>
+          )}
+
+          {/* Changes table */}
+          {cleaningResult.success && cleaningResult.changes.length > 0 && (
+            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                  Changes applied — {cleaningResult.changes.length} modification{cleaningResult.changes.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                  <thead className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Row</th>
+                      <th className="px-4 py-3">Column</th>
+                      <th className="px-4 py-3">Original Value</th>
+                      <th className="px-4 py-3">Cleaned Value</th>
+                      <th className="px-4 py-3">Rule Applied</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
+                    {cleaningResult.changes.map((change, index) => (
+                      <tr key={`${change.row}-${change.column}-${index}`} className="hover:bg-slate-50">
+                        <td className="whitespace-nowrap px-4 py-3 font-bold tabular-nums text-slate-900">{change.row}</td>
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">{change.column}</td>
+                        <td className="max-w-[220px] truncate px-4 py-3 font-mono text-[11px] text-rose-700">{change.original_value}</td>
+                        <td className="max-w-[220px] truncate px-4 py-3 font-mono text-[11px] text-emerald-700">{change.cleaned_value}</td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-100">
+                            {change.rule}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center px-5 py-9 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <Wrench size={22} />
+          </span>
+          <h4 className="mt-3 text-sm font-bold text-slate-800">
+            {canTriggerCleaning ? "Ready to clean source data" : "Complete schema validation first"}
+          </h4>
+          <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
+            {canTriggerCleaning
+              ? "Run data cleaning to trim spaces, fix emails, remove blank rows, and normalise empty values."
+              : "Schema validation must pass before data cleaning can run."}
+          </p>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          {canContinueAfterCleaning ? (
+            <CheckCircle2 size={15} className="text-emerald-600" />
+          ) : (
+            <AlertTriangle size={15} className="text-slate-400" />
+          )}
+          <span>
+            {canContinueAfterCleaning
+              ? cleanedSourceKey
+                ? "Cleaned data stored. Data Validation will use the cleaned file."
+                : "Cleaning complete. Data Validation will use the cleaned file."
+              : "Run data cleaning before proceeding to data validation."}
+          </span>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setActiveTab("Data Validation")}
+          disabled={!canContinueAfterCleaning}
+        >
           Next: Data Validation
           <ArrowRight size={14} />
         </Button>
@@ -812,7 +1112,7 @@ export default function TransformationWorkspacePage() {
               <h3 className="text-[15px] font-bold text-slate-900">Data validation</h3>
               {!dataValidationResult && (
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  {canContinueAfterSchema ? "Auto-queued" : "Pending"}
+                  {canContinueAfterCleaning ? "Ready" : "Pending"}
                 </span>
               )}
               {canContinueAfterDataValidation && (
@@ -822,10 +1122,12 @@ export default function TransformationWorkspacePage() {
                 <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 ring-1 ring-rose-100">Needs review</span>
               )}
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Validate source values against mapping logic data types and allowed values.</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Validate {cleanedSourceKey ? "cleaned " : ""}source values against mapping logic data types and allowed values.
+            </p>
           </div>
         </div>
-        <Button type="button" onClick={() => validateData()} disabled={!canContinueAfterSchema || dataValidationLoading}>
+        <Button type="button" onClick={() => validateData()} disabled={!canContinueAfterCleaning || dataValidationLoading}>
           {dataValidationLoading ? <LoaderCircle size={15} className="animate-spin" /> : <FileCheck2 size={15} />}
           {dataValidationLoading ? "Validating data" : "Validate Data"}
         </Button>
@@ -919,12 +1221,12 @@ export default function TransformationWorkspacePage() {
             <FileCheck2 size={22} />
           </span>
           <h4 className="mt-3 text-sm font-bold text-slate-800">
-            {canContinueAfterSchema ? "Waiting for results" : "Complete schema validation first"}
+            {canContinueAfterCleaning ? "Ready for data validation" : "Complete data cleaning first"}
           </h4>
           <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
-            {canContinueAfterSchema
-              ? "Data validation ran automatically after schema passed. Results will appear here."
-              : "Data validation becomes available only after schema validation has zero discrepancies."}
+            {canContinueAfterCleaning
+              ? "Click Validate Data to check source values against the mapping logic rules."
+              : "Data validation becomes available only after data cleaning has completed."}
           </p>
         </div>
       )}
@@ -970,7 +1272,10 @@ export default function TransformationWorkspacePage() {
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Pending validation</span>
             )}
           </div>
-          <p className="mt-1 text-xs leading-5 text-slate-500">Preview the processed output and export the Salesforce-ready workbook.</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Preview the processed output and export the Salesforce-ready workbook.
+            {cleanedSourceKey && " Transformation will use the cleaned source data."}
+          </p>
         </div>
       </div>
 
@@ -981,7 +1286,7 @@ export default function TransformationWorkspacePage() {
             <div>
               <p className="text-xs font-bold text-amber-900">Validation required</p>
               <p className="mt-1 text-[11px] leading-5 text-amber-700">
-                Complete schema validation and data validation with zero issues before transforming.
+                Complete schema validation, data cleaning, and data validation with zero issues before transforming.
               </p>
             </div>
           </div>
@@ -1108,12 +1413,19 @@ export default function TransformationWorkspacePage() {
                 </span>
                 <span className="text-xs font-bold text-slate-700">Ready to transform</span>
               </>
+            ) : canContinueAfterCleaning ? (
+              <>
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                  <Wrench size={17} />
+                </span>
+                <span className="text-xs font-bold text-slate-700">Data cleaned</span>
+              </>
             ) : canContinueAfterSchema ? (
               <>
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                  <FileCheck2 size={17} />
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                  <Wrench size={17} />
                 </span>
-                <span className="text-xs font-bold text-slate-700">Schema valid</span>
+                <span className="text-xs font-bold text-slate-700">Schema valid — run cleaning</span>
               </>
             ) : (
               <>
@@ -1131,6 +1443,7 @@ export default function TransformationWorkspacePage() {
           tabs={TABS}
           active={activeTab}
           schemaResult={schemaResult}
+          cleaningResult={cleaningResult}
           dataValidationResult={dataValidationResult}
           onChange={setActiveTab}
         />
