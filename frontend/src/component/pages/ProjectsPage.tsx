@@ -1,16 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-
-interface ProjectItem {
-  name: string;
-  status: "Completed" | "In Progress" | "Failed";
-  progress: number;
-  records: number;
-  createdOn: string;
-  lastUpdated: string;
-}
+import { useMigration, User, Project } from "@/context/MigrationContext";
+import { useRouter } from "next/navigation";
 
 // Highly reliable inline dynamic counting component
 function AnimatedCount({ target, duration = 1200, format = false }: { target: number; duration?: number; format?: boolean }) {
@@ -42,24 +34,55 @@ function AnimatedCount({ target, duration = 1200, format = false }: { target: nu
 }
 
 export default function ProjectsPage() {
-  const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
+  const {
+    currentUser,
+    setCurrentUser,
+    currentProject,
+    setCurrentProject,
+    userList,
+    projectList,
+    isLoadingUsers,
+    isLoadingProjects,
+    createProject,
+    selectProject
+  } = useMigration();
+
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  const projects: ProjectItem[] = [
-    { name: "Acme Corp Migration", status: "Completed", progress: 100, records: 12356, createdOn: "20 May 2024", lastUpdated: "25 May 2024" },
-    { name: "Globex Data Migration", status: "In Progress", progress: 60, records: 8732, createdOn: "18 May 2024", lastUpdated: "24 May 2024" },
-    { name: "Beta Solutions Migration", status: "Completed", progress: 100, records: 6231, createdOn: "18 May 2024", lastUpdated: "24 May 2024" },
-    { name: "Omega Inc Migration", status: "Failed", progress: 20, records: 2116, createdOn: "17 May 2024", lastUpdated: "24 May 2024" },
-    { name: "Zypher Migration", status: "In Progress", progress: 45, records: 9876, createdOn: "16 May 2024", lastUpdated: "24 May 2024" }
-  ];
-
-  const filteredProjects = projects.filter(p => 
+  const filteredProjects = projectList.filter((p) =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectName.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const project = await createProject(newProjectName);
+      if (project) {
+        setNewProjectName("");
+        setIsCreateModalOpen(false);
+        // Automatically open the workspace for the new project
+        await selectProject(project.id);
+        router.push("/upload");
+      }
+    } catch (err) {
+      console.error("Error creating project:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSelectProject = async (projectId: string) => {
+    await selectProject(projectId);
+    // Redirect user to the workspace files upload or dashboard
+    router.push("/upload");
+  };
 
   return (
     <div className="p-6 sm:p-8 lg:p-10 space-y-7 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white">
@@ -91,11 +114,13 @@ export default function ProjectsPage() {
       {/* Header bar styled exactly as in the mockup */}
       <div className="flex-none flex flex-col md:flex-row md:items-center md:justify-between gap-4 opacity-0 animate-scale-up" style={{ animationDelay: "50ms" }}>
         <div className="space-y-1.5">
-          <h2 className="text-[26px] font-black text-[#002BFF] tracking-tight">
-            Active Projects
-          </h2>
+          <div className="flex items-center gap-3.5">
+            <h2 className="text-[26px] font-black text-[#002BFF] tracking-tight">
+              Active Projects
+            </h2>
+          </div>
           <p className="text-[14.5px] font-extrabold text-slate-500">
-            Manage and track all your migration projects.
+            Manage migration projects for tester: <span className="text-slate-700 font-black">{currentUser?.name || ""}</span>
           </p>
         </div>
 
@@ -117,15 +142,13 @@ export default function ProjectsPage() {
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </div>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </div>
           </div>
 
           {/* New Migration button */}
-          <button className="w-full sm:w-auto px-6 h-13 rounded-2xl bg-[#002BFF] hover:bg-blue-700 text-white text-[15px] font-black flex items-center justify-center gap-2 transition-all select-none cursor-pointer shadow-lg shadow-blue-500/10 active:scale-[0.98]">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="w-full sm:w-auto px-6 h-13 rounded-2xl bg-[#002BFF] hover:bg-blue-700 text-white text-[15px] font-black flex items-center justify-center gap-2 transition-all select-none cursor-pointer shadow-lg shadow-blue-500/10 active:scale-[0.98]"
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
@@ -138,160 +161,179 @@ export default function ProjectsPage() {
 
       {/* Projects Table Card */}
       <div className="flex-1 bg-white border border-slate-200/90 rounded-3xl p-6 lg:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.01)] min-h-[350px] overflow-hidden flex flex-col opacity-0 animate-scale-up" style={{ animationDelay: "150ms" }}>
-        <div className="overflow-x-auto flex-1 min-h-0">
-          <table className="w-full text-left border-collapse min-w-[900px]">
-            <thead>
-              <tr className="border-b border-slate-100/95 text-[14px] font-black text-slate-400 uppercase tracking-tight">
-                <th className="pb-4.5 pl-3">Project Name</th>
-                <th className="pb-4.5">Status</th>
-                <th className="pb-4.5 w-60">Progress</th>
-                <th className="pb-4.5">Records</th>
-                <th className="pb-4.5">Created On</th>
-                <th className="pb-4.5">Last Updated</th>
-                <th className="pb-4.5 text-right pr-5">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 text-[15px] font-extrabold text-[#000839]">
-              {filteredProjects.length > 0 ? (
-                filteredProjects.map((project, idx) => (
-                  <tr 
-                    key={project.name} 
-                    className="hover:bg-slate-50/20 transition-all opacity-0 animate-row"
-                    style={{ animationDelay: `${200 + idx * 50}ms` }}
-                  >
-                    {/* Project Name */}
-                    <td className="py-5.5 pl-3 font-black text-[#000839] text-[16px]">{project.name}</td>
-                    
-                    {/* Status with exact mockup color matching */}
-                    <td className="py-5.5">
-                      <span className={`text-[15px] font-black ${
-                        project.status === "Completed" ? "text-[#137333]" :
-                        project.status === "In Progress" ? "text-[#d97706]" :
-                        "text-[#e11d48]"
-                      }`}>
-                        {project.status}
-                      </span>
-                    </td>
+        {isLoadingProjects ? (
+          <div className="flex-1 flex justify-center items-center">
+            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto flex-1 min-h-0">
+            <table className="w-full text-left border-collapse min-w-[900px]">
+              <thead>
+                <tr className="border-b border-slate-100/95 text-[14px] font-black text-slate-400 uppercase tracking-tight">
+                  <th className="pb-4.5 pl-3">Project Name</th>
+                  <th className="pb-4.5">Status</th>
+                  <th className="pb-4.5 w-60">Progress</th>
+                  <th className="pb-4.5">Active Stage</th>
+                  <th className="pb-4.5">Records</th>
+                  <th className="pb-4.5">Created On</th>
+                  <th className="pb-4.5 text-right pr-5">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50 text-[15px] font-extrabold text-[#000839]">
+                {filteredProjects.length > 0 ? (
+                  filteredProjects.map((project, idx) => {
+                    const isCurrent = currentProject?.id === project.id;
+                    const formattedDate = new Date(project.createdAt).toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric"
+                    });
 
-                    {/* Progress Bar & Percentage */}
-                    <td className="py-5.5">
-                      <div className="flex items-center gap-3.5">
-                        <div className="w-32 h-2.5 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-700 animate-progress ${
-                              project.status === "Completed" ? "bg-[#137333]" :
-                              project.status === "In Progress" ? "bg-[#d97706]" :
-                              "bg-[#e11d48]"
-                            }`}
-                            style={{ width: `${project.progress}%` }}
-                          />
-                        </div>
-                        <span className="text-[14.5px] font-black text-[#000839] w-12">
-                          <AnimatedCount target={project.progress} />%
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Records with dynamic animated count */}
-                    <td className="py-5.5 text-[15.5px] text-[#000839]/90 font-black">
-                      <AnimatedCount target={project.records} format={true} />
-                    </td>
-
-                    {/* Created On */}
-                    <td className="py-5.5 text-slate-400 font-bold">{project.createdOn}</td>
-
-                    {/* Last Updated */}
-                    <td className="py-5.5 text-slate-400 font-bold">{project.lastUpdated}</td>
-
-                    {/* Action Icons exactly matching view, edit, run action styles */}
-                    <td className="py-5.5 text-right pr-5">
-                      <div className="flex items-center justify-end gap-4 text-[#002BFF]">
-                        {/* Eye / View Icon */}
-                        <button className="hover:text-blue-700 transition-colors p-1.5 rounded-lg select-none cursor-pointer">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                        </button>
+                    return (
+                      <tr 
+                        key={project.id} 
+                        className={`hover:bg-slate-50/20 transition-all opacity-0 animate-row ${isCurrent ? "bg-blue-50/30 hover:bg-blue-50/40" : ""}`}
+                        style={{ animationDelay: `${200 + idx * 50}ms` }}
+                      >
+                        {/* Project Name */}
+                        <td className="py-5.5 pl-3 font-black text-[#000839] text-[16px]">
+                          <div className="flex items-center gap-2">
+                            <span>{project.name}</span>
+                            {isCurrent && (
+                              <span className="px-2 py-0.5 bg-blue-500 text-white text-[10.5px] font-black uppercase rounded-full">
+                                Active Workspace
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         
-                        {/* Pencil / Edit Icon */}
-                        <button className="hover:text-blue-700 transition-colors p-1.5 rounded-lg select-none cursor-pointer">
-                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
-                        </button>
+                        {/* Status */}
+                        <td className="py-5.5">
+                          <span className={`text-[15px] font-black ${
+                            project.status === "Completed" ? "text-[#137333]" :
+                            project.status === "In Progress" ? "text-[#d97706]" :
+                            "text-[#e11d48]"
+                          }`}>
+                            {project.status}
+                          </span>
+                        </td>
 
-                        {/* Execute / Run / Option Icon */}
-                        <button className="hover:text-blue-700 transition-colors p-1.5 rounded-lg select-none cursor-pointer">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <line x1="6" y1="3" x2="6" y2="15" />
-                            <circle cx="18" cy="6" r="3" />
-                            <circle cx="6" cy="18" r="3" />
-                            <path d="M18 9a9 9 0 0 1-9 9" />
-                          </svg>
-                        </button>
-                      </div>
+                        {/* Progress Bar & Percentage */}
+                        <td className="py-5.5">
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-32 h-2.5 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
+                              <div 
+                                className={`h-full rounded-full transition-all duration-700 animate-progress ${
+                                  project.status === "Completed" ? "bg-[#137333]" :
+                                  project.status === "In Progress" ? "bg-[#d97706]" :
+                                  "bg-[#e11d48]"
+                                }`}
+                                style={{ width: `${project.progress}%` }}
+                              />
+                            </div>
+                            <span className="text-[14.5px] font-black text-[#000839] w-12">
+                              <AnimatedCount target={project.progress} />%
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Active Stage */}
+                        <td className="py-5.5 uppercase text-[13px] font-black text-slate-500">
+                          {project.stage || "Upload"}
+                        </td>
+
+                        {/* Records with dynamic animated count */}
+                        <td className="py-5.5 text-[15.5px] text-[#000839]/90 font-black">
+                          <AnimatedCount target={project.recordsCount} format={true} />
+                        </td>
+
+                        {/* Created On */}
+                        <td className="py-5.5 text-slate-400 font-bold">{formattedDate}</td>
+
+                        {/* Action Buttons */}
+                        <td className="py-5.5 text-right pr-5">
+                          <button
+                            onClick={() => handleSelectProject(project.id)}
+                            className="px-4 py-2 rounded-xl bg-blue-50 hover:bg-[#002BFF] text-[#002BFF] hover:text-white text-[13px] font-black tracking-wide transition-all shadow-sm active:scale-95 cursor-pointer"
+                          >
+                            {isCurrent ? "Continue" : "Open Workspace"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400 font-black">
+                      No migration projects found.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 font-black">
-                    No migration projects found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        {/* Footer section with status text and beautiful pagination exactly like mockup */}
+        {/* Footer section */}
         <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-slate-100/90 mt-4 gap-4 flex-none">
           <span className="text-[14.5px] font-black text-slate-400">
-            Showing 1 to 5 of 24 projects
+            Showing {filteredProjects.length} of {projectList.length} projects
           </span>
+        </div>
+      </div>
 
-          {/* Pagination controls */}
-          <div className="flex items-center gap-1.5 text-[14.5px] font-black">
-            {/* Left arrow */}
-            <button className="w-9 h-9 border border-slate-100 rounded-xl text-slate-400 hover:bg-slate-50 flex items-center justify-center cursor-pointer select-none">
-              &lt;
-            </button>
-            
-            {/* Pages */}
-            <button className="w-9 h-9 bg-[#002BFF] text-white rounded-xl flex items-center justify-center cursor-pointer select-none">
-              1
-            </button>
-            <button className="w-9 h-9 border border-slate-100 text-[#000839] hover:bg-slate-50 rounded-xl flex items-center justify-center cursor-pointer select-none">
-              2
-            </button>
-            <button className="w-9 h-9 border border-slate-100 text-[#000839] hover:bg-slate-50 rounded-xl flex items-center justify-center cursor-pointer select-none">
-              3
-            </button>
-            <button className="w-9 h-9 border border-slate-100 text-[#000839] hover:bg-slate-50 rounded-xl flex items-center justify-center cursor-pointer select-none">
-              4
-            </button>
-            <button className="w-9 h-9 border border-slate-100 text-[#000839] hover:bg-slate-50 rounded-xl flex items-center justify-center cursor-pointer select-none">
-              5
-            </button>
+      {/* New Project Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-scale-up">
+          <div className="w-full max-w-md bg-white rounded-3xl border border-slate-100 shadow-2xl p-7 space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-black text-[#000839]">Create New Migration</h3>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
 
-            {/* Ellipsis */}
-            <span className="px-1.5 text-slate-400">...</span>
+            <form onSubmit={handleCreateProject} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[13px] font-black text-slate-400 uppercase tracking-tight">
+                  Project Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="e.g., Enterprise Migration Phase 1"
+                  className="w-full px-4 h-12 rounded-xl border border-slate-200 text-[#000839] text-[14.5px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+                />
+              </div>
 
-            {/* Right arrow */}
-            <button className="w-9 h-9 border border-slate-100 text-slate-400 hover:bg-slate-50 rounded-xl flex items-center justify-center cursor-pointer select-none">
-              &gt;
-            </button>
-            
-            {/* Double Right arrow */}
-            <button className="w-9 h-9 border border-slate-100 text-slate-400 hover:bg-slate-50 rounded-xl flex items-center justify-center cursor-pointer select-none">
-              &gt;&gt;
-            </button>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-5 h-11 rounded-xl hover:bg-slate-100 text-slate-500 text-[14px] font-black transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 h-11 rounded-xl bg-[#002BFF] hover:bg-blue-700 text-white text-[14px] font-black shadow-md shadow-blue-500/10 active:scale-98 transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? "Creating..." : "Create Project"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-
-      </div>
+      )}
 
     </div>
   );

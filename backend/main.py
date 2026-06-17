@@ -1,315 +1,405 @@
 import os
 import shutil
-from fastapi import FastAPI, UploadFile, File, HTTPException
+import tempfile
+import uuid
+import io
+from datetime import datetime
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Header, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from data_validation import run_data_validation, write_validation_report
 from processor import process_preview
+from comparison import compare_excel_files
 from transformer import transform_source_data
+import boto3
+from dotenv import load_dotenv
+
+# Load backend environment configurations
+load_dotenv()
 
 app = FastAPI(
     title="Data Migration Tool API",
-    description="Python API for calculations and Excel processing for the Data Migration Tool",
-    version="1.0.0"
+    description="S3-powered scalable API for calculations and Excel processing",
+    version="1.1.0"
 )
 
-# Enable CORS for Next.js frontend calls (allow localhost:3000 and standard development ports)
+# Enable CORS for Next.js frontend calls
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all origins for seamless developer pairing
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Ensure folders exist
-UPLOAD_DIR = "uploads"
-PROCESSED_DIR = os.path.join(UPLOAD_DIR, "processed")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(PROCESSED_DIR, exist_ok=True)
+# Initialize AWS S3 client
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")
+AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME", "s3-bucket-analytx4t")
 
-# Helper filenames
-FILE_PATHS = {
-    "source": os.path.join(UPLOAD_DIR, "source_data.xlsx"),
-    "master": os.path.join(UPLOAD_DIR, "salesforce_master.xlsx"),
-    "logic": os.path.join(UPLOAD_DIR, "mapping_logic.xlsx"),
-    "preview": os.path.join(PROCESSED_DIR, "preview.xlsx")
-}
-DATA_VALIDATION_REPORT_PATH = os.path.join(PROCESSED_DIR, "data_validation_report.xlsx")
-TRANSFORMED_DATA_PATH = os.path.join(PROCESSED_DIR, "transformed_data.xlsx")
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=AWS_REGION
+)
+
+# Helper function to download file from S3 to a local temp file
+def temp_download(s3_key: str) -> str:
+    suffix = os.path.splitext(s3_key)[1] or ".xlsx"
+    temp_fd, temp_path = tempfile.mkstemp(suffix=suffix)
+    os.close(temp_fd)
+    try:
+        s3_client.download_file(AWS_BUCKET_NAME, s3_key, temp_path)
+        return temp_path
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise HTTPException(status_code=500, detail=f"Failed to download {s3_key} from S3: {str(e)}")
+
+# Helper to upload local file to S3
+def upload_to_s3(local_path: str, s3_key: str):
+    try:
+        s3_client.upload_file(local_path, AWS_BUCKET_NAME, s3_key)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload output to S3: {str(e)}")
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Data Migration Tool Backend API!"}
+    return {"message": "Welcome to the S3-Scalable Salesforce Migration Backend API!"}
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy", "service": "data-migration-api"}
-
-
-# /api/autofill-mock-files removed
-
-
-
-@app.get("/api/check-files")
-def check_files():
-    """
-    Checks which files are already uploaded to the server.
-    """
-    return {
-        "source": os.path.exists(FILE_PATHS["source"]),
-        "master": os.path.exists(FILE_PATHS["master"]),
-        "logic": os.path.exists(FILE_PATHS["logic"]),
-        "preview": os.path.exists(FILE_PATHS["preview"])
-    }
-
-@app.post("/api/clear-all-files")
-def clear_all_files():
-    """
-    Deletes all uploaded files and the processed preview from the server.
-    """
-    deleted = []
-    for slot, path in FILE_PATHS.items():
-        if os.path.exists(path):
-            try:
-                os.remove(path)
-                deleted.append(slot)
-            except Exception as e:
-                print(f"Failed to delete {path}: {e}")
-    if os.path.exists(DATA_VALIDATION_REPORT_PATH):
-        try:
-            os.remove(DATA_VALIDATION_REPORT_PATH)
-            deleted.append("data_validation_report")
-        except Exception as e:
-            print(f"Failed to delete {DATA_VALIDATION_REPORT_PATH}: {e}")
-    if os.path.exists(TRANSFORMED_DATA_PATH):
-        try:
-            os.remove(TRANSFORMED_DATA_PATH)
-            deleted.append("transformed_data")
-        except Exception as e:
-            print(f"Failed to delete {TRANSFORMED_DATA_PATH}: {e}")
-    return {"success": True, "deleted": deleted}
-
-@app.delete("/api/clear-file/{slot}")
-def clear_file_endpoint(slot: str):
-    """
-    Deletes a specific uploaded file on the server.
-    """
-    if slot in FILE_PATHS:
-        path = FILE_PATHS[slot]
-        deleted = []
-        if os.path.exists(path):
-            try:
-                os.remove(path)
-                deleted.append(slot)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Failed to delete {slot} file: {str(e)}")
-        
-        # Also clean up preview if any core file is deleted
-        if os.path.exists(FILE_PATHS["preview"]):
-            try:
-                os.remove(FILE_PATHS["preview"])
-                deleted.append("preview")
-            except Exception as e:
-                print(f"Failed to delete preview file: {e}")
-        if os.path.exists(DATA_VALIDATION_REPORT_PATH):
-            try:
-                os.remove(DATA_VALIDATION_REPORT_PATH)
-                deleted.append("data_validation_report")
-            except Exception as e:
-                print(f"Failed to delete data validation report: {e}")
-        if os.path.exists(TRANSFORMED_DATA_PATH):
-            try:
-                os.remove(TRANSFORMED_DATA_PATH)
-                deleted.append("transformed_data")
-            except Exception as e:
-                print(f"Failed to delete transformed data file: {e}")
-                
-        return {"success": True, "deleted": deleted}
-    
-    raise HTTPException(status_code=400, detail="Invalid slot name.")
+    return {"status": "healthy", "service": "data-migration-s3-api"}
 
 @app.post("/api/upload-migration-files")
 async def upload_migration_files(
+    x_project_id: str = Header(None),
     source: UploadFile = File(None),
     master: UploadFile = File(None),
     logic: UploadFile = File(None)
 ):
     """
-    Accepts individual or multiple file uploads, routing them into appropriate slots.
+    Uploads files to S3 inside a folder dedicated to the project ID.
+    Returns the uploaded file details for database recording.
     """
+    project_id = x_project_id or str(uuid.uuid4())
     saved_files = []
     
+    files_to_upload = {
+        "source": source,
+        "master": master,
+        "logic": logic
+    }
+    
     try:
-        if source:
-            with open(FILE_PATHS["source"], "wb") as buffer:
-                shutil.copyfileobj(source.file, buffer)
-            saved_files.append("source")
-            
-        if master:
-            with open(FILE_PATHS["master"], "wb") as buffer:
-                shutil.copyfileobj(master.file, buffer)
-            saved_files.append("master")
-            
-        if logic:
-            with open(FILE_PATHS["logic"], "wb") as buffer:
-                shutil.copyfileobj(logic.file, buffer)
-            saved_files.append("logic")
-            
+        for slot, file_obj in files_to_upload.items():
+            if file_obj:
+                filename = file_obj.filename
+                # Read bytes to calculate size
+                file_bytes = await file_obj.read()
+                size_mb = f"{(len(file_bytes) / (1024 * 1024)):.2f} MB"
+                
+                # S3 Key structure: projects/{project_id}/uploads/{slot}/{timestamp}_{filename}
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                s3_key = f"projects/{project_id}/uploads/{slot}/{timestamp}_{filename}"
+                
+                # Upload to S3
+                s3_client.put_object(
+                    Bucket=AWS_BUCKET_NAME,
+                    Key=s3_key,
+                    Body=file_bytes
+                )
+                
+                saved_files.append({
+                    "slot": slot,
+                    "fileName": filename,
+                    "fileSize": size_mb,
+                    "s3Key": s3_key
+                })
+        
         return {
             "success": True,
-            "message": f"Successfully uploaded and saved: {', '.join(saved_files)}",
+            "message": "Successfully uploaded files to S3",
             "files": saved_files
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"S3 File upload failed: {str(e)}")
 
-@app.post("/api/generate-preview")
-def generate_preview():
+@app.post("/api/upload-comparison-files")
+async def upload_comparison_files(
+    x_project_id: str = Header(None),
+    base_file: UploadFile = File(None),
+    new_file: UploadFile = File(None)
+):
     """
-    Triggers the pandas processing logic to clean source data, perform Salesforce lookups,
-    and generate the preview Excel sheet.
+    Uploads comparison files to S3.
     """
-    # Check if all files exist
-    missing = [slot for slot, path in FILE_PATHS.items() if slot != "preview" and not os.path.exists(path)]
-    if missing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot generate preview. Missing uploaded files on server: {', '.join(missing)}"
-        )
-        
-    res = process_preview(
-        source_path=FILE_PATHS["source"],
-        master_path=FILE_PATHS["master"],
-        logic_path=FILE_PATHS["logic"],
-        output_path=FILE_PATHS["preview"]
-    )
+    project_id = x_project_id or str(uuid.uuid4())
+    saved_files = []
     
-    if not res["success"]:
-        raise HTTPException(status_code=500, detail=f"Data processing failed: {res.get('error')}")
-        
-    return res
+    files_to_upload = {
+        "base_file": base_file,
+        "new_file": new_file
+    }
+    
+    try:
+        for slot, file_obj in files_to_upload.items():
+            if file_obj:
+                filename = file_obj.filename
+                file_bytes = await file_obj.read()
+                size_mb = f"{(len(file_bytes) / (1024 * 1024)):.2f} MB"
+                
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                s3_key = f"projects/{project_id}/comparison/{slot}/{timestamp}_{filename}"
+                
+                s3_client.put_object(
+                    Bucket=AWS_BUCKET_NAME,
+                    Key=s3_key,
+                    Body=file_bytes
+                )
+                
+                saved_files.append({
+                    "slot": slot,
+                    "fileName": filename,
+                    "fileSize": size_mb,
+                    "s3Key": s3_key
+                })
+                
+        return {
+            "success": True,
+            "message": "Successfully uploaded comparison files to S3",
+            "files": saved_files
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"S3 Comparison upload failed: {str(e)}")
 
+@app.post("/api/compare-files")
+def compare_files(
+    base_key: str = Query(...),
+    new_key: str = Query(...),
+    key_column: str = None
+):
+    """
+    Compares two files stored in S3.
+    """
+    temp_base = None
+    temp_new = None
+    try:
+        temp_base = temp_download(base_key)
+        temp_new = temp_download(new_key)
+        
+        report = compare_excel_files(
+            temp_base,
+            temp_new,
+            key_column=key_column
+        )
+        return report
+    finally:
+        # Cleanup
+        if temp_base and os.path.exists(temp_base):
+            os.remove(temp_base)
+        if temp_new and os.path.exists(temp_new):
+            os.remove(temp_new)
 
 @app.post("/api/validate-schema")
-def validate_schema():
+def validate_schema(
+    source_key: str = Query(...),
+    logic_key: str = Query(...)
+):
     """
-    Validates schema between uploaded source and mapping logic files.
-    Uses processor.validate_schema and returns the result payload.
+    Validates schema using source and mapping logic files stored in S3.
     """
-    # Ensure source and logic files exist
-    missing = []
-    for slot in ["source", "logic"]:
-        if not os.path.exists(FILE_PATHS[slot]):
-            missing.append(slot)
-    if missing:
-        raise HTTPException(status_code=400, detail=f"Cannot validate schema. Missing uploaded files: {', '.join(missing)}")
-
-    res = validate_schema_result = None
+    temp_source = None
+    temp_logic = None
     try:
-        res = process_preview  # unused placeholder to ensure import
-    except Exception:
-        pass
-
-    # Call the new validate function in processor
-    from processor import validate_schema as _validate
-    out = _validate(FILE_PATHS["source"], FILE_PATHS["logic"])
-    if not out.get("success"):
-        raise HTTPException(status_code=500, detail=out.get("error", "Validation failed"))
-
-    return out["result"]
+        temp_source = temp_download(source_key)
+        temp_logic = temp_download(logic_key)
+        
+        from processor import validate_schema as _validate
+        out = _validate(temp_source, temp_logic)
+        if not out.get("success"):
+            raise HTTPException(status_code=500, detail=out.get("error", "Validation failed"))
+            
+        return out["result"]
+    finally:
+        if temp_source and os.path.exists(temp_source):
+            os.remove(temp_source)
+        if temp_logic and os.path.exists(temp_logic):
+            os.remove(temp_logic)
 
 @app.post("/api/validate-data")
-def validate_data():
+def validate_data(
+    source_key: str = Query(...),
+    logic_key: str = Query(...),
+    x_project_id: str = Header(None)
+):
     """
-    Validates source data values using uploaded mapping logic data type rules.
-    Generates data_validation_report.xlsx when issues are found.
+    Validates data and uploads the report to S3 if issues are found.
     """
-    missing = []
-    for slot in ["source", "logic"]:
-        if not os.path.exists(FILE_PATHS[slot]):
-            missing.append(slot)
-    if missing:
-        raise HTTPException(status_code=400, detail=f"Cannot validate data. Missing uploaded files: {', '.join(missing)}")
-
-    if os.path.exists(DATA_VALIDATION_REPORT_PATH):
-        try:
-            os.remove(DATA_VALIDATION_REPORT_PATH)
-        except Exception as e:
-            print(f"Failed to delete previous data validation report: {e}")
-
-    master_path = FILE_PATHS["master"] if os.path.exists(FILE_PATHS["master"]) else None
-    out = run_data_validation(FILE_PATHS["source"], FILE_PATHS["logic"], master_path=master_path)
-    if not out.get("success"):
-        raise HTTPException(status_code=500, detail=out.get("error", "Data validation failed"))
-
-    if out.get("total_issues", 0) > 0:
-        write_validation_report(out["issues"], DATA_VALIDATION_REPORT_PATH)
-
-    return out
 
 
-@app.post("/api/transform-data")
-def transform_data():
-    """
-    Transforms source values using uploaded mapping logic rules and returns
-    an Excel file with original and transformed columns side by side.
-    """
-    missing = []
-    for slot in ["source", "logic", "master"]:
-        if not os.path.exists(FILE_PATHS[slot]):
-            missing.append(slot)
-    if missing:
-        raise HTTPException(status_code=400, detail=f"Cannot transform data. Missing uploaded files: {', '.join(missing)}")
+    project_id = x_project_id or str(uuid.uuid4())
+    temp_source = None
+    temp_logic = None
+    temp_report_path = None
 
     try:
-        transform_source_data(
-            source_path=FILE_PATHS["source"],
-            logic_path=FILE_PATHS["logic"],
-            master_path=FILE_PATHS["master"],
-            output_path=TRANSFORMED_DATA_PATH,
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Data transformation failed: {str(exc)}")
+        temp_source = temp_download(source_key)
+        temp_logic = temp_download(logic_key)
+        
+        out = run_data_validation(temp_source, temp_logic)
+        if not out.get("success"):
+            raise HTTPException(status_code=500, detail=out.get("error", "Data validation failed"))
+            
+        s3_report_key = None
+        if out.get("total_issues", 0) > 0:
+            # Create a local temp validation report file
+            temp_fd, temp_report_path = tempfile.mkstemp(suffix=".xlsx")
+            os.close(temp_fd)
+            
+            write_validation_report(out["issues"], temp_report_path)
+            
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            s3_report_key = f"projects/{project_id}/outputs/validation_report/{timestamp}_data_validation_report.xlsx"
+            
+            # Upload the report to S3
+            upload_to_s3(temp_report_path, s3_report_key)
+            
+        return {
+            "success": True,
+            "total_issues": out.get("total_issues", 0),
+            "summary": out.get("summary", {}),
+            "issues": out.get("issues", []),
+            "reportS3Key": s3_report_key
+        }
+    finally:
+        if temp_source and os.path.exists(temp_source):
+            os.remove(temp_source)
+        if temp_logic and os.path.exists(temp_logic):
+            os.remove(temp_logic)
+        if temp_report_path and os.path.exists(temp_report_path):
+            os.remove(temp_report_path)
 
-    return FileResponse(
-        path=TRANSFORMED_DATA_PATH,
-        filename="transformed_data.xlsx",
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-
-@app.get("/api/download-data-validation-report")
-def download_data_validation_report():
+@app.post("/api/generate-preview")
+def generate_preview(
+    source_key: str = Query(...),
+    master_key: str = Query(...),
+    logic_key: str = Query(...),
+    x_project_id: str = Header(None)
+):
     """
-    Downloads the generated data validation report.
+    Generates mapping preview and uploads generated Excel sheet to S3.
     """
-    if not os.path.exists(DATA_VALIDATION_REPORT_PATH):
-        raise HTTPException(
-            status_code=404,
-            detail="Data validation report not found. Please run data validation first."
-        )
-
-    return FileResponse(
-        path=DATA_VALIDATION_REPORT_PATH,
-        filename="data_validation_report.xlsx",
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-@app.get("/api/download-preview")
-def download_preview():
-    """
-    Downloads the processed preview.xlsx sheet.
-    """
-    path = FILE_PATHS["preview"]
-    if not os.path.exists(path):
-        raise HTTPException(
-            status_code=404, 
-            detail="Processed preview file not found. Please upload files and generate a preview first."
+    project_id = x_project_id or str(uuid.uuid4())
+    temp_source = None
+    temp_master = None
+    temp_logic = None
+    temp_output_path = None
+    try:
+        temp_source = temp_download(source_key)
+        temp_master = temp_download(master_key)
+        temp_logic = temp_download(logic_key)
+        
+        temp_fd, temp_output_path = tempfile.mkstemp(suffix=".xlsx")
+        os.close(temp_fd)
+        
+        res = process_preview(
+            source_path=temp_source,
+            master_path=temp_master,
+            logic_path=temp_logic,
+            output_path=temp_output_path
         )
         
-    return FileResponse(
-        path=path,
-        filename="preview.xlsx",
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        if not res["success"]:
+            raise HTTPException(status_code=500, detail=f"Data processing failed: {res.get('error')}")
+            
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        s3_preview_key = f"projects/{project_id}/outputs/preview/{timestamp}_preview.xlsx"
+        
+        upload_to_s3(temp_output_path, s3_preview_key)
+        
+        res["previewS3Key"] = s3_preview_key
+        return res
+    finally:
+        if temp_source and os.path.exists(temp_source):
+            os.remove(temp_source)
+        if temp_master and os.path.exists(temp_master):
+            os.remove(temp_master)
+        if temp_logic and os.path.exists(temp_logic):
+            os.remove(temp_logic)
+        if temp_output_path and os.path.exists(temp_output_path):
+            os.remove(temp_output_path)
+
+@app.post("/api/transform-data")
+def transform_data(
+    source_key: str = Query(...),
+    logic_key: str = Query(...),
+    master_key: str = Query(...),
+    x_project_id: str = Header(None)
+):
+    """
+    Transforms data and uploads output to S3.
+    """
+    project_id = x_project_id or str(uuid.uuid4())
+    temp_source = None
+    temp_master = None
+    temp_logic = None
+    temp_output_path = None
+    try:
+        temp_source = temp_download(source_key)
+        temp_master = temp_download(master_key)
+        temp_logic = temp_download(logic_key)
+        
+        temp_fd, temp_output_path = tempfile.mkstemp(suffix=".xlsx")
+        os.close(temp_fd)
+        
+        transform_source_data(
+            source_path=temp_source,
+            logic_path=temp_logic,
+            master_path=temp_master,
+            output_path=temp_output_path
+        )
+        
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        s3_transform_key = f"projects/{project_id}/outputs/transformed_data/{timestamp}_transformed_data.xlsx"
+        
+        upload_to_s3(temp_output_path, s3_transform_key)
+        
+        return {
+            "success": True,
+            "transformedS3Key": s3_transform_key,
+            "fileName": "transformed_data.xlsx"
+        }
+    finally:
+        if temp_source and os.path.exists(temp_source):
+            os.remove(temp_source)
+        if temp_master and os.path.exists(temp_master):
+            os.remove(temp_master)
+        if temp_logic and os.path.exists(temp_logic):
+            os.remove(temp_logic)
+        if temp_output_path and os.path.exists(temp_output_path):
+            os.remove(temp_output_path)
+
+@app.get("/api/download-file")
+def download_file(s3_key: str = Query(...)):
+    """
+    Downloads file from S3 and streams it to client.
+    """
+    try:
+        response = s3_client.get_object(Bucket=AWS_BUCKET_NAME, Key=s3_key)
+        file_content = response['Body'].read()
+        
+        # Clean filename to strip folders & timestamp prefix
+        filename = os.path.basename(s3_key)
+        if "_" in filename:
+            filename = filename.split("_", 1)[-1]
+            
+        return StreamingResponse(
+            io.BytesIO(file_content),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stream download: {str(e)}")

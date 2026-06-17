@@ -27,6 +27,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useMigration } from "@/context/MigrationContext";
+import { NEXT_PUBLIC_API_URL } from "@/lib/config";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,6 +56,7 @@ type DataValidationResult = {
   total_records: number;
   total_issues: number;
   issues: DataValidationIssue[];
+  reportS3Key?: string | null;
   error?: string;
 };
 
@@ -403,11 +405,32 @@ export default function TransformationWorkspacePage() {
   const [transformLoading, setTransformLoading] = useState(false);
   const [transformError, setTransformError] = useState<string | null>(null);
 
-  const { isContinueEnabled, previewData, generatePreview, isPreviewLoading, previewError } = useMigration();
+  const {
+    currentUser,
+    currentProject,
+    isContinueEnabled,
+    previewData,
+    generatePreview,
+    isPreviewLoading,
+    previewError,
+    updateProjectStage,
+    logActivity,
+  } = useMigration();
+
+  const getActiveKeys = () => {
+    const files = currentProject?.files || [];
+    const sourceKey = files.find((f: any) => f.slot === "source" && f.isActive)?.s3Key;
+    const masterKey = files.find((f: any) => f.slot === "master" && f.isActive)?.s3Key;
+    const logicKey = files.find((f: any) => f.slot === "logic" && f.isActive)?.s3Key;
+    return { sourceKey, masterKey, logicKey };
+  };
 
   // ---------------------------------------------------------------------------
   // Derived state
   // ---------------------------------------------------------------------------
+
+  const { sourceKey: _sk, logicKey: _lk } = getActiveKeys();
+  const canTriggerValidation = isContinueEnabled && !!_sk && !!_lk;
 
   const canContinueAfterSchema =
     schemaResult?.schema_valid === true &&
@@ -431,17 +454,33 @@ export default function TransformationWorkspacePage() {
     setSchemaLoading(true);
     let passed = false;
 
+    const { sourceKey, logicKey } = getActiveKeys();
+    if (!sourceKey || !logicKey) {
+      setSchemaLoading(false);
+      return;
+    }
+
     try {
-      const resp = await fetch("http://localhost:8000/api/validate-schema", { method: "POST" });
+      const url = `${NEXT_PUBLIC_API_URL}/api/validate-schema?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const resp = await fetch(url, { method: "POST" });
       if (!resp.ok) {
         const err = await resp.json();
-        throw new Error(err.detail || "Schema validation failed");
+        const detail = err.detail;
+        throw new Error(
+          Array.isArray(detail)
+            ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
+            : typeof detail === "string"
+            ? detail
+            : "Schema validation failed"
+        );
       }
       const data = await resp.json();
       setSchemaResult(data);
       if (data.schema_valid === true && data.missing_fields?.length === 0 && data.additional_fields?.length === 0) {
         passed = true;
       }
+      await updateProjectStage("SCHEMA_VALIDATED", 35);
+      await logActivity("System", currentUser?.name || "System", "Completed Schema Validation", "Success");
     } catch (error) {
       setSchemaResult({
         schema_valid: false,
@@ -452,6 +491,7 @@ export default function TransformationWorkspacePage() {
         additional_fields: [],
         error: String(error),
       });
+      await logActivity("System", currentUser?.name || "System", `Schema validation failed: ${String(error)}`, "Failed");
     } finally {
       setSchemaLoading(false);
     }
@@ -468,14 +508,33 @@ export default function TransformationWorkspacePage() {
     setTransformError(null);
     setDataValidationLoading(true);
 
+    const { sourceKey, logicKey } = getActiveKeys();
+    if (!sourceKey || !logicKey) {
+      setDataValidationLoading(false);
+      return;
+    }
+
     try {
-      const resp = await fetch("http://localhost:8000/api/validate-data", { method: "POST" });
+      const url = `${NEXT_PUBLIC_API_URL}/api/validate-data?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "x-project-id": currentProject?.id ?? "" },
+      });
       if (!resp.ok) {
         const err = await resp.json();
-        throw new Error(err.detail || "Data validation failed");
+        const detail = err.detail;
+        throw new Error(
+          Array.isArray(detail)
+            ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
+            : typeof detail === "string"
+            ? detail
+            : "Data validation failed"
+        );
       }
       const data = await resp.json();
       setDataValidationResult(data);
+      await updateProjectStage("DATA_VALIDATED", 55);
+      await logActivity("System", currentUser?.name || "System", `Data validation complete. Issues: ${data.total_issues ?? 0}`, "Success");
     } catch (error) {
       setDataValidationResult({
         success: false,
@@ -484,6 +543,7 @@ export default function TransformationWorkspacePage() {
         issues: [],
         error: String(error),
       });
+      await logActivity("System", currentUser?.name || "System", `Data validation failed: ${String(error)}`, "Failed");
     } finally {
       setDataValidationLoading(false);
     }
@@ -505,8 +565,10 @@ export default function TransformationWorkspacePage() {
   };
 
   const downloadValidationReport = () => {
+    const reportKey = dataValidationResult?.reportS3Key;
+    if (!reportKey) return;
     const link = document.createElement("a");
-    link.href = "http://localhost:8000/api/download-data-validation-report";
+    link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(reportKey)}`;
     link.setAttribute("download", "data_validation_report.xlsx");
     document.body.appendChild(link);
     link.click();
@@ -514,25 +576,47 @@ export default function TransformationWorkspacePage() {
   };
 
   const transformData = async () => {
+    if (!canContinueAfterDataValidation) return;
     setTransformLoading(true);
     setTransformError(null);
+
+    const { sourceKey, masterKey, logicKey } = getActiveKeys();
+    if (!sourceKey || !masterKey || !logicKey) {
+      setTransformLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch("http://localhost:8000/api/transform-data", { method: "POST" });
+      const url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(sourceKey)}&master_key=${encodeURIComponent(masterKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "x-project-id": currentProject?.id ?? "" },
+      });
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
-        throw new Error(errorBody?.detail || "Data transformation failed");
+        const detail = errorBody?.detail;
+        throw new Error(
+          Array.isArray(detail)
+            ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
+            : typeof detail === "string"
+            ? detail
+            : "Data transformation failed"
+        );
       }
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.setAttribute("download", "transformed_data.xlsx");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      const data = await response.json();
+      if (data.transformedS3Key) {
+        const link = document.createElement("a");
+        link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(data.transformedS3Key)}`;
+        link.setAttribute("download", data.fileName || "transformed_data.xlsx");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+      await updateProjectStage("TRANSFORMED", 100);
+      await logActivity("System", currentUser?.name || "System", "Completed Data Transformation", "Success");
     } catch (error) {
       setTransformError(error instanceof Error ? error.message : "Data transformation failed");
+      await logActivity("System", currentUser?.name || "System", `Data transformation failed: ${error instanceof Error ? error.message : String(error)}`, "Failed");
     } finally {
       setTransformLoading(false);
     }
@@ -575,7 +659,7 @@ export default function TransformationWorkspacePage() {
             <p className="mt-1 text-xs leading-5 text-slate-500">Compare source columns against mapping logic before progressing.</p>
           </div>
         </div>
-        <Button type="button" onClick={validateSchema} disabled={!isContinueEnabled || schemaLoading}>
+        <Button type="button" onClick={validateSchema} disabled={!canTriggerValidation || schemaLoading}>
           {schemaLoading ? <LoaderCircle size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
           {schemaLoading ? "Validating schema" : "Validate Schema"}
         </Button>

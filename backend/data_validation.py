@@ -200,8 +200,9 @@ VALIDATORS: dict[str, tuple[Callable[[Any, Any], bool], str, str]] = {
 
 
 def read_mapping_rules(logic_path: str) -> pd.DataFrame:
-    logic_excel = pd.ExcelFile(logic_path)
-    logic_df = pd.read_excel(logic_path, sheet_name=logic_excel.sheet_names[0])
+    with pd.ExcelFile(logic_path) as logic_excel:
+        logic_df = pd.read_excel(logic_excel, sheet_name=logic_excel.sheet_names[0])
+
 
     columns = resolve_mapping_columns(logic_df)
 

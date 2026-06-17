@@ -75,12 +75,11 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
         source_df = pd.read_excel(source_path)
         
         # Read Mapping Logic
-        logic_excel = pd.ExcelFile(logic_path)
-        # Always identify and read the very first sheet inside the mapping excel
-        wo_sheet = logic_excel.sheet_names[0]
-        print(f"Reading first sheet for mapping logic: '{wo_sheet}'")
-            
-        logic_df = pd.read_excel(logic_path, sheet_name=wo_sheet)
+        with pd.ExcelFile(logic_path) as logic_excel:
+            # Always identify and read the very first sheet inside the mapping excel
+            wo_sheet = logic_excel.sheet_names[0]
+            print(f"Reading first sheet for mapping logic: '{wo_sheet}'")
+            logic_df = pd.read_excel(logic_excel, sheet_name=wo_sheet)
         
         # 2. Dynamic Column Mappings Resolver for Mapping Logic File
         # Resolves any variations (e.g. trailing/leading spaces or separate master sheet and format columns)
@@ -165,12 +164,12 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
         print(f"Optimized Master sheets to load: {required_sheets}")
         
         master_sheets = {}
-        master_excel = pd.ExcelFile(master_path)
-        for s_name in master_excel.sheet_names:
-            s_name_clean = s_name.strip().lower()
-            if s_name_clean in required_sheets:
-                print(f"Loading required master sheet: '{s_name}'")
-                master_sheets[s_name_clean] = pd.read_excel(master_path, sheet_name=s_name)
+        with pd.ExcelFile(master_path) as master_excel:
+            for s_name in master_excel.sheet_names:
+                s_name_clean = s_name.strip().lower()
+                if s_name_clean in required_sheets:
+                    print(f"Loading required master sheet: '{s_name}'")
+                    master_sheets[s_name_clean] = pd.read_excel(master_excel, sheet_name=s_name)
 
         # 4. Keep all columns from source file (no filtering of columns whose values are all blank or null)
         columns_list = []
@@ -775,7 +774,6 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
         source_columns = [str(c) for c in src_df.columns]
 
         # Read mapping logic column A (first sheet)
-        # Read mapping file
         logic_excel = pd.ExcelFile(logic_path)
         logic_sheet = logic_excel.sheet_names[0]
 
