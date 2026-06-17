@@ -529,8 +529,11 @@ export default function UploadFilesPage() {
   } = useMigration();
 
   React.useEffect(() => {
-    if (projectList.length > 0 && !selectedProjId) {
+    if (projectList.length === 0) {
+      setProjTab("create");
+    } else if (projectList.length > 0 && !selectedProjId) {
       setSelectedProjId(projectList[0].id);
+      setProjTab("select");
     }
   }, [projectList, selectedProjId]);
 
@@ -610,30 +613,32 @@ export default function UploadFilesPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-slate-200 bg-slate-50">
-            <button
-              onClick={() => setProjTab("select")}
-              className={cx(
-                "flex-1 py-3 text-center text-xs font-bold transition-all border-b-2 focus:outline-none",
-                projTab === "select"
-                  ? "border-blue-600 text-blue-600 bg-white"
-                  : "border-transparent text-slate-500 hover:text-slate-900"
-              )}
-            >
-              Continue Existing Project
-            </button>
-            <button
-              onClick={() => setProjTab("create")}
-              className={cx(
-                "flex-1 py-3 text-center text-xs font-bold transition-all border-b-2 focus:outline-none",
-                projTab === "create"
-                  ? "border-blue-600 text-blue-600 bg-white"
-                  : "border-transparent text-slate-500 hover:text-slate-900"
-              )}
-            >
-              Create New Project
-            </button>
-          </div>
+          {projectList.length > 0 && (
+            <div className="flex border-b border-slate-200 bg-slate-50">
+              <button
+                onClick={() => setProjTab("select")}
+                className={cx(
+                  "flex-1 py-3 text-center text-xs font-bold transition-all border-b-2 focus:outline-none",
+                  projTab === "select"
+                    ? "border-blue-600 text-blue-600 bg-white"
+                    : "border-transparent text-slate-500 hover:text-slate-900"
+                )}
+              >
+                Continue Existing Project
+              </button>
+              <button
+                onClick={() => setProjTab("create")}
+                className={cx(
+                  "flex-1 py-3 text-center text-xs font-bold transition-all border-b-2 focus:outline-none",
+                  projTab === "create"
+                    ? "border-blue-600 text-blue-600 bg-white"
+                    : "border-transparent text-slate-500 hover:text-slate-900"
+                )}
+              >
+                Create New Project
+              </button>
+            </div>
+          )}
 
           {/* Form Area */}
           <div className="p-6 bg-white">

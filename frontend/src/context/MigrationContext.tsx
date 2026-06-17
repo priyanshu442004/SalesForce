@@ -97,6 +97,8 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     logic: null
   });
 
+  const [sessionUploadedSourceKey, setSessionUploadedSourceKey] = useState<string | null>(null);
+
   // DB States
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
@@ -120,6 +122,11 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
 
   const [transformationsView, setTransformationsView] = useState<"list" | "create">("list");
   const [transformationsTab, setTransformationsTab] = useState<string>("Transformation Center");
+
+  // Reset session-uploaded source key when project changes
+  useEffect(() => {
+    setSessionUploadedSourceKey(null);
+  }, [currentProject?.id]);
 
   // Load Users List
   const loadUsers = useCallback(async () => {
@@ -216,13 +223,15 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
 
       currentProject.files.forEach((f) => {
         if (f.isActive && (f.slot === "source" || f.slot === "master" || f.slot === "logic")) {
-          newFilesState[f.slot] = {
-            name: f.fileName,
-            size: f.fileSize,
-            loading: false,
-            progress: 100,
-            completed: true
-          };
+          if (f.slot !== "source" || f.s3Key === sessionUploadedSourceKey) {
+            newFilesState[f.slot] = {
+              name: f.fileName,
+              size: f.fileSize,
+              loading: false,
+              progress: 100,
+              completed: true
+            };
+          }
         }
       });
 
@@ -234,7 +243,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         logic: null
       });
     }
-  }, [currentProject]);
+  }, [currentProject, sessionUploadedSourceKey]);
 
   // Handle active user switching
   const handleSetUser = (user: User | null) => {
@@ -356,6 +365,10 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json();
       if (data.success) {
+        const revertedFile = currentProject.files.find((f) => f.id === fileId);
+        if (revertedFile && revertedFile.slot === "source") {
+          setSessionUploadedSourceKey(revertedFile.s3Key);
+        }
         await refreshCurrentProject();
       }
     } catch (err) {
@@ -406,6 +419,9 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       // Register S3 file details in database
       const uploadedFile = resData.files.find((f: any) => f.slot === slot);
       if (uploadedFile) {
+        if (slot === "source") {
+          setSessionUploadedSourceKey(uploadedFile.s3Key);
+        }
         const dbRes = await fetch(`/api/projects/${currentProject.id}/files`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -516,6 +532,9 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   // Clear slot references
   const clearFile = async (slot: string) => {
     if (!currentProject) return;
+    if (slot === "source") {
+      setSessionUploadedSourceKey(null);
+    }
     setUploadedFiles((prev) => ({
       ...prev,
       [slot]: null

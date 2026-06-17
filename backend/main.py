@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import tempfile
 import uuid
@@ -409,3 +410,39 @@ def download_file(s3_key: str = Query(...)):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to stream download: {str(e)}")
+
+@app.post("/api/log-change-s3")
+def log_change_s3(
+    project_id: str = Query(...),
+    change_name: str = Query(...),
+    timestamp: str = Query(None)
+):
+    """
+    Appends a change name and timestamp to the project's activity log file in S3.
+    """
+    if not timestamp:
+        timestamp = datetime.now().isoformat()
+    
+    s3_key = f"projects/{project_id}/activity_log.json"
+    
+    try:
+        response = s3_client.get_object(Bucket=AWS_BUCKET_NAME, Key=s3_key)
+        logs = json.loads(response['Body'].read().decode('utf-8'))
+    except Exception:
+        logs = []
+        
+    logs.append({
+        "change_name": change_name,
+        "timestamp": timestamp
+    })
+    
+    try:
+        s3_client.put_object(
+            Bucket=AWS_BUCKET_NAME,
+            Key=s3_key,
+            Body=json.dumps(logs, indent=2).encode('utf-8'),
+            ContentType="application/json"
+        )
+        return {"success": True, "message": "Logged change to S3 successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save change log to S3: {str(e)}")
