@@ -3,9 +3,34 @@ from __future__ import annotations
 import datetime as dt
 import math
 import os
+import re
 from typing import Any
 
 import pandas as pd
+
+
+def sanitize_value(val: Any) -> Any:
+    if pd.isna(val):
+        return None
+    if isinstance(val, float):
+        if val.is_integer():
+            return int(val)
+    if isinstance(val, str):
+        val_strip = val.strip()
+        if re.match(r"^-?\d+\.0+$", val_strip):
+            try:
+                return int(float(val_strip))
+            except ValueError:
+                pass
+    return val
+
+
+def sanitize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    for col in df.columns:
+        if df[col].dtype in ["float64", "object"]:
+            df[col] = df[col].apply(sanitize_value)
+    return df
+
 
 
 def is_blank(value: Any) -> bool:
@@ -223,6 +248,7 @@ def load_transform_rules(logic_path: str) -> dict[str, dict[str, Any]]:
             logic_excel,
             sheet_name=logic_excel.sheet_names[0]
         )
+        logic_df = sanitize_dataframe(logic_df)
 
     columns = resolve_mapping_columns(logic_df)
 
@@ -331,6 +357,7 @@ def apply_lookup_rule(
         master_excel,
         sheet_name=master_sheet
     )
+    master_df = sanitize_dataframe(master_df)
 
     lookup_map = {}
 
@@ -360,6 +387,7 @@ def transform_source_data(source_path: str, logic_path: str, master_path: str, o
         raise FileNotFoundError(f"Master file not found at {master_path}")
 
     source_df = pd.read_excel(source_path)
+    source_df = sanitize_dataframe(source_df)
     transform_rules = load_transform_rules(logic_path)
     output_columns: list[pd.Series] = []
     output_headers: list[str] = []

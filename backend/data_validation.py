@@ -2,7 +2,7 @@ import datetime as dt
 import math
 import re
 from typing import Any, Callable, Optional
-from transformer import resolve_mapping_columns
+from transformer import resolve_mapping_columns, sanitize_dataframe
 import pandas as pd
 
 
@@ -202,6 +202,7 @@ VALIDATORS: dict[str, tuple[Callable[[Any, Any], bool], str, str]] = {
 def read_mapping_rules(logic_path: str) -> pd.DataFrame:
     with pd.ExcelFile(logic_path) as logic_excel:
         logic_df = pd.read_excel(logic_excel, sheet_name=logic_excel.sheet_names[0])
+        logic_df = sanitize_dataframe(logic_df)
 
     columns = resolve_mapping_columns(logic_df)
 
@@ -256,6 +257,7 @@ def validate_lookup_field(
 
     try:
         master_df = pd.read_excel(master_excel, sheet_name=master_sheet)
+        master_df = sanitize_dataframe(master_df)
     except Exception:
         return issues
 
@@ -514,12 +516,14 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
 
 def validate_source_data(source_path: str, logic_path: str, master_path: Optional[str] = None) -> list[ValidationIssue]:
     source_df = pd.read_excel(source_path)
+    source_df = sanitize_dataframe(source_df)
     return validate_source_dataframe(source_df, logic_path, master_path=master_path)
 
 
 def run_data_validation(source_path: str, logic_path: str, master_path: Optional[str] = None) -> dict[str, Any]:
     try:
         source_df = pd.read_excel(source_path)
+        source_df = sanitize_dataframe(source_df)
         issues = validate_source_dataframe(source_df, logic_path, master_path=master_path)
         return {
             "success": True,

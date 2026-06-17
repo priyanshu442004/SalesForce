@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import traceback
-from transformer import resolve_mapping_columns
+from transformer import resolve_mapping_columns, sanitize_dataframe
 
 def is_column_all_empty_or_null(series):
     """
@@ -73,6 +73,7 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
             
         print("Loading Source Data and Mapping Logic sheets...")
         source_df = pd.read_excel(source_path)
+        source_df = sanitize_dataframe(source_df)
         
         # Read Mapping Logic
         with pd.ExcelFile(logic_path) as logic_excel:
@@ -80,6 +81,7 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
             wo_sheet = logic_excel.sheet_names[0]
             print(f"Reading first sheet for mapping logic: '{wo_sheet}'")
             logic_df = pd.read_excel(logic_excel, sheet_name=wo_sheet)
+            logic_df = sanitize_dataframe(logic_df)
         
         # 2. Dynamic Column Mappings Resolver for Mapping Logic File
         # Resolves any variations (e.g. trailing/leading spaces or separate master sheet and format columns)
@@ -170,6 +172,7 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
                 if s_name_clean in required_sheets:
                     print(f"Loading required master sheet: '{s_name}'")
                     master_sheets[s_name_clean] = pd.read_excel(master_excel, sheet_name=s_name)
+                    master_sheets[s_name_clean] = sanitize_dataframe(master_sheets[s_name_clean])
 
         # 4. Keep all columns from source file (no filtering of columns whose values are all blank or null)
         columns_list = []
@@ -778,6 +781,7 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
         with pd.ExcelFile(logic_path) as logic_excel:
             logic_sheet = logic_excel.sheet_names[0]
             logic_df = pd.read_excel(logic_excel, sheet_name=logic_sheet)
+            logic_df = sanitize_dataframe(logic_df)
         mapping_columns = resolve_mapping_columns(logic_df)
 
         source_field_column = mapping_columns["source_field"]
