@@ -781,14 +781,17 @@ export default function UploadFilesPage() {
     setTransformError(null);
     setDataValidationLoading(true);
 
-    const { sourceKey, logicKey } = getActiveKeys();
+    const { sourceKey, logicKey, masterKey } = getActiveKeys();
     if (!sourceKey || !logicKey) {
       setDataValidationLoading(false);
       return;
     }
 
     try {
-      const url = `${NEXT_PUBLIC_API_URL}/api/validate-data?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      let url = `${NEXT_PUBLIC_API_URL}/api/validate-data?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      if (masterKey) {
+        url += `&master_key=${encodeURIComponent(masterKey)}`;
+      }
       const resp = await fetch(url, {
         method: "POST",
         headers: {

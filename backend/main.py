@@ -233,6 +233,7 @@ def validate_schema(
 def validate_data(
     source_key: str = Query(...),
     logic_key: str = Query(...),
+    master_key: str = Query(None),
     x_project_id: str = Header(None)
 ):
     """
@@ -241,12 +242,15 @@ def validate_data(
     project_id = x_project_id or str(uuid.uuid4())
     temp_source = None
     temp_logic = None
+    temp_master = None
     temp_report_path = None
     try:
         temp_source = temp_download(source_key)
         temp_logic = temp_download(logic_key)
+        if master_key:
+            temp_master = temp_download(master_key)
         
-        out = run_data_validation(temp_source, temp_logic)
+        out = run_data_validation(temp_source, temp_logic, master_path=temp_master)
         if not out.get("success"):
             raise HTTPException(status_code=500, detail=out.get("error", "Data validation failed"))
             
@@ -276,6 +280,8 @@ def validate_data(
             os.remove(temp_source)
         if temp_logic and os.path.exists(temp_logic):
             os.remove(temp_logic)
+        if temp_master and os.path.exists(temp_master):
+            os.remove(temp_master)
         if temp_report_path and os.path.exists(temp_report_path):
             os.remove(temp_report_path)
 

@@ -1,5 +1,5 @@
-import TransformationsPage from "@/component/pages/TransformationsPage";
+import TransformationWorkspacePage from "@/component/pages/TransformationWorkspacePage";
 
 export default function Transformations() {
-  return <TransformationsPage />;
+  return <TransformationWorkspacePage />;
 }

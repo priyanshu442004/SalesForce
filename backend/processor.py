@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import traceback
+from transformer import resolve_mapping_columns
 
 def is_column_all_empty_or_null(series):
     """
@@ -773,14 +774,23 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
         source_columns = [str(c) for c in src_df.columns]
 
         # Read mapping logic column A (first sheet)
+        # Read mapping file
         with pd.ExcelFile(logic_path) as logic_excel:
             logic_sheet = logic_excel.sheet_names[0]
-            # Read only first column (A)
-            logic_df = pd.read_excel(logic_excel, sheet_name=logic_sheet, usecols=[0])
-        # The header row is included as the column name; values are the rest
-        mapping_header = list(logic_df.columns)[0]
-        mapping_values = logic_df.iloc[:, 0].astype(object).fillna("").tolist()
+            logic_df = pd.read_excel(logic_excel, sheet_name=logic_sheet)
 
+        mapping_columns = resolve_mapping_columns(logic_df)
+
+        source_field_column = mapping_columns["source_field"]
+
+        mapping_header = source_field_column
+
+        mapping_values = (
+            logic_df[source_field_column]
+            .astype(object)
+            .fillna("")
+            .tolist()
+        )
         # Remove header row if present as first value (some files may include header as first row)
         # But spec says Column A always has header 'Source fields' and ignore header row
         # So drop any value equal to the header (case-insensitive)
@@ -798,9 +808,7 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
         def _norm(s: str) -> str:
             if s is None:
                 return ""
-            s2 = str(s).strip().lower()
-            s2 = re.sub(r"[_\s]+", "", s2)
-            return s2
+            return str(s).strip()
 
         src_norm_map = { _norm(orig): orig for orig in source_columns }
         map_norm_map = { _norm(orig): orig for orig in cleaned_mapping }
