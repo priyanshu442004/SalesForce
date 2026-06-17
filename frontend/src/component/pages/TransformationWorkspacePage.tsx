@@ -388,6 +388,17 @@ function TabBar({
   );
 }
 
+function extractErrorDetail(err: any, fallback: string): string {
+  const detail = err?.detail;
+  if (Array.isArray(detail)) {
+    return detail.map((e: any) => e?.msg ?? JSON.stringify(e)).join("; ");
+  }
+  if (typeof detail === "string") {
+    return detail;
+  }
+  return fallback;
+}
+
 // ---------------------------------------------------------------------------
 // Main page component
 // ---------------------------------------------------------------------------
@@ -433,6 +444,9 @@ export default function TransformationWorkspacePage() {
   // Derived state
   // ---------------------------------------------------------------------------
 
+  const { sourceKey: _sk, logicKey: _lk } = getActiveKeys();
+  const canTriggerValidation = isContinueEnabled && !!_sk && !!_lk;
+
   const canContinueAfterSchema =
     schemaResult?.schema_valid === true &&
     schemaResult.missing_fields.length === 0 &&
@@ -475,7 +489,7 @@ export default function TransformationWorkspacePage() {
       const resp = await fetch(url, { method: "POST" });
       if (!resp.ok) {
         const err = await resp.json();
-        throw new Error(err.detail || "Schema validation failed");
+        throw new Error(extractErrorDetail(err, "Schema validation failed"));
       }
       const data = await resp.json();
       setSchemaResult(data);
@@ -483,7 +497,7 @@ export default function TransformationWorkspacePage() {
         passed = true;
       }
       await updateProjectStage("SCHEMA_VALIDATED", 35);
-      await logActivity("System", currentUser?.name || "Tester", "Completed Schema Validation", "Success");
+      await logActivity("System", currentUser?.name || "System", "Completed Schema Validation", "Success");
     } catch (error) {
       setSchemaResult({
         schema_valid: false,
@@ -494,7 +508,7 @@ export default function TransformationWorkspacePage() {
         additional_fields: [],
         error: String(error),
       });
-      await logActivity("System", currentUser?.name || "Tester", `Schema validation failed: ${String(error)}`, "Failed");
+      await logActivity("System", currentUser?.name || "System", `Schema validation failed: ${String(error)}`, "Failed");
     } finally {
       setSchemaLoading(false);
     }
@@ -530,7 +544,7 @@ export default function TransformationWorkspacePage() {
       });
       if (!resp.ok) {
         const err = await resp.json();
-        throw new Error(err.detail || "Data validation failed");
+        throw new Error(extractErrorDetail(err, "Data validation failed"));
       }
       const data = await resp.json();
       setDataValidationResult(data);
@@ -549,7 +563,7 @@ export default function TransformationWorkspacePage() {
       }
 
       await updateProjectStage("DATA_VALIDATED", 55);
-      await logActivity("System", currentUser?.name || "Tester", `Completed Data validation. Issues count: ${data.total_issues}`, "Success");
+      await logActivity("System", currentUser?.name || "System", `Completed Data validation. Issues count: ${data.total_issues}`, "Success");
     } catch (error) {
       setDataValidationResult({
         success: false,
@@ -558,7 +572,7 @@ export default function TransformationWorkspacePage() {
         issues: [],
         error: String(error),
       });
-      await logActivity("System", currentUser?.name || "Tester", `Data validation failed: ${String(error)}`, "Failed");
+      await logActivity("System", currentUser?.name || "System", `Data validation failed: ${String(error)}`, "Failed");
     } finally {
       setDataValidationLoading(false);
     }
@@ -591,6 +605,7 @@ export default function TransformationWorkspacePage() {
   };
 
   const transformData = async () => {
+    if (!canContinueAfterDataValidation) return;
     setTransformLoading(true);
     setTransformError(null);
 
@@ -611,7 +626,7 @@ export default function TransformationWorkspacePage() {
       });
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
-        throw new Error(errorBody?.detail || "Data transformation failed");
+        throw new Error(extractErrorDetail(errorBody, "Data transformation failed"));
       }
       
       const data = await response.json();
@@ -638,10 +653,10 @@ export default function TransformationWorkspacePage() {
       }
 
       await updateProjectStage("TRANSFORMED", 100);
-      await logActivity("System", currentUser?.name || "Tester", "Completed Data Transformation", "Success");
+      await logActivity("System", currentUser?.name || "System", "Completed Data Transformation", "Success");
     } catch (error) {
       setTransformError(error instanceof Error ? error.message : "Data transformation failed");
-      await logActivity("System", currentUser?.name || "Tester", `Data transformation failed: ${error instanceof Error ? error.message : String(error)}`, "Failed");
+      await logActivity("System", currentUser?.name || "System", `Data transformation failed: ${error instanceof Error ? error.message : String(error)}`, "Failed");
     } finally {
       setTransformLoading(false);
     }
@@ -684,7 +699,7 @@ export default function TransformationWorkspacePage() {
             <p className="mt-1 text-xs leading-5 text-slate-500">Compare source columns against mapping logic before progressing.</p>
           </div>
         </div>
-        <Button type="button" onClick={validateSchema} disabled={!isContinueEnabled || schemaLoading}>
+        <Button type="button" onClick={validateSchema} disabled={!canTriggerValidation || schemaLoading}>
           {schemaLoading ? <LoaderCircle size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
           {schemaLoading ? "Validating schema" : "Validate Schema"}
         </Button>

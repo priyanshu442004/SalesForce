@@ -249,7 +249,7 @@ function UploadCard({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-bold text-slate-800">{file.name}</span>
-                    <span className="mt-0.5 block text-[11px] text-slate-500">{file.size} - Ready for validation</span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500">{file.size} · Ready for processing</span>
                   </span>
                 </div>
               </div>
@@ -555,7 +555,6 @@ export default function UploadFilesPage() {
   };
 
   const uploadFiles = (files: FileList | null, slot?: FileSlot) => {
-    resetValidationResults();
     handleFileUpload(files, slot);
   };
 
@@ -698,6 +697,8 @@ export default function UploadFilesPage() {
   }
 
   const uploadedCount = FILE_SLOTS.filter(({ slot }) => uploadedFiles[slot]?.completed).length;
+  const { sourceKey: _activeSourceKey, logicKey: _activeLogicKey } = getActiveKeys();
+  const canTriggerValidation = isContinueEnabled && !!_activeSourceKey && !!_activeLogicKey;
   const canContinueAfterSchema =
     schemaResult?.schema_valid === true &&
     schemaResult.missing_fields.length === 0 &&
@@ -742,7 +743,14 @@ export default function UploadFilesPage() {
       const resp = await fetch(url, { method: "POST" });
       if (!resp.ok) {
         const err = await resp.json();
-        throw new Error(err.detail || "Schema validation failed");
+        const detail = err.detail;
+        throw new Error(
+          Array.isArray(detail)
+            ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
+            : typeof detail === "string"
+            ? detail
+            : "Schema validation failed"
+        );
       }
       const data = await resp.json();
       setSchemaResult(data);
@@ -800,7 +808,14 @@ export default function UploadFilesPage() {
       });
       if (!resp.ok) {
         const err = await resp.json();
-        throw new Error(err.detail || "Data validation failed");
+        const detail = err.detail;
+        throw new Error(
+          Array.isArray(detail)
+            ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
+            : typeof detail === "string"
+            ? detail
+            : "Data validation failed"
+        );
       }
       const data = await resp.json();
       setDataValidationResult(data);
@@ -869,7 +884,14 @@ export default function UploadFilesPage() {
       });
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
-        throw new Error(errorBody?.detail || "Data transformation failed");
+        const detail = errorBody?.detail;
+        throw new Error(
+          Array.isArray(detail)
+            ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
+            : typeof detail === "string"
+            ? detail
+            : "Data transformation failed"
+        );
       }
 
       const data = await response.json();
@@ -941,7 +963,7 @@ export default function UploadFilesPage() {
             </div>
             <h2 className="text-2xl font-bold tracking-[-0.025em] text-slate-950 sm:text-[28px]">Prepare your migration files</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Upload the required workbooks to S3, validate source fields against mapping logic, then continue once the schema is clean.
+              Upload the three required workbooks to S3. Once all files are ready, proceed to the Transformation Workspace to validate, clean, and transform your data.
             </p>
           </div>
 
@@ -968,7 +990,7 @@ export default function UploadFilesPage() {
               config={config}
               file={uploadedFiles[config.slot]}
               onUpload={() => inputRefs[config.slot].current?.click()}
-              onClear={() => clearUploadedFile(config.slot)}
+              onClear={() => clearFile(config.slot)}
             />
           ))}
         </section>
@@ -983,17 +1005,17 @@ export default function UploadFilesPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-[15px] font-bold text-slate-900">Schema validation</h3>
                   {!schemaResult && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Pending</span>}
-                  {schemaResult?.schema_valid === true && (
+                  {canContinueAfterSchema && (
                     <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-100">Passed</span>
                   )}
-                  {schemaResult?.schema_valid === false && (
+                  {schemaResult && !canContinueAfterSchema && (
                     <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 ring-1 ring-rose-100">Needs review</span>
                   )}
                 </div>
-                <p className="mt-1 text-xs leading-5 text-slate-500">Compare source columns against mapping logic before progressing.</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">Validate field alignment between source data and the mapping logic file.</p>
               </div>
             </div>
-            <Button type="button" onClick={validateSchema} disabled={!isContinueEnabled || schemaLoading}>
+            <Button type="button" onClick={validateSchema} disabled={!canTriggerValidation || schemaLoading}>
               {schemaLoading ? <LoaderCircle size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
               {schemaLoading ? "Validating schema" : "Validate Schema"}
             </Button>
@@ -1261,6 +1283,7 @@ export default function UploadFilesPage() {
       )}
 
       {isShowingPreview && previewData && <PreviewModal previewData={previewData as PreviewData} onClose={() => setIsShowingPreview(false)} />}
+
     </div>
   );
 }

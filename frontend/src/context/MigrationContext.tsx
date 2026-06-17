@@ -555,7 +555,14 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       });
       if (!response.ok) {
         const errorBody = await response.json();
-        throw new Error(errorBody.detail || "Server calculations failed.");
+        const detail = errorBody?.detail;
+        throw new Error(
+          Array.isArray(detail)
+            ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
+            : typeof detail === "string"
+            ? detail
+            : "Server calculations failed."
+        );
       }
       const data = await response.json();
       setPreviewData(data);

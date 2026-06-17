@@ -239,11 +239,14 @@ def validate_data(
     """
     Validates data and uploads the report to S3 if issues are found.
     """
+
+
     project_id = x_project_id or str(uuid.uuid4())
     temp_source = None
     temp_logic = None
     temp_master = None
     temp_report_path = None
+
     try:
         temp_source = temp_download(source_key)
         temp_logic = temp_download(logic_key)

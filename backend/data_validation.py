@@ -211,7 +211,6 @@ def read_mapping_rules(logic_path: str) -> pd.DataFrame:
         columns["format"]: "format",
     }
     select_cols = ["source_field", "data_type", "format"]
-
     for extra_col in ("mandatory_primary", "master_sheet", "search_column", "copyable_column"):
         if extra_col in columns:
             rename_map[columns[extra_col]] = extra_col
