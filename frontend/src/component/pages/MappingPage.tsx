@@ -444,7 +444,7 @@ export default function MappingPage() {
 
           <div className="flex justify-end pt-5">
             <button 
-              onClick={() => router.push("/transformations")}
+              onClick={() => router.push("/transformation-workspace")}
               className="px-7 py-4 rounded-xl bg-[#002BFF] text-white text-[14.5px] font-black flex items-center gap-2 hover:bg-blue-700 active:scale-[0.98] transition-all duration-250 shadow-md shadow-blue-500/10 cursor-pointer select-none"
             >
               <span>Review Mapping Details</span>

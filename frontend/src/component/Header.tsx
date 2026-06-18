@@ -10,13 +10,12 @@ import { useTheme } from "../context/ThemeContext";
 export default function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { transformationsView, transformationsTab, currentUser, currentProject } = useMigration();
+  const { currentUser, currentProject } = useMigration();
   const { theme, toggleTheme } = useTheme();
 
   if (!currentUser) return null;
 
   const getPageTitle = () => {
-    const clean = (title: any) => title.replace(/^\d+\.\s*/, "").replace(/\s*-\s*Layer\s*\d+$/i, "");
     switch (pathname) {
       case "/":
         return "Dashboard";
@@ -28,30 +27,12 @@ export default function Header() {
           return `Upload Files - ${currentUser.name}`;
         }
         return "Upload Files";
-      case "/mapping":
-        return clean("03. AI Mapping Summary - Layer 2");
-      case "/transformations":
-        if (transformationsTab === "Execution Engine") return "Execution Engine";
-        if (transformationsTab === "Human Feedback Loop") return "Human Feedback Loop";
-        if (transformationsTab === "Preview Engine") return "Preview Engine";
-        if (transformationsTab === "Transformation Library") return "Transformation Library";
-        return transformationsView === "create" ? "Transformation Center" : "Transformation Workspace";
-      case "/validation":
-        return clean("10. Validation - Layer 4");
-      case "/export":
-        return "Export Engine";
+      case "/transformation-workspace":
+        return "Transformation Workspace";
       case "/projects":
         return "Active Projects Workspace";
-      case "/templates":
-        return "Configuration Templates";
       case "/activity-log":
         return "System Activity Log";
-      case "/data-dictionary":
-        return "Data Dictionary Viewer";
-      case "/settings":
-        return "Global Settings";
-      case "/help":
-        return "Help & Support Desk";
       default:
         return "AI Migrate Platform";
     }
@@ -60,16 +41,9 @@ export default function Header() {
   const navItems = [
     { name: "Dashboard", path: "/", icon: "dashboard" },
     { name: "Upload Files", path: "/upload", icon: "upload" },
-    { name: "AI Mapping", path: "/mapping", icon: "database" },
-    { name: "Transformations", path: "/transformations", icon: "shuffle" },
-    { name: "Validation", path: "/validation", icon: "shield" },
-    { name: "Export", path: "/export", icon: "download" },
+    { name: "Transformation Workspace", path: "/transformation-workspace", icon: "layers" },
     { name: "Projects", path: "/projects", icon: "folder" },
-    { name: "Templates", path: "/templates", icon: "layers" },
     { name: "Activity Log", path: "/activity-log", icon: "activity" },
-    { name: "Data Dictionary", path: "/data-dictionary", icon: "fileCode" },
-    { name: "Settings", path: "/settings", icon: "settings" },
-    { name: "Help & Support", path: "/help", icon: "help" }
   ];
 
   return (

@@ -13,16 +13,9 @@ export default function Sidebar() {
   const navItems = [
     { name: "Dashboard", path: "/", icon: "dashboard" },
     { name: "Upload Files", path: "/upload", icon: "upload" },
-    { name: "AI Mapping", path: "/mapping", icon: "database" },
-    { name: "Transformations", path: "/transformations", icon: "shuffle" },
-    { name: "Validation", path: "/validation", icon: "shield" },
-    { name: "Export", path: "/export", icon: "download" },
+    { name: "Transformation Workspace", path: "/transformation-workspace", icon: "layers" },
     { name: "Projects", path: "/projects", icon: "folder" },
-    { name: "Templates", path: "/templates", icon: "layers" },
     { name: "Activity Log", path: "/activity-log", icon: "activity" },
-    { name: "Data Dictionary", path: "/data-dictionary", icon: "fileCode" },
-    { name: "Settings", path: "/settings", icon: "settings" },
-    { name: "Help & Support", path: "/help", icon: "help" }
   ];
 
   return (

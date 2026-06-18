@@ -289,36 +289,28 @@ export default function DashboardPage() {
                 <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 dark:text-slate-200 transition-colors group-hover:text-violet-600 dark:group-hover:text-violet-300">New Migration</span>
               </div>
             </Link>
-            <Link href="/mapping" className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none">
+            <Link href="/transformation-workspace" className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none">
               <div className="flex flex-1 items-center gap-3">
                 <div className="w-8.5 h-8.5 rounded-full bg-blue-100/80 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
-                  <Icon name="database" size={14} />
+                  <Icon name="layers" size={14} />
                 </div>
-                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 dark:text-slate-200 transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-300">AI Mapping Review</span>
+                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 dark:text-slate-200 transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-300">Transformation Workspace</span>
               </div>
             </Link>
-            <Link href="/transformations" className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-teal-200 dark:hover:border-teal-700 hover:bg-teal-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none">
-              <div className="flex flex-1 items-center gap-3">
-                <div className="w-8.5 h-8.5 rounded-full bg-teal-100/80 dark:bg-teal-900/30 text-teal-600 dark:text-teal-300 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
-                  <Icon name="shuffle" size={14} />
-                </div>
-                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 dark:text-slate-200 transition-colors group-hover:text-teal-600 dark:group-hover:text-teal-300">Transformations</span>
-              </div>
-            </Link>
-            <Link href="/validation" className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-700 hover:bg-rose-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none">
+            <Link href="/projects" className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-700 hover:bg-rose-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none">
               <div className="flex flex-1 items-center gap-3">
                 <div className="w-8.5 h-8.5 rounded-full bg-rose-100/90 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
-                  <Icon name="shield" size={14} />
+                  <Icon name="folder" size={14} />
                 </div>
-                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 dark:text-slate-200 transition-colors group-hover:text-rose-600 dark:group-hover:text-rose-300">Validation Center</span>
+                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 dark:text-slate-200 transition-colors group-hover:text-rose-600 dark:group-hover:text-rose-300">Projects</span>
               </div>
             </Link>
-            <Link href="/export" className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-sky-200 dark:hover:border-sky-700 hover:bg-sky-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none">
+            <Link href="/activity-log" className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-sky-200 dark:hover:border-sky-700 hover:bg-sky-500/[0.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group text-left cursor-pointer focus:outline-none">
               <div className="flex flex-1 items-center gap-3">
                 <div className="w-8.5 h-8.5 rounded-full bg-sky-100/80 dark:bg-sky-900/30 text-sky-600 dark:text-sky-300 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
-                  <Icon name="download" size={14} />
+                  <Icon name="activity" size={14} />
                 </div>
-                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 dark:text-slate-200 transition-colors group-hover:text-sky-600 dark:group-hover:text-sky-300">Export Preview</span>
+                <span className="text-[12.5px] lg:text-[13px] font-black text-slate-700 dark:text-slate-200 transition-colors group-hover:text-sky-600 dark:group-hover:text-sky-300">Activity Log</span>
               </div>
             </Link>
           </div>
