@@ -787,7 +787,7 @@ export default function TransformationWorkspacePage() {
       setSchemaResult(_schema);
       schemaPassed = data.schema_valid === true && data.missing_fields?.length === 0 && data.additional_fields?.length === 0;
       await updateProjectStage("SCHEMA_VALIDATED", 35);
-      await logActivity("System", currentUser?.name || "System", "Completed Schema Validation", "Success");
+      await logActivity("Validation", currentUser?.name || "User", "Completed Schema Validation", "Success", data);
     } catch (error) {
       _schema = {
         schema_valid: false,
@@ -801,7 +801,7 @@ export default function TransformationWorkspacePage() {
       setSchemaResult(_schema);
       setStageStatus(s => ({ ...s, schema: "failed" }));
       savePipelineState({ schema: "failed", cleaning: "idle", validation: "idle", transformation: "idle" }, _schema, null, null, null);
-      await logActivity("System", currentUser?.name || "System", `Schema validation failed: ${String(error)}`, "Failed");
+      await logActivity("Validation", currentUser?.name || "User", `Schema validation failed: ${String(error)}`, "Failed", _schema);
       setPipelineRunning(false);
       return;
     }
@@ -835,10 +835,11 @@ export default function TransformationWorkspacePage() {
       console.log("[pipeline] cleaned source key:", cleanedKey);
       await updateProjectStage("DATA_CLEANED", 45);
       await logActivity(
-        "System",
-        currentUser?.name || "System",
+        "Transformation",
+        currentUser?.name || "User",
         `Data cleaning complete. ${data.total_changes} change${data.total_changes === 1 ? "" : "s"} applied.`,
-        "Success"
+        "Success",
+        data
       );
     } catch (error) {
       _cleaning = {
@@ -852,7 +853,7 @@ export default function TransformationWorkspacePage() {
       setCleaningResult(_cleaning);
       setStageStatus(s => ({ ...s, cleaning: "failed" }));
       savePipelineState({ schema: "passed", cleaning: "failed", validation: "idle", transformation: "idle" }, _schema, _cleaning, null, null);
-      await logActivity("System", currentUser?.name || "System", `Data cleaning failed: ${String(error)}`, "Failed");
+      await logActivity("Transformation", currentUser?.name || "User", `Data cleaning failed: ${String(error)}`, "Failed", _cleaning);
       setPipelineRunning(false);
       return;
     }
@@ -899,13 +900,13 @@ export default function TransformationWorkspacePage() {
       }
       validationPassed = data.success === true && data.total_issues === 0;
       await updateProjectStage("DATA_VALIDATED", 55);
-      await logActivity("System", currentUser?.name || "System", `Data validation complete. Issues: ${data.total_issues ?? 0}`, "Success");
+      await logActivity("Validation", currentUser?.name || "User", `Data validation complete. Issues: ${data.total_issues ?? 0}`, "Success", data);
     } catch (error) {
       _validation = { success: false, total_records: 0, total_issues: 0, issues: [], error: String(error) };
       setDataValidationResult(_validation);
       setStageStatus(s => ({ ...s, validation: "failed" }));
       savePipelineState({ schema: "passed", cleaning: "passed", validation: "failed", transformation: "idle" }, _schema, _cleaning, _validation, null);
-      await logActivity("System", currentUser?.name || "System", `Data validation failed: ${String(error)}`, "Failed");
+      await logActivity("Validation", currentUser?.name || "User", `Data validation failed: ${String(error)}`, "Failed", _validation);
       setPipelineRunning(false);
       return;
     }
@@ -992,13 +993,13 @@ export default function TransformationWorkspacePage() {
         _schema, _cleaning, _validation, finalTransformResult,
       );
       await updateProjectStage("TRANSFORMED", 100);
-      await logActivity("System", currentUser?.name || "System", "Completed Data Transformation", "Success", data);
+      await logActivity("Transformation", currentUser?.name || "User", "Completed Data Transformation", "Success", data);
       setStageStatus(s => ({ ...s, transformation: "passed" }));
     } catch (error) {
       setTransformError(error instanceof Error ? error.message : "Data transformation failed");
       setStageStatus(s => ({ ...s, transformation: "failed" }));
       savePipelineState({ schema: "passed", cleaning: "passed", validation: "passed", transformation: "failed" }, _schema, _cleaning, _validation, null);
-      await logActivity("System", currentUser?.name || "System", `Data transformation failed: ${error instanceof Error ? error.message : String(error)}`, "Failed", { error: error instanceof Error ? error.message : String(error) });
+      await logActivity("Transformation", currentUser?.name || "User", `Data transformation failed: ${error instanceof Error ? error.message : String(error)}`, "Failed", { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setPipelineRunning(false);
     }

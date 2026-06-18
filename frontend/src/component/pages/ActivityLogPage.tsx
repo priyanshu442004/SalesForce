@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useMigration } from "@/context/MigrationContext";
+import * as XLSX from "xlsx";
 import {
   X,
   Download,
@@ -17,7 +18,16 @@ import {
   Table2,
   ChevronLeft,
   ChevronRight,
-  Search
+  Search,
+  ShieldCheck,
+  Wrench,
+  FileCheck2,
+  Wand2,
+  Trash2,
+  Scissors,
+  AtSign,
+  RefreshCw,
+  XCircle
 } from "lucide-react";
 
 interface AuditLog {
@@ -63,6 +73,9 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
+  const [cleaningPage, setCleaningPage] = useState(1);
+  const cleaningItemsPerPage = 8;
+
   const downloadFile = (s3Key: string, fileName: string) => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
     const link = document.createElement("a");
@@ -76,7 +89,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
   const details = log.details;
   const fileStates = Array.isArray(log.fileStates) ? log.fileStates : [];
 
-  // Parse if it is a data validation activity
+  // 1. Parse Data Validation
   const isDataValidation = log.category === "Validation" && details && typeof details === "object" && "issues" in details;
   const issues = isDataValidation && Array.isArray(details.issues) ? details.issues : [];
 
@@ -94,13 +107,82 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
   const totalPages = Math.max(1, Math.ceil(filteredIssues.length / itemsPerPage));
   const paginatedIssues = filteredIssues.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Parse if it is a schema validation activity
+  // 2. Parse Schema Validation
   const isSchemaValidation = (log.category === "Validation" || log.category === "System") && details && typeof details === "object" && "schema_valid" in details;
   const schemaResult = isSchemaValidation ? details : null;
+
+  const downloadSchemaDiscrepancy = () => {
+    if (!schemaResult) return;
+    const rows = [
+      ["Type", "Field Name"],
+      ...(schemaResult.missing_fields || []).map((f: string) => ["Missing from Source Data", f]),
+      ...(schemaResult.additional_fields || []).map((f: string) => ["Missing from Mapping Logic", f]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Schema_Discrepancies");
+    XLSX.writeFile(wb, "schema_discrepancy_report.xlsx");
+  };
+
+  // 3. Parse Data Cleaning
+  const isDataCleaning = log.category === "Transformation" && details && typeof details === "object" && "summary" in details && "changes" in details;
+  const cleaningChanges = isDataCleaning && Array.isArray(details.changes) ? details.changes : [];
+  
+  const totalCleaningPages = Math.max(1, Math.ceil(cleaningChanges.length / cleaningItemsPerPage));
+  const paginatedCleaningChanges = cleaningChanges.slice((cleaningPage - 1) * cleaningItemsPerPage, cleaningPage * cleaningItemsPerPage);
+
+  const downloadCleaningReport = () => {
+    if (!details?.changes?.length) return;
+    const rows = [
+      ["Row", "Column", "Original Value", "Cleaned Value", "Cleaning Rule"],
+      ...details.changes.map((c: any) => [c.row, c.column, c.original_value, c.cleaned_value, c.rule]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Cleaning_Report");
+    XLSX.writeFile(wb, "data_cleaning_report.xlsx");
+  };
+
+  // 4. Parse Data Transformation
+  const isDataTransformation = log.category === "Transformation" && details && typeof details === "object" && "outputs" in details;
+  const transformOutputs = isDataTransformation && Array.isArray(details.outputs) ? details.outputs : [];
+
+  // Derived transformation statistics
+  const transformTotalRows = transformOutputs.reduce((sum: number, o: any) => sum + (o.totalRows ?? o.total_rows ?? 0), 0);
+  const transformTotalMatched = transformOutputs.reduce((sum: number, o: any) => {
+    const stats = o.lookupStats ?? o.lookup_stats ?? [];
+    return sum + stats.reduce((s: number, l: any) => s + (l.matched ?? 0), 0);
+  }, 0);
+  const transformTotalMissed = transformOutputs.reduce((sum: number, o: any) => {
+    const stats = o.lookupStats ?? o.lookup_stats ?? [];
+    return sum + stats.reduce((s: number, l: any) => s + (l.missed ?? 0), 0);
+  }, 0);
 
   // Generic errors
   const isGenericError = log.status === "Error" || (details && typeof details === "object" && "error" in details);
   const errorMsg = details && typeof details === "object" && "error" in details ? details.error : null;
+
+  // Custom helper for metric styling
+  const MetricTile = ({ label, value, helper, icon: Icon, tone = "slate" }: any) => {
+    const toneStyles = {
+      slate: "bg-slate-50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 border-slate-200/50 dark:border-slate-700",
+      blue: "bg-blue-50/50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-400 border-blue-100 dark:border-blue-800/30",
+      emerald: "bg-emerald-50/50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/30",
+      rose: "bg-rose-50/50 dark:bg-rose-900/10 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-800/30",
+      amber: "bg-amber-50/50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-800/30",
+    }[tone as "slate" | "blue" | "emerald" | "rose" | "amber"];
+
+    return (
+      <div className={`rounded-xl border p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.005)] ${toneStyles}`}>
+        <div className="flex items-center gap-2">
+          {Icon && <Icon size={14} className="opacity-70" />}
+          <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-85">{label}</span>
+        </div>
+        <p className="mt-1 text-lg font-black tracking-tight">{value}</p>
+        {helper && <p className="mt-0.5 text-[9px] font-semibold opacity-75">{helper}</p>}
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm sm:p-6 animate-fade-in">
@@ -181,17 +263,24 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
               {isDataValidation && (
                 <div className="space-y-4">
                   {/* Stats tiles */}
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                      Validation Execution Metrics
+                    </h5>
+                    {details.reportS3Key && (
+                      <button
+                        onClick={() => downloadFile(details.reportS3Key, "data_validation_report.xlsx")}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all cursor-pointer"
+                      >
+                        <Download size={13} />
+                        <span>Download Validation Report</span>
+                      </button>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-4 rounded-xl shadow-sm">
-                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Records Checked</p>
-                      <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{details.total_records ?? "N/A"}</p>
-                    </div>
-                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-4 rounded-xl shadow-sm">
-                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Issues Detected</p>
-                      <p className={`text-2xl font-black mt-1 ${issues.length > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                        {details.total_issues ?? issues.length}
-                      </p>
-                    </div>
+                    <MetricTile label="Total Records Checked" value={details.total_records ?? "N/A"} icon={Table2} />
+                    <MetricTile label="Total Issues Detected" value={details.total_issues ?? issues.length} icon={AlertTriangle} tone={issues.length > 0 ? "rose" : "emerald"} />
                   </div>
 
                   {/* Issues search and grid */}
@@ -275,26 +364,28 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
               {/* Schema Validation Output UI */}
               {isSchemaValidation && schemaResult && (
                 <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                      Schema Validation Metrics
+                    </h5>
+                    {!schemaResult.schema_valid && (
+                      <button
+                        onClick={downloadSchemaDiscrepancy}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all cursor-pointer"
+                      >
+                        <Download size={13} />
+                        <span>Download Discrepancy Report</span>
+                      </button>
+                    )}
+                  </div>
+                  
                   {/* Summary Metric tiles */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-3 rounded-xl shadow-sm">
-                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Source Fields</p>
-                      <p className="text-xl font-black text-slate-900 dark:text-white mt-1">{schemaResult.source_field_count ?? 0}</p>
-                    </div>
-                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-3 rounded-xl shadow-sm">
-                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Mapping Fields</p>
-                      <p className="text-xl font-black text-slate-900 dark:text-white mt-1">{schemaResult.mapping_field_count ?? 0}</p>
-                    </div>
-                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-3 rounded-xl shadow-sm">
-                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Matched Fields</p>
-                      <p className="text-xl font-black text-emerald-600 mt-1">{schemaResult.matched_field_count ?? 0}</p>
-                    </div>
-                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-3 rounded-xl shadow-sm">
-                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Discrepancies</p>
-                      <p className={`text-xl font-black mt-1 ${schemaResult.schema_valid ? "text-emerald-600" : "text-rose-600"}`}>
-                        {((schemaResult.missing_fields?.length || 0) + (schemaResult.additional_fields?.length || 0))}
-                      </p>
-                    </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                    <MetricTile label="Source Fields" value={schemaResult.source_field_count ?? 0} icon={Table2} />
+                    <MetricTile label="Mapping Fields" value={schemaResult.mapping_field_count ?? 0} icon={Database} tone="blue" />
+                    <MetricTile label="Matched Fields" value={schemaResult.matched_field_count ?? 0} icon={CheckCircle2} tone="emerald" />
+                    <MetricTile label="Missing Fields" value={schemaResult.missing_fields?.length || 0} icon={AlertTriangle} tone={schemaResult.missing_fields?.length > 0 ? "rose" : "slate"} />
+                    <MetricTile label="Extra Fields" value={schemaResult.additional_fields?.length || 0} icon={AlertTriangle} tone={schemaResult.additional_fields?.length > 0 ? "amber" : "slate"} />
                   </div>
 
                   {/* Schema Validation Status Callout */}
@@ -361,8 +452,187 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                 </div>
               )}
 
+              {/* Data Cleaning Output UI */}
+              {isDataCleaning && details.summary && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                      Cleaning Execution Metrics
+                    </h5>
+                    {cleaningChanges.length > 0 && (
+                      <button
+                        onClick={downloadCleaningReport}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100 transition-all cursor-pointer"
+                      >
+                        <Download size={13} />
+                        <span>Download Cleaning Log</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <MetricTile label="Rows Processed" value={details.summary.total_rows_processed ?? 0} icon={Table2} />
+                    <MetricTile label="Rows Removed" value={details.summary.rows_removed ?? 0} icon={Trash2} tone={details.summary.rows_removed > 0 ? "rose" : "slate"} />
+                    <MetricTile label="Values Trimmed" value={details.summary.values_trimmed ?? 0} icon={Scissors} tone={details.summary.values_trimmed > 0 ? "amber" : "slate"} />
+                    <MetricTile label="Spaces Fixed" value={details.summary.extra_spaces_fixed ?? 0} icon={RefreshCw} tone={details.summary.extra_spaces_fixed > 0 ? "amber" : "slate"} />
+                    <MetricTile label="Email Fixes" value={details.summary.email_corrections ?? 0} icon={AtSign} tone={details.summary.email_corrections > 0 ? "blue" : "slate"} />
+                    <MetricTile label="Null Conversions" value={details.summary.null_conversions ?? 0} icon={XCircle} tone={details.summary.null_conversions > 0 ? "amber" : "slate"} />
+                  </div>
+
+                  {cleaningChanges.length > 0 ? (
+                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse text-left text-xs">
+                          <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                            <tr>
+                              <th className="px-3 py-2.5">Row</th>
+                              <th className="px-3 py-2.5">Column</th>
+                              <th className="px-3 py-2.5">Original Value</th>
+                              <th className="px-3 py-2.5">Cleaned Value</th>
+                              <th className="px-3 py-2.5">Rule</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-300 font-medium">
+                            {paginatedCleaningChanges.map((change: any, index: number) => (
+                              <tr key={index} className="hover:bg-slate-50/40 dark:hover:bg-slate-700/30">
+                                <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-white font-mono">{change.row}</td>
+                                <td className="px-3 py-2.5 font-semibold text-slate-800 dark:text-slate-200">{change.column}</td>
+                                <td className="px-3 py-2.5 max-w-[130px] truncate font-mono text-[11px] text-rose-700 dark:text-rose-400">{change.original_value === null || change.original_value === "" ? <span className="italic text-slate-300">empty</span> : String(change.original_value)}</td>
+                                <td className="px-3 py-2.5 max-w-[130px] truncate font-mono text-[11px] text-emerald-700 dark:text-emerald-400">{change.cleaned_value === null || change.cleaned_value === "" ? <span className="italic text-slate-300">empty</span> : String(change.cleaned_value)}</td>
+                                <td className="px-3 py-2.5">
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold ring-1 ring-amber-100 dark:ring-amber-800/30">
+                                    {change.rule}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      {/* Pagination Controls */}
+                      {totalCleaningPages > 1 && (
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/30 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                          <span>
+                            Showing {(cleaningPage - 1) * cleaningItemsPerPage + 1} to {Math.min(cleaningPage * cleaningItemsPerPage, cleaningChanges.length)} of {cleaningChanges.length} modifications
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setCleaningPage(prev => Math.max(1, prev - 1))}
+                              disabled={cleaningPage === 1}
+                              className="p-1 rounded border border-slate-200/50 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 transition-colors"
+                            >
+                              <ChevronLeft size={14} />
+                            </button>
+                            <span className="px-2">{cleaningPage} / {totalCleaningPages}</span>
+                            <button
+                              onClick={() => setCleaningPage(prev => Math.min(totalCleaningPages, prev + 1))}
+                              disabled={cleaningPage === totalCleaningPages}
+                              className="p-1 rounded border border-slate-200/50 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 transition-colors"
+                            >
+                              <ChevronRight size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl shadow-sm text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-2">
+                      <CheckCircle2 size={24} className="text-emerald-600" />
+                      <span>Data cleaning complete. No changes were necessary!</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Data Transformation Output UI */}
+              {isDataTransformation && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                      Transformation Results Summary
+                    </h5>
+                    {details.zipS3Key ? (
+                      <button
+                        onClick={() => downloadFile(details.zipS3Key, details.zipFileName || "transformed_data.zip")}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/10 transition-all cursor-pointer"
+                      >
+                        <Download size={13} />
+                        <span>Download Transformed Files (ZIP)</span>
+                      </button>
+                    ) : transformOutputs[0]?.transformedS3Key ? (
+                      <button
+                        onClick={() => downloadFile(transformOutputs[0].transformedS3Key, transformOutputs[0].fileName || "transformed_data.xlsx")}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/10 transition-all cursor-pointer"
+                      >
+                        <Download size={13} />
+                        <span>Download Transformed File</span>
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <MetricTile label="Rows Transformed" value={transformTotalRows} helper="Output rows generated" icon={Table2} tone="blue" />
+                    <MetricTile label="Lookups Matched" value={transformTotalMatched} helper="Lookup values resolved" icon={CheckCircle2} tone="emerald" />
+                    <MetricTile label="Lookups Missed" value={transformTotalMissed} helper="Lookup values not found" icon={AlertTriangle} tone={transformTotalMissed > 0 ? "rose" : "slate"} />
+                  </div>
+
+                  <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                    <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 px-4 py-2.5">
+                      <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                        Per-sheet Output Statistics
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-left text-xs">
+                        <thead className="bg-slate-50/50 dark:bg-slate-800/20 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                          <tr>
+                            <th className="px-4 py-3">Sheet Name</th>
+                            <th className="px-4 py-3">Output File</th>
+                            <th className="px-4 py-3">Total Rows</th>
+                            <th className="px-4 py-3">Lookups (Matched/Missed)</th>
+                            <th className="px-4 py-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-300 font-medium">
+                          {transformOutputs.map((out: any, index: number) => {
+                            const stats = out.lookupStats ?? out.lookup_stats ?? [];
+                            const matched = stats.reduce((s: number, l: any) => s + (l.matched ?? 0), 0);
+                            const missed = stats.reduce((s: number, l: any) => s + (l.missed ?? 0), 0);
+                            
+                            return (
+                              <tr key={index} className="hover:bg-slate-50/40 dark:hover:bg-slate-700/30">
+                                <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{out.sheetName}</td>
+                                <td className="px-4 py-3 text-slate-500 font-mono truncate max-w-[150px]" title={out.fileName}>{out.fileName}</td>
+                                <td className="px-4 py-3 font-bold tabular-nums">{out.totalRows ?? out.total_rows ?? 0}</td>
+                                <td className="px-4 py-3">
+                                  <span className="inline-flex items-center gap-1">
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">{matched}</span>
+                                    <span className="text-slate-300">/</span>
+                                    <span className={missed > 0 ? "text-rose-600 dark:text-rose-400 font-bold" : "text-slate-400 font-bold"}>{missed}</span>
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <button
+                                    onClick={() => downloadFile(out.transformedS3Key, out.fileName)}
+                                    className="p-1.5 rounded-lg text-slate-500 hover:text-[#002BFF] hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors inline-flex"
+                                    title="Download this file"
+                                  >
+                                    <Download size={13} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Generic Error message display */}
-              {isGenericError && errorMsg && !isDataValidation && !isSchemaValidation && (
+              {isGenericError && errorMsg && !isDataValidation && !isSchemaValidation && !isDataCleaning && !isDataTransformation && (
                 <div className="p-4 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl flex gap-3 items-start shadow-sm">
                   <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={18} />
                   <div>
@@ -375,7 +645,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
               )}
 
               {/* General details formatting */}
-              {details && !isDataValidation && !isSchemaValidation && (
+              {details && !isDataValidation && !isSchemaValidation && !isDataCleaning && !isDataTransformation && (
                 <div className="space-y-2">
                   <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
                     Operation Metadata
