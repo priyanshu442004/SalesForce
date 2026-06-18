@@ -91,12 +91,19 @@ type LookupStat = {
   total: number;
 };
 
-type TransformResult = {
-  transformedS3Key: string;
+type SheetOutput = {
+  sheetName: string;
   fileName: string;
+  transformedS3Key: string;
   totalRows: number;
   transformedColumns: string[];
   lookupStats: LookupStat[];
+};
+
+type TransformResult = {
+  outputs: SheetOutput[];
+  zipS3Key: string | null;
+  zipFileName: string | null;
   generatedAt: string;
   totalRecords: number;
 };
@@ -426,10 +433,29 @@ export default function TransformationWorkspacePage() {
   };
 
   const downloadTransformedFile = () => {
-    if (!transformResult?.transformedS3Key) return;
+    if (!transformResult) return;
+    if (transformResult.zipS3Key) {
+      const link = document.createElement("a");
+      link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(transformResult.zipS3Key)}`;
+      link.setAttribute("download", transformResult.zipFileName || "transformed_data.zip");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } else if (transformResult.outputs[0]?.transformedS3Key) {
+      const out = transformResult.outputs[0];
+      const link = document.createElement("a");
+      link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(out.transformedS3Key)}`;
+      link.setAttribute("download", out.fileName || "transformed_data.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+  };
+
+  const downloadSheetFile = (out: SheetOutput) => {
     const link = document.createElement("a");
-    link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(transformResult.transformedS3Key)}`;
-    link.setAttribute("download", transformResult.fileName || "transformed_data.xlsx");
+    link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(out.transformedS3Key)}`;
+    link.setAttribute("download", out.fileName || `${out.sheetName}_transformed.xlsx`);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -616,30 +642,53 @@ export default function TransformationWorkspacePage() {
         throw new Error(parseErrorDetail(errorBody?.detail, "Data transformation failed"));
       }
       const data = await response.json();
-      if (data.transformedS3Key && currentProject?.id) {
-        await fetch(`/api/projects/${currentProject.id}/outputs`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileName: data.fileName || "transformed_data.xlsx",
-            fileType: "transformed_data",
-            s3Key: data.transformedS3Key,
-            recordsCount: validationTotalRecords,
-          }),
-        });
+      const sheetOutputs: SheetOutput[] = (data.outputs ?? []).map((o: any) => ({
+        sheetName: o.sheetName,
+        fileName: o.fileName,
+        transformedS3Key: o.transformedS3Key,
+        totalRows: o.total_rows ?? 0,
+        transformedColumns: o.transformed_columns ?? [],
+        lookupStats: o.lookup_stats ?? [],
+      }));
+
+      // Record each output file in the project's output list
+      if (currentProject?.id) {
+        for (const out of sheetOutputs) {
+          await fetch(`/api/projects/${currentProject.id}/outputs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fileName: out.fileName,
+              fileType: "transformed_data",
+              s3Key: out.transformedS3Key,
+              recordsCount: validationTotalRecords,
+            }),
+          });
+        }
+      }
+
+      // Auto-download: ZIP if multiple sheets, otherwise the single file
+      if (data.zipS3Key) {
         const link = document.createElement("a");
-        link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(data.transformedS3Key)}`;
-        link.setAttribute("download", data.fileName || "transformed_data.xlsx");
+        link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(data.zipS3Key)}`;
+        link.setAttribute("download", data.zipFileName || "transformed_data.zip");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } else if (sheetOutputs[0]?.transformedS3Key) {
+        const out = sheetOutputs[0];
+        const link = document.createElement("a");
+        link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(out.transformedS3Key)}`;
+        link.setAttribute("download", out.fileName || "transformed_data.xlsx");
         document.body.appendChild(link);
         link.click();
         link.remove();
       }
+
       setTransformResult({
-        transformedS3Key: data.transformedS3Key || "",
-        fileName: data.fileName || "transformed_data.xlsx",
-        totalRows: data.total_rows || validationTotalRecords,
-        transformedColumns: data.transformed_columns || [],
-        lookupStats: data.lookup_stats || [],
+        outputs: sheetOutputs,
+        zipS3Key: data.zipS3Key ?? null,
+        zipFileName: data.zipFileName ?? null,
         generatedAt: data.generatedAt || new Date().toISOString(),
         totalRecords: validationTotalRecords,
       });
@@ -960,8 +1009,12 @@ export default function TransformationWorkspacePage() {
     // ── Transformation ────────────────────────────────────────────────────────
     if (step === "transformation") {
       const failed = stageStatus.transformation === "failed";
-      const totalMatched = transformResult?.lookupStats.reduce((s, l) => s + l.matched, 0) ?? 0;
-      const totalMissed  = transformResult?.lookupStats.reduce((s, l) => s + l.missed,  0) ?? 0;
+      const allStats = transformResult?.outputs.flatMap(o => o.lookupStats) ?? [];
+      const totalRows    = transformResult?.outputs.reduce((s, o) => s + o.totalRows, 0) ?? 0;
+      const totalMatched = allStats.reduce((s, l) => s + l.matched, 0);
+      const totalMissed  = allStats.reduce((s, l) => s + l.missed,  0);
+      const sheetCount   = transformResult?.outputs.length ?? 0;
+
       return (
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex items-start gap-3.5 border-b border-slate-200 px-5 py-5 lg:px-6">
@@ -969,6 +1022,11 @@ export default function TransformationWorkspacePage() {
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <h3 className="text-[15px] font-bold text-slate-900">{label}</h3>
               {statusBadge}
+              {sheetCount > 1 && (
+                <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-700 ring-1 ring-violet-100">
+                  {sheetCount} sheets
+                </span>
+              )}
             </div>
           </div>
           <div className="p-5 lg:p-6">
@@ -984,12 +1042,53 @@ export default function TransformationWorkspacePage() {
             {!failed && transformResult && (
               <>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <MetricTile label="Rows Transformed"  value={transformResult.totalRows}  helper="Output rows generated"    icon={Table2}       tone="blue" />
-                  <MetricTile label="Lookups Matched"   value={totalMatched}               helper="Lookup values resolved"   icon={CheckCircle2} tone="emerald" />
-                  <MetricTile label="Lookups Missed"    value={totalMissed}                helper="Lookup values not found"  icon={AlertTriangle} tone={totalMissed > 0 ? "rose" : "slate"} />
+                  <MetricTile label="Rows Transformed"  value={totalRows}     helper={sheetCount > 1 ? `Across ${sheetCount} output files` : "Output rows generated"} icon={Table2}        tone="blue" />
+                  <MetricTile label="Lookups Matched"   value={totalMatched}  helper="Lookup values resolved"  icon={CheckCircle2}  tone="emerald" />
+                  <MetricTile label="Lookups Missed"    value={totalMissed}   helper="Lookup values not found" icon={AlertTriangle} tone={totalMissed > 0 ? "rose" : "slate"} />
                 </div>
-                {transformResult.lookupStats.length > 0 && (
-                  <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+
+                {/* Per-sheet breakdown */}
+                <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                    <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                      Per-sheet Output Statistics
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                      <thead className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                        <tr>
+                          <th className="px-4 py-3">Mapping Sheet</th>
+                          <th className="px-4 py-3">Output File</th>
+                          <th className="px-4 py-3 text-right">Rows</th>
+                          <th className="px-4 py-3 text-right">Cols Transformed</th>
+                          <th className="px-4 py-3 text-right">Lookups Matched</th>
+                          <th className="px-4 py-3 text-right">Lookups Missed</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
+                        {transformResult.outputs.map(out => {
+                          const sm = out.lookupStats.reduce((a, l) => a + l.matched, 0);
+                          const sx = out.lookupStats.reduce((a, l) => a + l.missed,  0);
+                          return (
+                            <tr key={out.sheetName} className="hover:bg-slate-50">
+                              <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">{out.sheetName}</td>
+                              <td className="whitespace-nowrap px-4 py-3 font-mono text-[11px] text-slate-600">{out.fileName}</td>
+                              <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{out.totalRows}</td>
+                              <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{out.transformedColumns.length}</td>
+                              <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-emerald-700">{sm}</td>
+                              <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-rose-700">{sx}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Per-column lookup stats (only when any sheet has lookup columns) */}
+                {allStats.length > 0 && (
+                  <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
                     <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
                       <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
                         Per-column Lookup Statistics
@@ -999,6 +1098,7 @@ export default function TransformationWorkspacePage() {
                       <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
                         <thead className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
                           <tr>
+                            {sheetCount > 1 && <th className="px-4 py-3">Sheet</th>}
                             <th className="px-4 py-3">Column</th>
                             <th className="px-4 py-3 text-right">Total</th>
                             <th className="px-4 py-3 text-right">Matched</th>
@@ -1007,25 +1107,30 @@ export default function TransformationWorkspacePage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
-                          {transformResult.lookupStats.map((stat) => {
-                            const rate = stat.total > 0 ? Math.round((stat.matched / stat.total) * 100) : 100;
-                            return (
-                              <tr key={stat.column} className="hover:bg-slate-50">
-                                <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">{stat.column}</td>
-                                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{stat.total}</td>
-                                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-emerald-700">{stat.matched}</td>
-                                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-rose-700">{stat.missed}</td>
-                                <td className="whitespace-nowrap px-4 py-3 text-right">
-                                  <span className={cx(
-                                    "rounded-md px-2 py-0.5 text-[10px] font-bold ring-1",
-                                    rate === 100 ? "bg-emerald-50 text-emerald-700 ring-emerald-100" :
-                                    rate >= 80  ? "bg-amber-50 text-amber-700 ring-amber-100" :
-                                                  "bg-rose-50 text-rose-700 ring-rose-100"
-                                  )}>{rate}%</span>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                          {transformResult.outputs.flatMap(out =>
+                            out.lookupStats.map(stat => {
+                              const rate = stat.total > 0 ? Math.round((stat.matched / stat.total) * 100) : 100;
+                              return (
+                                <tr key={`${out.sheetName}-${stat.column}`} className="hover:bg-slate-50">
+                                  {sheetCount > 1 && (
+                                    <td className="whitespace-nowrap px-4 py-3 text-[11px] text-slate-500">{out.sheetName}</td>
+                                  )}
+                                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">{stat.column}</td>
+                                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{stat.total}</td>
+                                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-emerald-700">{stat.matched}</td>
+                                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-rose-700">{stat.missed}</td>
+                                  <td className="whitespace-nowrap px-4 py-3 text-right">
+                                    <span className={cx(
+                                      "rounded-md px-2 py-0.5 text-[10px] font-bold ring-1",
+                                      rate === 100 ? "bg-emerald-50 text-emerald-700 ring-emerald-100" :
+                                      rate >= 80   ? "bg-amber-50 text-amber-700 ring-amber-100" :
+                                                     "bg-rose-50 text-rose-700 ring-rose-100"
+                                    )}>{rate}%</span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1043,35 +1148,84 @@ export default function TransformationWorkspacePage() {
       const generatedLabel = transformResult?.generatedAt
         ? new Date(transformResult.generatedAt).toLocaleString()
         : "—";
+      const totalCols = transformResult?.outputs.reduce((s, o) => s + o.transformedColumns.length, 0) ?? 0;
+      const sheetCount = transformResult?.outputs.length ?? 0;
+      const hasZip = !!transformResult?.zipS3Key;
+
       return (
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
-          <div className="flex items-start gap-3.5 border-b border-slate-200 px-5 py-5 lg:px-6">
-            <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}><Icon size={20} /></span>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <h3 className="text-[15px] font-bold text-slate-900">{label}</h3>
-              {statusBadge}
+          <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+            <div className="flex items-start gap-3.5">
+              <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}><Icon size={20} /></span>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <h3 className="text-[15px] font-bold text-slate-900">{label}</h3>
+                {statusBadge}
+                {sheetCount > 1 && (
+                  <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-teal-700 ring-1 ring-teal-100">
+                    {sheetCount} files
+                  </span>
+                )}
+              </div>
             </div>
+            <Button type="button" variant={hasZip ? "dark" : "secondary"} onClick={downloadTransformedFile} className="shrink-0">
+              <Download size={14} />
+              {hasZip ? "Download ZIP" : "Re-download"}
+            </Button>
           </div>
           <div className="p-5 lg:p-6">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <MetricTile label="Records Exported"    value={transformResult?.totalRecords ?? "—"}        helper="Rows in output file"        icon={Table2}        tone="emerald" />
-              <MetricTile label="Columns Transformed" value={transformResult?.transformedColumns.length ?? "—"} helper="Fields with applied rules" icon={Database}      tone="blue" />
+              <MetricTile label="Records Exported"    value={transformResult?.totalRecords ?? "—"} helper="Source rows processed"       icon={Table2}        tone="emerald" />
+              <MetricTile label="Columns Transformed" value={totalCols}                            helper="Fields with applied rules"   icon={Database}      tone="blue" />
               <MetricTile label="Generated"           value={transformResult ? new Date(transformResult.generatedAt).toLocaleDateString() : "—"} helper={generatedLabel} icon={FileSpreadsheet} />
             </div>
 
-            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Output File</p>
-                  <p className="mt-1 font-mono text-sm font-semibold text-slate-800">{transformResult?.fileName || "transformed_data.xlsx"}</p>
-                  <p className="mt-0.5 text-[11px] text-slate-500">Download started automatically when transformation completed.</p>
-                </div>
-                <Button type="button" variant="secondary" onClick={downloadTransformedFile} className="shrink-0">
-                  <Download size={14} />
-                  Re-download
-                </Button>
+            {/* Per-sheet output files table */}
+            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                  Output Files
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                  <thead className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Mapping Sheet</th>
+                      <th className="px-4 py-3">Output Filename</th>
+                      <th className="px-4 py-3 text-right">Records</th>
+                      <th className="px-4 py-3 text-right">Cols Transformed</th>
+                      <th className="px-4 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
+                    {(transformResult?.outputs ?? []).map(out => (
+                      <tr key={out.sheetName} className="hover:bg-slate-50">
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">{out.sheetName}</td>
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-[11px] text-slate-600">{out.fileName}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{out.totalRows}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{out.transformedColumns.length}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => downloadSheetFile(out)}
+                            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                          >
+                            <Download size={11} />
+                            Download
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
+
+            <p className="mt-2.5 text-[11px] text-slate-400">
+              {hasZip
+                ? "All output files were packaged into a ZIP and downloaded automatically."
+                : "The output file was downloaded automatically on completion."}
+            </p>
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <Button type="button" variant="secondary" onClick={() => router.push("/upload")}>

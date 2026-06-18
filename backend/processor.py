@@ -754,14 +754,14 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
 
 
 def validate_schema(source_path: str, logic_path: str) -> dict:
-    """
-    Validates schema between source Excel and mapping logic Excel.
+    """Validate schema coverage across all sheets in the mapping logic workbook.
 
-    - Reads all column headers from the first sheet of the source Excel.
-    - Reads all values from Column A of the first sheet in the mapping logic file,
-      ignoring the header row (Column A header expected to be 'Source fields').
-    - Comparison is case-insensitive, ignores spaces and underscores, and trims.
-    Returns the structure specified by the frontend.
+    Rules enforced:
+    - Every source column must appear in at least one mapping sheet.
+    - Every mapping sheet field must exist as a column in the source file.
+
+    Returns the same structure as before; counts and field lists now reflect the
+    union of all mapping sheets rather than only the first sheet.
     """
     try:
         if not os.path.exists(source_path):
@@ -769,67 +769,71 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
         if not os.path.exists(logic_path):
             raise FileNotFoundError(f"Mapping Logic file not found at {logic_path}")
 
-        # Read source headers (first sheet)
+        # Read source headers (first sheet of source file)
         src_df = pd.read_excel(source_path, nrows=0)
         source_columns = [str(c) for c in src_df.columns]
 
-        # Read mapping logic column A (first sheet)
-        # Read mapping file
-        with pd.ExcelFile(logic_path) as logic_excel:
-            logic_sheet = logic_excel.sheet_names[0]
-            logic_df = pd.read_excel(logic_excel, sheet_name=logic_sheet)
-        mapping_columns = resolve_mapping_columns(logic_df)
-
-        source_field_column = mapping_columns["source_field"]
-
-        mapping_header = source_field_column
-
-        mapping_values = (
-            logic_df[source_field_column]
-            .astype(object)
-            .fillna("")
-            .tolist()
-        )
-        # Remove header row if present as first value (some files may include header as first row)
-        # But spec says Column A always has header 'Source fields' and ignore header row
-        # So drop any value equal to the header (case-insensitive)
-        cleaned_mapping = []
-        for v in mapping_values:
-            vs = str(v).strip()
-            if vs == "":
-                continue
-            if vs.strip().lower() == str(mapping_header).strip().lower():
-                continue
-            cleaned_mapping.append(vs)
-
-        # Normalization helper
-        import re
         def _norm(s: str) -> str:
-            if s is None:
-                return ""
-            return str(s).strip()
+            return str(s).strip() if s is not None else ""
 
-        src_norm_map = { _norm(orig): orig for orig in source_columns }
-        map_norm_map = { _norm(orig): orig for orig in cleaned_mapping }
+        # Aggregate source-field references from ALL mapping sheets
+        all_mapping_fields_ordered: list[str] = []
+        seen_mapping: set[str] = set()
+        sheet_count = 0
 
-        src_norm_set = set(k for k in src_norm_map.keys() if k)
-        map_norm_set = set(k for k in map_norm_map.keys() if k)
+        with pd.ExcelFile(logic_path) as logic_excel:
+            sheet_count = len(logic_excel.sheet_names)
+            for sheet_name in logic_excel.sheet_names:
+                logic_df = pd.read_excel(logic_excel, sheet_name=sheet_name)
+                mapping_columns = resolve_mapping_columns(logic_df)
 
-        matched_norm = src_norm_set & map_norm_set
+                source_field_col = mapping_columns["source_field"]
+                header_label = _norm(str(source_field_col))
 
-        missing_norm = map_norm_set - src_norm_set
+                raw_values = (
+                    logic_df[source_field_col]
+                    .astype(object)
+                    .fillna("")
+                    .tolist()
+                )
+
+                for v in raw_values:
+                    vs = _norm(str(v))
+                    if not vs:
+                        continue
+                    # Skip the column header if it appears as a data row
+                    if vs.lower() == header_label.lower():
+                        continue
+                    # "Add new Field" entries don't reference source columns
+                    if vs.lower() == "add new field":
+                        continue
+                    if vs not in seen_mapping:
+                        seen_mapping.add(vs)
+                        all_mapping_fields_ordered.append(vs)
+
+        src_norm_map = {_norm(orig): orig for orig in source_columns}
+        map_norm_map = {_norm(orig): orig for orig in all_mapping_fields_ordered}
+
+        src_norm_set  = {k for k in src_norm_map  if k}
+        map_norm_set  = {k for k in map_norm_map  if k}
+
+        matched_norm    = src_norm_set & map_norm_set
+        # Mapping references a field not found in source
+        missing_norm    = map_norm_set - src_norm_set
+        # Source has a column not referenced in any mapping sheet
         additional_norm = src_norm_set - map_norm_set
 
-        missing_fields = [map_norm_map[n] for n in sorted(missing_norm)]
+        missing_fields    = [map_norm_map[n] for n in sorted(missing_norm)]
         additional_fields = [src_norm_map[n] for n in sorted(additional_norm)]
 
         result = {
             "schema_valid": len(missing_fields) == 0 and len(additional_fields) == 0,
             "source_field_count": len(source_columns),
-            "mapping_field_count": len(cleaned_mapping),
+            "mapping_field_count": len(all_mapping_fields_ordered),
             "matched_field_count": len(matched_norm),
             "missing_fields": missing_fields,
-            "additional_fields": additional_fields
+            "additional_fields": additional_fields,
+            "sheet_count": sheet_count,
         }
 
         return {"success": True, "result": result}

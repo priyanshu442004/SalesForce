@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import math
 import os
+import re
 from typing import Any
 
 import pandas as pd
@@ -220,68 +221,30 @@ def transform_datetime_value(value: Any) -> str:
     return parsed.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def load_transform_rules(logic_path: str) -> dict[str, dict[str, Any]]:
-    with pd.ExcelFile(logic_path) as logic_excel:
-        logic_df = pd.read_excel(
-            logic_excel,
-            sheet_name=logic_excel.sheet_names[0]
-        )
-
+def _load_rules_from_df(logic_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    """Build a transform-rules dict from an already-loaded mapping DataFrame."""
     columns = resolve_mapping_columns(logic_df)
-
     rules: dict[str, dict[str, Any]] = {}
 
     for _, row in logic_df.iterrows():
-        source_field = clean_cell(
-            row.get(columns["source_field"])
-        )
-
-        data_type = normalize_type(
-            row.get(columns["data_type"])
-        )
-
+        source_field = clean_cell(row.get(columns["source_field"]))
+        data_type = normalize_type(row.get(columns["data_type"]))
         format_value = row.get(columns["format"])
+        master_sheet = clean_cell(row.get(columns.get("master_sheet")))
+        search_column = clean_cell(row.get(columns.get("search_column")))
+        copyable_column = clean_cell(row.get(columns.get("copyable_column")))
 
-        master_sheet = clean_cell(
-            row.get(columns.get("master_sheet"))
-        )
-
-        search_column = clean_cell(
-            row.get(columns.get("search_column"))
-        )
-
-        copyable_column = clean_cell(
-            row.get(columns.get("copyable_column"))
-        )
-
-        if (
-            not source_field
-            or source_field.lower() == "add new field"
-        ):
+        if not source_field or source_field.lower() == "add new field":
             continue
 
         value_mapping = parse_value_mapping(format_value)
 
         is_date = data_type == "date"
-        is_datetime = data_type in {
-            "datetime",
-            "date&time"
-        }
-
-        is_multiselect = data_type in {
-            "picklist(multiselect)",
-            "picklistmultiselect"
-        }
-
+        is_datetime = data_type in {"datetime", "date&time"}
+        is_multiselect = data_type in {"picklist(multiselect)", "picklistmultiselect"}
         is_lookup = data_type == "lookup"
 
-        if (
-            not value_mapping
-            and not is_date
-            and not is_datetime
-            and not is_multiselect
-            and not is_lookup
-        ):
+        if not value_mapping and not is_date and not is_datetime and not is_multiselect and not is_lookup:
             continue
 
         rules[source_field.strip().lower()] = {
@@ -297,6 +260,54 @@ def load_transform_rules(logic_path: str) -> dict[str, dict[str, Any]]:
     return rules
 
 
+def load_transform_rules(logic_path: str) -> dict[str, dict[str, Any]]:
+    """Load transform rules from the first sheet of a logic workbook (used externally)."""
+    with pd.ExcelFile(logic_path) as logic_excel:
+        logic_df = pd.read_excel(logic_excel, sheet_name=logic_excel.sheet_names[0])
+    return _load_rules_from_df(logic_df)
+
+
+def load_transform_rules_for_sheet(
+    logic_excel: pd.ExcelFile,
+    sheet_name: str,
+) -> dict[str, dict[str, Any]]:
+    """Load transform rules from a named sheet in an already-open logic workbook."""
+    logic_df = pd.read_excel(logic_excel, sheet_name=sheet_name)
+    return _load_rules_from_df(logic_df)
+
+
+def load_sheet_source_fields(
+    logic_excel: pd.ExcelFile,
+    sheet_name: str,
+) -> list[str]:
+    """Return the ordered list of source field names declared in a mapping sheet.
+
+    Includes every non-blank, non-header, non-"Add new Field" entry in the
+    Source Fields column.  These are the fields that must appear in this
+    sheet's output regardless of whether they have an active transformation
+    rule (pass-through columns have no rule but still belong in the output).
+    """
+    logic_df = pd.read_excel(logic_excel, sheet_name=sheet_name)
+    columns = resolve_mapping_columns(logic_df)
+    source_field_col = columns["source_field"]
+    header_label = str(source_field_col).strip().lower()
+
+    fields: list[str] = []
+    seen: set[str] = set()
+    for raw in logic_df[source_field_col].tolist():
+        vs = str(raw).strip() if raw is not None else ""
+        if not vs:
+            continue
+        if vs.lower() == header_label:
+            continue
+        if vs.lower() == "add new field":
+            continue
+        if vs not in seen:
+            seen.add(vs)
+            fields.append(vs)
+    return fields
+
+
 def _is_null_sentinel(value: Any) -> bool:
     """True when the value is the literal string 'NULL' written by data_cleaning.py."""
     return isinstance(value, str) and value.strip() == "NULL"
@@ -306,7 +317,6 @@ def apply_transform_rule(series: pd.Series, rule: dict[str, Any]) -> list[str]:
     data_type = rule["data_type"]
 
     def _transform_one(value: Any) -> str:
-        # Preserve NULL sentinel — do not apply any transformation rule to it.
         if _is_null_sentinel(value):
             return "NULL"
 
@@ -342,10 +352,7 @@ def apply_lookup_rule(
     if not master_sheet:
         return [""] * len(series), 0, 0
 
-    master_df = pd.read_excel(
-        master_excel,
-        sheet_name=master_sheet
-    )
+    master_df = pd.read_excel(master_excel, sheet_name=master_sheet)
 
     lookup_map = {}
 
@@ -377,61 +384,88 @@ def apply_lookup_rule(
 
     return results, matched, missed
 
-def transform_source_data(source_path: str, logic_path: str, master_path: str, output_path: str) -> dict[str, Any]:
-    if not os.path.exists(source_path):
-        raise FileNotFoundError(f"Source file not found at {source_path}")
-    if not os.path.exists(logic_path):
-        raise FileNotFoundError(f"Mapping Logic file not found at {logic_path}")
-    if not os.path.exists(master_path):
-        raise FileNotFoundError(f"Master file not found at {master_path}")
 
-    source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
-    transform_rules = load_transform_rules(logic_path)
+def _transform_one_sheet(
+    source_df: pd.DataFrame,
+    transform_rules: dict[str, dict[str, Any]],
+    included_fields: set[str],
+    master_excel: pd.ExcelFile,
+    output_path: str,
+    sheet_name: str,
+) -> dict[str, Any]:
+    """Apply this sheet's transform_rules to source_df and write to output_path.
+
+    Only columns listed in included_fields are written to the output workbook.
+    Columns absent from included_fields are completely excluded — this ensures
+    each output file contains only the fields defined in its own mapping sheet.
+
+    Returns per-sheet statistics.
+    """
     output_columns: list[pd.Series] = []
     output_headers: list[str] = []
     transformed_columns: list[str] = []
     lookup_stats: list[dict[str, Any]] = []
 
-    with pd.ExcelFile(master_path) as master_excel:
-        for column in source_df.columns:
-            source_column_name = str(column).strip()
+    # Diagnostic logging -------------------------------------------------------
+    print(f"\n[transform] ── Sheet: '{sheet_name}' ──────────────────────────────")
+    print(f"[transform]   Mappings loaded (active rules): {len(transform_rules)}")
+    print(f"[transform]   Source fields in this sheet ({len(included_fields)}): "
+          f"{sorted(included_fields)}")
+    # --------------------------------------------------------------------------
 
-            # Always include original column with __ prefix
-            output_columns.append(source_df[column])
-            output_headers.append(source_column_name)
+    for column in source_df.columns:
+        source_column_name = str(column).strip()
 
-            rule = transform_rules.get(source_column_name.lower())
-            if rule is None:
-                continue
+        # ── KEY FIX ──────────────────────────────────────────────────────────
+        # Only include columns explicitly listed in this sheet's source fields.
+        # Columns from other mapping sheets are completely excluded here.
+        if source_column_name not in included_fields:
+            continue
+        # ─────────────────────────────────────────────────────────────────────
 
-            if rule["data_type"] == "lookup":
-                transformed_values, lk_matched, lk_missed = apply_lookup_rule(source_df[column], rule, master_excel)
-                lookup_stats.append({
-                    "column": source_column_name,
-                    "matched": lk_matched,
-                    "missed": lk_missed,
-                    "total": lk_matched + lk_missed,
-                })
-            else:
-                transformed_values = apply_transform_rule(source_df[column], rule)
+        # Column belongs to this sheet — always include the original values first.
+        output_columns.append(source_df[column])
+        output_headers.append(source_column_name)
 
-            original_values = [
-                "" if is_blank(v) else str(v).strip()
-                for v in source_df[column].tolist()
-            ]
+        rule = transform_rules.get(source_column_name.lower())
+        if rule is None:
+            # Pass-through: field is listed in the sheet but has no active
+            # transformation rule (e.g. text, email, phone).  Include as-is.
+            continue
 
-            transformed_values_clean = [
-                "" if is_blank(v) else str(v).strip()
-                for v in transformed_values
-            ]
+        if rule["data_type"] == "lookup":
+            transformed_values, lk_matched, lk_missed = apply_lookup_rule(source_df[column], rule, master_excel)
+            lookup_stats.append({
+                "column": source_column_name,
+                "matched": lk_matched,
+                "missed": lk_missed,
+                "total": lk_matched + lk_missed,
+            })
+        else:
+            transformed_values = apply_transform_rule(source_df[column], rule)
 
-            # Add transformed column only if at least one value changed
-            if original_values == transformed_values_clean:
-                continue
-            output_headers[-1] = f"__{source_column_name}"
-            output_columns.append(pd.Series(transformed_values))
-            output_headers.append(source_column_name)
-            transformed_columns.append(source_column_name)
+        original_values = [
+            "" if is_blank(v) else str(v).strip()
+            for v in source_df[column].tolist()
+        ]
+
+        transformed_values_clean = [
+            "" if is_blank(v) else str(v).strip()
+            for v in transformed_values
+        ]
+
+        if original_values == transformed_values_clean:
+            continue
+        output_headers[-1] = f"__{source_column_name}"
+        output_columns.append(pd.Series(transformed_values))
+        output_headers.append(source_column_name)
+        transformed_columns.append(source_column_name)
+
+    # Diagnostic logging -------------------------------------------------------
+    print(f"[transform]   Target fields generated ({len(transformed_columns)}): "
+          f"{transformed_columns}")
+    print(f"[transform]   Total output columns: {len(output_headers)}")
+    # --------------------------------------------------------------------------
 
     transformed_df = pd.concat(output_columns, axis=1) if output_columns else pd.DataFrame()
     transformed_df.columns = output_headers
@@ -439,17 +473,72 @@ def transform_source_data(source_path: str, logic_path: str, master_path: str, o
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-        transformed_df.to_excel(
-            writer,
-            index=False,
-            sheet_name="Transformed Data"
-        )
+        transformed_df.to_excel(writer, index=False, sheet_name="Transformed Data")
 
     return {
-        "success": True,
+        "sheet_name": sheet_name,
+        "output_path": output_path,
         "total_rows": len(transformed_df),
         "total_columns": len(transformed_df.columns),
         "transformed_columns": transformed_columns,
         "lookup_stats": lookup_stats,
-        "output_path": output_path,
+    }
+
+
+def _safe_filename(sheet_name: str) -> str:
+    """Convert a sheet name to a safe filename component."""
+    return re.sub(r"[^\w\-]", "_", sheet_name).strip("_") or "sheet"
+
+
+def transform_source_data(
+    source_path: str,
+    logic_path: str,
+    master_path: str,
+    output_dir: str,
+) -> dict[str, Any]:
+    """Process all mapping sheets independently and return per-sheet results.
+
+    Each sheet in the logic workbook produces one transformed .xlsx file inside
+    output_dir.  output_dir must already exist or be creatable.
+    """
+    if not os.path.exists(source_path):
+        raise FileNotFoundError(f"Source file not found at {source_path}")
+    if not os.path.exists(logic_path):
+        raise FileNotFoundError(f"Mapping Logic file not found at {logic_path}")
+    if not os.path.exists(master_path):
+        raise FileNotFoundError(f"Master file not found at {master_path}")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
+
+    with pd.ExcelFile(logic_path) as logic_excel:
+        sheet_names = list(logic_excel.sheet_names)
+        rules_per_sheet: dict[str, dict[str, Any]] = {}
+        fields_per_sheet: dict[str, set[str]] = {}
+        for s in sheet_names:
+            rules_per_sheet[s] = load_transform_rules_for_sheet(logic_excel, s)
+            fields_per_sheet[s] = set(load_sheet_source_fields(logic_excel, s))
+
+    print(f"\n[transform] Logic workbook has {len(sheet_names)} sheet(s): {sheet_names}")
+
+    outputs: list[dict[str, Any]] = []
+
+    with pd.ExcelFile(master_path) as master_excel:
+        for sheet_name in sheet_names:
+            safe_name = _safe_filename(sheet_name)
+            output_path = os.path.join(output_dir, f"{safe_name}_transformed.xlsx")
+            result = _transform_one_sheet(
+                source_df=source_df,
+                transform_rules=rules_per_sheet[sheet_name],
+                included_fields=fields_per_sheet[sheet_name],
+                master_excel=master_excel,
+                output_path=output_path,
+                sheet_name=sheet_name,
+            )
+            outputs.append(result)
+
+    return {
+        "success": True,
+        "outputs": outputs,
     }

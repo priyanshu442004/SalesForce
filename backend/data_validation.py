@@ -210,29 +210,46 @@ VALIDATORS: dict[str, tuple[Callable[[Any, Any], bool], str, str]] = {
 
 
 def read_mapping_rules(logic_path: str) -> pd.DataFrame:
+    """Aggregate mapping rules from ALL sheets in the logic workbook.
+
+    Rules from all sheets are concatenated so validation covers every target
+    dataset's constraints.  Exact duplicate rows (same source_field, data_type,
+    format, mandatory_primary) are dropped to avoid redundant issue reports when
+    the same field appears in multiple sheets with identical rules.
+    """
+    all_dfs: list[pd.DataFrame] = []
+
     with pd.ExcelFile(logic_path) as logic_excel:
-        logic_df = pd.read_excel(logic_excel, sheet_name=logic_excel.sheet_names[0])
+        for sheet_name in logic_excel.sheet_names:
+            logic_df = pd.read_excel(logic_excel, sheet_name=sheet_name)
+            columns = resolve_mapping_columns(logic_df)
 
-    columns = resolve_mapping_columns(logic_df)
+            rename_map = {
+                columns["source_field"]: "source_field",
+                columns["data_type"]: "data_type",
+                columns["format"]: "format",
+            }
+            select_cols = ["source_field", "data_type", "format"]
+            for extra_col in ("mandatory_primary", "master_sheet", "search_column", "copyable_column"):
+                if extra_col in columns:
+                    rename_map[columns[extra_col]] = extra_col
+                    select_cols.append(extra_col)
 
-    rename_map = {
-        columns["source_field"]: "source_field",
-        columns["data_type"]: "data_type",
-        columns["format"]: "format",
-    }
-    select_cols = ["source_field", "data_type", "format"]
-    for extra_col in ("mandatory_primary", "master_sheet", "search_column", "copyable_column"):
-        if extra_col in columns:
-            rename_map[columns[extra_col]] = extra_col
-            select_cols.append(extra_col)
+            sheet_df = logic_df.rename(columns=rename_map)[select_cols].copy()
 
-    df = logic_df.rename(columns=rename_map)[select_cols]
+            for optional_col in ("mandatory_primary", "master_sheet", "search_column", "copyable_column"):
+                if optional_col not in sheet_df.columns:
+                    sheet_df[optional_col] = None
 
-    for optional_col in ("mandatory_primary", "master_sheet", "search_column", "copyable_column"):
-        if optional_col not in df.columns:
-            df[optional_col] = None
+            all_dfs.append(sheet_df)
 
-    return df
+    combined = pd.concat(all_dfs, ignore_index=True)
+
+    # Drop exact duplicate rules to avoid double-reporting the same issue.
+    dedup_cols = ["source_field", "data_type", "format", "mandatory_primary"]
+    combined = combined.drop_duplicates(subset=dedup_cols, keep="first")
+
+    return combined
 
 
 def expected_message(data_type: str, format_value: Any, fallback: str) -> str:
@@ -518,8 +535,17 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
             }
         )
 
+    # Remove exact duplicate issues that can arise when the same field appears
+    # in multiple mapping sheets with identical (or very similar) rules.
+    seen: set[tuple] = set()
+    deduped: list[ValidationIssue] = []
+    for issue in issues:
+        key = (issue["row"], issue["field"], issue["issue_type"], issue["value"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(issue)
 
-    return issues
+    return deduped
 
 
 def validate_source_data(source_path: str, logic_path: str, master_path: Optional[str] = None) -> list[ValidationIssue]:

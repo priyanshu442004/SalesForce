@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import uuid
 import io
+import zipfile
 from datetime import datetime
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Header, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -411,40 +412,68 @@ def transform_data(
     x_project_id: str = Header(None)
 ):
     """
-    Transforms data and uploads output to S3.
+    Transforms data for every mapping sheet independently.
+
+    Each sheet in the logic workbook produces one .xlsx output file.
+    When more than one sheet is present the outputs are also packaged
+    into a single .zip file and uploaded to S3.
     """
     project_id = x_project_id or str(uuid.uuid4())
     temp_source = None
     temp_master = None
     temp_logic = None
-    temp_output_path = None
+    temp_output_dir = None
     try:
         temp_source = temp_download(source_key)
         temp_master = temp_download(master_key)
         temp_logic = temp_download(logic_key)
-        
-        temp_fd, temp_output_path = tempfile.mkstemp(suffix=".xlsx")
-        os.close(temp_fd)
-        
+
+        temp_output_dir = tempfile.mkdtemp()
+
         transform_result = transform_source_data(
             source_path=temp_source,
             logic_path=temp_logic,
             master_path=temp_master,
-            output_path=temp_output_path
+            output_dir=temp_output_dir,
         )
 
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        s3_transform_key = f"projects/{project_id}/outputs/transformed_data/{timestamp}_transformed_data.xlsx"
+        sheet_outputs = transform_result.get("outputs", [])
 
-        upload_to_s3(temp_output_path, s3_transform_key)
+        # Upload each per-sheet file to S3
+        uploaded_outputs = []
+        for sheet in sheet_outputs:
+            sheet_name = sheet["sheet_name"]
+            local_path = sheet["output_path"]
+            safe_name = os.path.basename(local_path)
+            s3_key = f"projects/{project_id}/outputs/transformed_data/{timestamp}_{safe_name}"
+            upload_to_s3(local_path, s3_key)
+            uploaded_outputs.append({
+                "sheetName": sheet_name,
+                "transformedS3Key": s3_key,
+                "fileName": safe_name,
+                "total_rows": sheet.get("total_rows", 0),
+                "transformed_columns": sheet.get("transformed_columns", []),
+                "lookup_stats": sheet.get("lookup_stats", []),
+            })
+
+        # If more than one sheet, also build and upload a ZIP
+        zip_s3_key = None
+        zip_file_name = None
+        if len(sheet_outputs) > 1:
+            zip_local_path = os.path.join(temp_output_dir, "transformed_data.zip")
+            with zipfile.ZipFile(zip_local_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                for sheet in sheet_outputs:
+                    zf.write(sheet["output_path"], arcname=os.path.basename(sheet["output_path"]))
+            zip_file_name = "transformed_data.zip"
+            zip_s3_key = f"projects/{project_id}/outputs/transformed_data/{timestamp}_{zip_file_name}"
+            upload_to_s3(zip_local_path, zip_s3_key)
 
         return {
             "success": True,
-            "transformedS3Key": s3_transform_key,
-            "fileName": "transformed_data.xlsx",
-            "total_rows": transform_result.get("total_rows", 0),
-            "transformed_columns": transform_result.get("transformed_columns", []),
-            "lookup_stats": transform_result.get("lookup_stats", []),
+            "outputs": uploaded_outputs,
+            "zipS3Key": zip_s3_key,
+            "zipFileName": zip_file_name,
             "generatedAt": datetime.now().isoformat(),
         }
     finally:
@@ -454,27 +483,35 @@ def transform_data(
             os.remove(temp_master)
         if temp_logic and os.path.exists(temp_logic):
             os.remove(temp_logic)
-        if temp_output_path and os.path.exists(temp_output_path):
-            os.remove(temp_output_path)
+        if temp_output_dir and os.path.exists(temp_output_dir):
+            shutil.rmtree(temp_output_dir, ignore_errors=True)
 
 @app.get("/api/download-file")
 def download_file(s3_key: str = Query(...)):
     """
-    Downloads file from S3 and streams it to client.
+    Downloads a file from S3 and streams it to the client.
+    Supports .xlsx and .zip files; content-type is derived from the extension.
     """
+    MIME_TYPES = {
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".zip":  "application/zip",
+    }
     try:
         response = s3_client.get_object(Bucket=AWS_BUCKET_NAME, Key=s3_key)
-        file_content = response['Body'].read()
-        
-        # Clean filename to strip folders & timestamp prefix
+        file_content = response["Body"].read()
+
+        # Strip S3 folders and timestamp prefix to get a clean download filename
         filename = os.path.basename(s3_key)
         if "_" in filename:
             filename = filename.split("_", 1)[-1]
-            
+
+        ext = os.path.splitext(filename)[1].lower()
+        media_type = MIME_TYPES.get(ext, "application/octet-stream")
+
         return StreamingResponse(
             io.BytesIO(file_content),
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            media_type=media_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to stream download: {str(e)}")
