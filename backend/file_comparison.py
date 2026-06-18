@@ -5,6 +5,7 @@ from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
+from transformer import sanitize_dataframe
 import numpy as np
 
 
@@ -69,7 +70,9 @@ class ExcelFileComparator:
         """
         try:
             self.base_df = pd.read_excel(self.base_file_path, sheet_name=sheet_name)
+            self.base_df = sanitize_dataframe(self.base_df)
             self.new_df = pd.read_excel(self.new_file_path, sheet_name=sheet_name)
+            self.new_df = sanitize_dataframe(self.new_df)
             return True
         except Exception as exc:
             print(f"Error loading files: {exc}")

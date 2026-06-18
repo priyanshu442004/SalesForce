@@ -693,17 +693,12 @@ export default function TransformationWorkspacePage() {
         totalRecords: validationTotalRecords,
       });
       await updateProjectStage("TRANSFORMED", 100);
-      await logActivity("System", currentUser?.name || "System", "Completed Data Transformation", "Success");
+      await logActivity("System", currentUser?.name || "System", "Completed Data Transformation", "Success", data);
       setStageStatus(s => ({ ...s, transformation: "passed" }));
     } catch (error) {
       setTransformError(error instanceof Error ? error.message : "Data transformation failed");
       setStageStatus(s => ({ ...s, transformation: "failed" }));
-      await logActivity(
-        "System",
-        currentUser?.name || "System",
-        `Data transformation failed: ${error instanceof Error ? error.message : String(error)}`,
-        "Failed"
-      );
+      await logActivity("System", currentUser?.name || "System", `Data transformation failed: ${error instanceof Error ? error.message : String(error)}`, "Failed", { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setPipelineRunning(false);
     }

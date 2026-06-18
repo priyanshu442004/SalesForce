@@ -9,6 +9,55 @@ from typing import Any
 import pandas as pd
 
 
+def sanitize_value(val: Any) -> Any:
+    """Convert float-integers (e.g. 10016901.0) back to int; strip string whitespace."""
+    if pd.isna(val):
+        return None
+    if isinstance(val, float):
+        if val.is_integer():
+            return int(val)
+    if isinstance(val, str):
+        val_strip = val.strip()
+        if re.match(r"^-?\d+\.0+$", val_strip):
+            try:
+                return int(float(val_strip))
+            except ValueError:
+                pass
+    return val
+
+
+def sanitize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Apply sanitize_value to every float64/object column in-place."""
+    for col in df.columns:
+        if df[col].dtype in ["float64", "object"]:
+            df[col] = df[col].apply(sanitize_value)
+    return df
+
+
+def sanitize_value(val: Any) -> Any:
+    if pd.isna(val):
+        return None
+    if isinstance(val, float):
+        if val.is_integer():
+            return int(val)
+    if isinstance(val, str):
+        val_strip = val.strip()
+        if re.match(r"^-?\d+\.0+$", val_strip):
+            try:
+                return int(float(val_strip))
+            except ValueError:
+                pass
+    return val
+
+
+def sanitize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    for col in df.columns:
+        if df[col].dtype in ["float64", "object"]:
+            df[col] = df[col].apply(sanitize_value)
+    return df
+
+
+
 def is_blank(value: Any) -> bool:
     if value is None:
         return True
@@ -223,6 +272,7 @@ def transform_datetime_value(value: Any) -> str:
 
 def _load_rules_from_df(logic_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
     """Build a transform-rules dict from an already-loaded mapping DataFrame."""
+    logic_df = sanitize_dataframe(logic_df)
     columns = resolve_mapping_columns(logic_df)
     rules: dict[str, dict[str, Any]] = {}
 
@@ -353,6 +403,7 @@ def apply_lookup_rule(
         return [""] * len(series), 0, 0
 
     master_df = pd.read_excel(master_excel, sheet_name=master_sheet)
+    master_df = sanitize_dataframe(master_df)
 
     lookup_map = {}
 
@@ -511,6 +562,7 @@ def transform_source_data(
     os.makedirs(output_dir, exist_ok=True)
 
     source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
+    source_df = sanitize_dataframe(source_df)
 
     with pd.ExcelFile(logic_path) as logic_excel:
         sheet_names = list(logic_excel.sheet_names)

@@ -9,12 +9,13 @@ declare global {
   }
 }
 
-interface LoginPageProps {
-  onNavigateToRegister: () => void;
+interface RegisterPageProps {
+  onNavigateToLogin: () => void;
 }
 
-export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
+export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
   const { setCurrentUser } = useMigration();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +26,7 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
     // Load Google Identity Services script
     let script = document.getElementById("google-gis-script") as HTMLScriptElement;
 
-    const initializeGoogleLogin = () => {
+    const initializeGoogleRegister = () => {
       if (!window.google) return;
       window.google.accounts.id.initialize({
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "20399312144-s8o42220q34kt2mfckvmfiuaser2450e.apps.googleusercontent.com",
@@ -60,6 +61,7 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
           theme: "dark",
           size: "large",
           width: 382,
+          text: "signup_with",
           logo_alignment: "left"
         });
       }
@@ -71,10 +73,10 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
       script.id = "google-gis-script";
       script.async = true;
       script.defer = true;
-      script.onload = initializeGoogleLogin;
+      script.onload = initializeGoogleRegister;
       document.body.appendChild(script);
     } else {
-      setTimeout(initializeGoogleLogin, 100);
+      setTimeout(initializeGoogleRegister, 100);
     }
   }, [setCurrentUser]);
 
@@ -84,18 +86,17 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch("/api/login", {
+      const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ name, email, password })
       });
       const data = await res.json();
 
       if (data.success) {
-        // Set authenticated user in context
         setCurrentUser(data.user);
       } else {
-        setError(data.error || "Authentication failed");
+        setError(data.error || "Registration failed");
       }
     } catch (err: any) {
       console.error(err);
@@ -103,12 +104,6 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleFillDemo = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword("12345678");
-    setError(null);
   };
 
   return (
@@ -147,12 +142,12 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
           </p>
         </div>
 
-        {/* Login Card */}
+        {/* Register Card */}
         <div className="bg-slate-950/40 border border-slate-800/80 backdrop-blur-md rounded-3xl p-8 shadow-2xl space-y-6">
           <div className="space-y-1.5 text-center sm:text-left">
-            <h2 className="text-xl font-extrabold text-white">Sign In</h2>
+            <h2 className="text-xl font-extrabold text-white">Create Account</h2>
             <p className="text-xs font-bold text-slate-500">
-              Enter your credentials to enter the workspace.
+              Register a new account to enter the workspace.
             </p>
           </div>
 
@@ -168,6 +163,20 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
+                Full Name
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Amit Sharma"
+                className="w-full h-12 px-4 rounded-xl bg-slate-900 border border-slate-800 text-white text-[14px] font-bold placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/35 transition-all"
+              />
+            </div>
+
             <div className="space-y-2">
               <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
                 Email Address
@@ -204,12 +213,12 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2.5 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                "Sign In"
+                "Sign Up"
               )}
             </button>
           </form>
 
-          {/* Google Sign-in Button */}
+          {/* Google Register Button */}
           <div className="space-y-3 pt-2">
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 flex items-center">
@@ -226,38 +235,15 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
 
           <div className="text-center pt-2">
             <p className="text-xs font-bold text-slate-500">
-              Don't have an account?{" "}
+              Already have an account?{" "}
               <button
                 type="button"
-                onClick={onNavigateToRegister}
+                onClick={onNavigateToLogin}
                 className="text-blue-500 hover:text-blue-400 transition-colors focus:outline-none font-black cursor-pointer"
               >
-                Sign Up
+                Sign In
               </button>
             </p>
-          </div>
-
-          {/* Quick Demo Logins Section */}
-          <div className="pt-4 border-t border-slate-800/80 space-y-3">
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider block text-center">
-              Quick Test Profiles
-            </span>
-            <div className="grid grid-cols-3 gap-2.5">
-              {[
-                { name: "Amit", email: "amit@mail.com" },
-                { name: "Arthita", email: "arthita@mail.com" },
-                { name: "Priyanshu", email: "priyanshu@mail.com" }
-              ].map((user) => (
-                <button
-                  key={user.name}
-                  type="button"
-                  onClick={() => handleFillDemo(user.email)}
-                  className="px-2.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-[12px] font-bold transition-all text-center truncate cursor-pointer select-none"
-                >
-                  {user.name}
-                </button>
-              ))}
-            </div>
           </div>
 
         </div>
