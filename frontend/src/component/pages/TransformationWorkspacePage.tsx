@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Database,
   Download,
+  Eye,
   FileCheck2,
   FileSpreadsheet,
   LoaderCircle,
@@ -326,6 +327,175 @@ function PipelineStepper({
 }
 
 // ---------------------------------------------------------------------------
+// Preview modal
+// ---------------------------------------------------------------------------
+
+type PreviewSheet = {
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+  rowCount: number;
+};
+
+function PreviewModal({
+  open,
+  onClose,
+  outputs,
+  activeTab,
+  onTabChange,
+  sheetData,
+  loadingSheet,
+  error,
+}: {
+  open: boolean;
+  onClose: () => void;
+  outputs: SheetOutput[];
+  activeTab: string;
+  onTabChange: (sheetName: string, s3Key: string) => void;
+  sheetData: Record<string, PreviewSheet>;
+  loadingSheet: string | null;
+  error: string | null;
+}) {
+  if (!open) return null;
+
+  const activeData = sheetData[activeTab];
+  const isLoading = loadingSheet === activeTab;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex w-full max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-2xl"
+        style={{ maxHeight: "90vh" }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex flex-none items-center justify-between border-b border-slate-200 dark:border-slate-700 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 ring-1 ring-teal-100 dark:ring-teal-800/30">
+              <Table2 size={18} />
+            </span>
+            <div>
+              <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">Output Preview</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                {activeData ? `${activeData.rowCount} row${activeData.rowCount === 1 ? "" : "s"} · ${activeData.columns.length} column${activeData.columns.length === 1 ? "" : "s"}` : "Loading…"}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
+          >
+            <XCircle size={18} />
+          </button>
+        </div>
+
+        {/* Sheet tabs — only for multi-output transforms */}
+        {outputs.length > 1 && (
+          <div className="flex flex-none gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/30 px-4 pt-2.5">
+            {outputs.map(out => (
+              <button
+                key={out.sheetName}
+                type="button"
+                onClick={() => onTabChange(out.sheetName, out.transformedS3Key)}
+                className={cx(
+                  "shrink-0 rounded-t-lg border border-b-0 px-3.5 py-2 text-[11px] font-bold transition-colors focus:outline-none",
+                  activeTab === out.sheetName
+                    ? "border-slate-200 dark:border-slate-600 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-slate-100"
+                    : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+              >
+                {out.sheetName}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Table area */}
+        <div className="min-h-0 flex-1 overflow-auto">
+          {error && (
+            <div className="m-5 flex items-start gap-3 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-900/20 p-4">
+              <XCircle size={16} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
+              <p className="text-xs text-rose-800 dark:text-rose-300">{error}</p>
+            </div>
+          )}
+
+          {isLoading && !error && (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <LoaderCircle size={28} className="animate-spin text-teal-600 dark:text-teal-400" />
+              <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Loading preview data…</p>
+            </div>
+          )}
+
+          {!isLoading && !error && activeData && (
+            <table className="min-w-full border-collapse text-left text-xs">
+              <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-sm">
+                <tr>
+                  <th className="w-10 border-b border-r border-slate-200 dark:border-slate-700 px-3 py-3 text-right text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
+                    #
+                  </th>
+                  {activeData.columns.map(col => (
+                    <th
+                      key={col}
+                      className="whitespace-nowrap border-b border-r border-slate-200 dark:border-slate-700 px-3 py-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 last:border-r-0"
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {activeData.rows.map((row, rowIdx) => (
+                  <tr
+                    key={rowIdx}
+                    className={cx(
+                      "transition-colors",
+                      rowIdx % 2 === 0
+                        ? "bg-white dark:bg-[#1E293B]"
+                        : "bg-slate-50/60 dark:bg-slate-800/30"
+                    )}
+                  >
+                    <td className="border-r border-slate-100 dark:border-slate-700 px-3 py-2.5 text-right font-mono text-[10px] text-slate-300 dark:text-slate-600">
+                      {rowIdx + 1}
+                    </td>
+                    {row.map((cell, colIdx) => (
+                      <td
+                        key={colIdx}
+                        className="max-w-[240px] truncate border-r border-slate-100 dark:border-slate-700 px-3 py-2.5 text-slate-700 dark:text-slate-300 last:border-r-0"
+                      >
+                        {cell === null || cell === undefined ? (
+                          <span className="italic text-slate-300 dark:text-slate-600">—</span>
+                        ) : (
+                          String(cell)
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Footer */}
+        {!isLoading && activeData && (
+          <div className="flex flex-none items-center justify-between border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 px-5 py-3">
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              Showing first {activeData.rowCount} row{activeData.rowCount === 1 ? "" : "s"}
+            </p>
+            <p className="text-[11px] italic text-slate-400 dark:text-slate-500">
+              Preview capped at 100 rows
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main page component
 // ---------------------------------------------------------------------------
 
@@ -346,6 +516,12 @@ export default function TransformationWorkspacePage() {
   const [transformResult, setTransformResult] = useState<TransformResult | null>(null);
   const [transformError, setTransformError] = useState<string | null>(null);
   const [selectedStep, setSelectedStep] = useState<StepKey | null>(null);
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoadingSheet, setPreviewLoadingSheet] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewSheetData, setPreviewSheetData] = useState<Record<string, PreviewSheet>>({});
+  const [previewActiveTab, setPreviewActiveTab] = useState<string>("");
 
   const {
     currentUser,
@@ -459,6 +635,49 @@ export default function TransformationWorkspacePage() {
     document.body.appendChild(link);
     link.click();
     link.remove();
+  };
+
+  // ---------------------------------------------------------------------------
+  // Preview helpers
+  // ---------------------------------------------------------------------------
+
+  const loadPreviewSheet = async (sheetName: string, s3Key: string) => {
+    if (previewSheetData[sheetName]) return; // already cached
+    setPreviewLoadingSheet(sheetName);
+    setPreviewError(null);
+    try {
+      const resp = await fetch(
+        `${NEXT_PUBLIC_API_URL}/api/preview-output?s3_key=${encodeURIComponent(s3Key)}&limit=100`
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => null);
+        throw new Error(err?.detail || "Failed to load preview");
+      }
+      const data = await resp.json();
+      setPreviewSheetData(prev => ({
+        ...prev,
+        [sheetName]: { columns: data.columns, rows: data.rows, rowCount: data.row_count },
+      }));
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
+    } finally {
+      setPreviewLoadingSheet(null);
+    }
+  };
+
+  const openPreview = async () => {
+    if (!transformResult || transformResult.outputs.length === 0) return;
+    const first = transformResult.outputs[0];
+    setPreviewSheetData({});
+    setPreviewError(null);
+    setPreviewActiveTab(first.sheetName);
+    setPreviewOpen(true);
+    await loadPreviewSheet(first.sheetName, first.transformedS3Key);
+  };
+
+  const handlePreviewTabChange = async (sheetName: string, s3Key: string) => {
+    setPreviewActiveTab(sheetName);
+    await loadPreviewSheet(sheetName, s3Key);
   };
 
   // ---------------------------------------------------------------------------
@@ -1162,10 +1381,16 @@ export default function TransformationWorkspacePage() {
                 )}
               </div>
             </div>
-            <Button type="button" variant={hasZip ? "dark" : "secondary"} onClick={downloadTransformedFile} className="shrink-0">
-              <Download size={14} />
-              {hasZip ? "Download ZIP" : "Re-download"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="secondary" onClick={openPreview} className="shrink-0">
+                <Eye size={14} />
+                Preview Output
+              </Button>
+              <Button type="button" variant={hasZip ? "dark" : "secondary"} onClick={downloadTransformedFile} className="shrink-0">
+                <Download size={14} />
+                {hasZip ? "Download ZIP" : "Re-download"}
+              </Button>
+            </div>
           </div>
           <div className="p-5 lg:p-6">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1329,6 +1554,17 @@ export default function TransformationWorkspacePage() {
         )}
 
       </div>
+
+      <PreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        outputs={transformResult?.outputs ?? []}
+        activeTab={previewActiveTab}
+        onTabChange={handlePreviewTabChange}
+        sheetData={previewSheetData}
+        loadingSheet={previewLoadingSheet}
+        error={previewError}
+      />
     </div>
   );
 }

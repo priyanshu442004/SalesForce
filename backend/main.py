@@ -486,6 +486,51 @@ def transform_data(
         if temp_output_dir and os.path.exists(temp_output_dir):
             shutil.rmtree(temp_output_dir, ignore_errors=True)
 
+@app.get("/api/preview-output")
+def preview_output(
+    s3_key: str = Query(...),
+    limit: int = Query(100, ge=1, le=500)
+):
+    """
+    Reads an already-generated transformed output file from S3 and returns the
+    first `limit` rows as JSON. Reuses the existing artifact — no reprocessing.
+    """
+    import math
+    import pandas as pd
+
+    def safe_val(v):
+        if v is None:
+            return None
+        if isinstance(v, float) and math.isnan(v):
+            return None
+        if hasattr(v, "isoformat"):
+            try:
+                return v.isoformat()
+            except Exception:
+                return str(v)
+        return v
+
+    temp_path = None
+    try:
+        temp_path = temp_download(s3_key)
+        df = pd.read_excel(temp_path, nrows=limit)
+        columns = [str(c) for c in df.columns.tolist()]
+        rows = [[safe_val(v) for v in row] for row in df.values.tolist()]
+        return {
+            "success": True,
+            "columns": columns,
+            "rows": rows,
+            "row_count": len(rows),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to preview output: {str(e)}")
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
 @app.get("/api/download-file")
 def download_file(s3_key: str = Query(...)):
     """
