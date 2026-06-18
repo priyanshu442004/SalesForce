@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { NEXT_PUBLIC_API_URL } from "@/lib/config";
 
 export interface UploadedFile {
@@ -40,6 +40,103 @@ export interface Project {
   activities: any[];
   outputs: any[];
 }
+
+// ---------------------------------------------------------------------------
+// Pipeline types (exported so TransformationWorkspacePage can import them)
+// ---------------------------------------------------------------------------
+
+export type PipelineStage = "schema" | "cleaning" | "validation" | "transformation";
+export type StageStatus = "idle" | "running" | "passed" | "failed";
+export type StepKey = PipelineStage | "export";
+
+export type SchemaResult = {
+  schema_valid: boolean;
+  source_field_count: number;
+  mapping_field_count: number;
+  matched_field_count: number;
+  missing_fields: string[];
+  additional_fields: string[];
+  error?: string;
+};
+
+export type DataValidationIssue = {
+  row: number;
+  field: string;
+  issue_type: string;
+  value: string;
+  expected: string;
+};
+
+export type DataValidationResult = {
+  success: boolean;
+  total_records: number;
+  total_issues: number;
+  issues: DataValidationIssue[];
+  error?: string;
+  reportS3Key?: string;
+};
+
+export type CleaningChange = {
+  row: number;
+  column: string;
+  original_value: string;
+  cleaned_value: string;
+  rule: string;
+};
+
+export type CleaningResult = {
+  success: boolean;
+  cleanedS3Key: string | null;
+  summary: {
+    total_rows_processed: number;
+    rows_removed: number;
+    values_trimmed: number;
+    extra_spaces_fixed: number;
+    email_corrections: number;
+    null_conversions: number;
+  };
+  changes: CleaningChange[];
+  total_changes: number;
+  error?: string;
+};
+
+export type LookupStat = {
+  column: string;
+  matched: number;
+  missed: number;
+  total: number;
+};
+
+export type SheetOutput = {
+  sheetName: string;
+  fileName: string;
+  transformedS3Key: string;
+  totalRows: number;
+  transformedColumns: string[];
+  lookupStats: LookupStat[];
+};
+
+export type TransformResult = {
+  outputs: SheetOutput[];
+  zipS3Key: string | null;
+  zipFileName: string | null;
+  generatedAt: string;
+  totalRecords: number;
+};
+
+function parseErrorDetail(detail: any, fallback: string): string {
+  if (Array.isArray(detail)) {
+    return detail.map((e: any) => e?.msg ?? JSON.stringify(e)).join("; ");
+  }
+  return typeof detail === "string" ? detail : fallback;
+}
+
+const IDLE_STAGE_STATUS: Record<PipelineStage, StageStatus> = {
+  schema: "idle",
+  cleaning: "idle",
+  validation: "idle",
+  transformation: "idle",
+};
 
 interface MigrationContextType {
   sidebarCollapsed: boolean;
@@ -85,6 +182,24 @@ interface MigrationContextType {
   generatePreview: (cleanedSourceKey?: string | null) => Promise<void>;
   isPreviewLoading: boolean;
   previewError: string | null;
+
+  // Pipeline
+  pipelineRunning: boolean;
+  stageStatus: Record<PipelineStage, StageStatus>;
+  schemaResult: SchemaResult | null;
+  cleaningResult: CleaningResult | null;
+  dataValidationResult: DataValidationResult | null;
+  transformResult: TransformResult | null;
+  transformError: string | null;
+  runPipeline: () => Promise<void>;
+  resetPipelineState: () => void;
+  restorePipelineState: (saved: {
+    stageStatus?: Record<PipelineStage, StageStatus>;
+    schemaResult?: SchemaResult | null;
+    cleaningResult?: CleaningResult | null;
+    dataValidationResult?: DataValidationResult | null;
+    transformResult?: TransformResult | null;
+  }) => void;
 }
 
 const MigrationContext = createContext<MigrationContextType | undefined>(undefined);
@@ -123,9 +238,39 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   const [transformationsView, setTransformationsView] = useState<"list" | "create">("list");
   const [transformationsTab, setTransformationsTab] = useState<string>("Transformation Center");
 
+  // Pipeline state — lives in context so it survives page navigation
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [stageStatus, setStageStatus] = useState<Record<PipelineStage, StageStatus>>(IDLE_STAGE_STATUS);
+  const [schemaResult, setSchemaResult] = useState<SchemaResult | null>(null);
+  const [cleaningResult, setCleaningResult] = useState<CleaningResult | null>(null);
+  const [dataValidationResult, setDataValidationResult] = useState<DataValidationResult | null>(null);
+  const [transformResult, setTransformResult] = useState<TransformResult | null>(null);
+  const [transformError, setTransformError] = useState<string | null>(null);
+
+  const pipelineProjectIdRef = useRef<string | null>(null);
+
   // Reset session-uploaded source key when project changes
   useEffect(() => {
     setSessionUploadedSourceKey(null);
+  }, [currentProject?.id]);
+
+  // Reset pipeline state when the user switches to a different project
+  useEffect(() => {
+    if (!currentProject?.id) return;
+    if (pipelineProjectIdRef.current === null) {
+      pipelineProjectIdRef.current = currentProject.id;
+      return;
+    }
+    if (pipelineProjectIdRef.current !== currentProject.id) {
+      pipelineProjectIdRef.current = currentProject.id;
+      setPipelineRunning(false);
+      setStageStatus(IDLE_STAGE_STATUS);
+      setSchemaResult(null);
+      setCleaningResult(null);
+      setDataValidationResult(null);
+      setTransformResult(null);
+      setTransformError(null);
+    }
   }, [currentProject?.id]);
 
   // Load Users List
@@ -619,6 +764,322 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resetPipelineState = () => {
+    setPipelineRunning(false);
+    setStageStatus(IDLE_STAGE_STATUS);
+    setSchemaResult(null);
+    setCleaningResult(null);
+    setDataValidationResult(null);
+    setTransformResult(null);
+    setTransformError(null);
+  };
+
+  const restorePipelineState = (saved: {
+    stageStatus?: Record<PipelineStage, StageStatus>;
+    schemaResult?: SchemaResult | null;
+    cleaningResult?: CleaningResult | null;
+    dataValidationResult?: DataValidationResult | null;
+    transformResult?: TransformResult | null;
+  }) => {
+    if (saved.stageStatus) setStageStatus(saved.stageStatus);
+    if (saved.schemaResult !== undefined) setSchemaResult(saved.schemaResult);
+    if (saved.cleaningResult !== undefined) setCleaningResult(saved.cleaningResult);
+    if (saved.dataValidationResult !== undefined) setDataValidationResult(saved.dataValidationResult);
+    if (saved.transformResult !== undefined) setTransformResult(saved.transformResult);
+  };
+
+  const runPipeline = async () => {
+    // Capture project/user at call-time to avoid stale-closure bugs across re-renders.
+    const cp = currentProject;
+    const cu = currentUser;
+
+    if (!cp) return;
+
+    sessionStorage.removeItem(`pipeline_state_${cp.id}`);
+
+    setPipelineRunning(true);
+    setStageStatus(IDLE_STAGE_STATUS);
+    setSchemaResult(null);
+    setCleaningResult(null);
+    setDataValidationResult(null);
+    setTransformResult(null);
+    setTransformError(null);
+
+    const activeFiles = cp.files || [];
+    const sourceKey = activeFiles.find((f: ProjectFile) => f.slot === "source" && f.isActive)?.s3Key;
+    const masterKey = activeFiles.find((f: ProjectFile) => f.slot === "master" && f.isActive)?.s3Key;
+    const logicKey = activeFiles.find((f: ProjectFile) => f.slot === "logic" && f.isActive)?.s3Key;
+
+    // TEMP logging — remove after stale-file bug is confirmed fixed
+    console.log("[runPipeline] source_key:", sourceKey, "| master_key:", masterKey, "| logic_key:", logicKey);
+
+    const persist = (
+      status: Record<PipelineStage, StageStatus>,
+      schema: SchemaResult | null,
+      cleaning: CleaningResult | null,
+      validation: DataValidationResult | null,
+      transform: TransformResult | null,
+    ) => {
+      try {
+        sessionStorage.setItem(`pipeline_state_${cp.id}`, JSON.stringify({
+          stageStatus: status,
+          schemaResult: schema,
+          cleaningResult: cleaning,
+          dataValidationResult: validation,
+          transformResult: transform,
+        }));
+      } catch (_e) { /* sessionStorage quota exceeded — non-critical */ }
+    };
+
+    let _schema: SchemaResult | null = null;
+    let _cleaning: CleaningResult | null = null;
+    let _validation: DataValidationResult | null = null;
+
+    if (!sourceKey || !logicKey) {
+      const errResult: SchemaResult = {
+        schema_valid: false,
+        source_field_count: 0,
+        mapping_field_count: 0,
+        matched_field_count: 0,
+        missing_fields: [],
+        additional_fields: [],
+        error: "Missing active source or mapping logic files in the project.",
+      };
+      setSchemaResult(errResult);
+      setStageStatus(s => ({ ...s, schema: "failed" }));
+      setPipelineRunning(false);
+      return;
+    }
+
+    // ── Stage 1: Schema Validation ────────────────────────────────────────────
+    setStageStatus(s => ({ ...s, schema: "running" }));
+    let schemaPassed = false;
+    try {
+      const url = `${NEXT_PUBLIC_API_URL}/api/validate-schema?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const resp = await fetch(url, { method: "POST" });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(parseErrorDetail(err.detail, "Schema validation failed"));
+      }
+      const data = await resp.json();
+      _schema = data;
+      setSchemaResult(_schema);
+      schemaPassed = data.schema_valid === true && data.missing_fields?.length === 0 && data.additional_fields?.length === 0;
+      await updateProjectStage("SCHEMA_VALIDATED", 35);
+      await logActivity("Validation", cu?.name || "User", "Completed Schema Validation", "Success", data);
+    } catch (error) {
+      _schema = {
+        schema_valid: false,
+        source_field_count: 0,
+        mapping_field_count: 0,
+        matched_field_count: 0,
+        missing_fields: [],
+        additional_fields: [],
+        error: String(error),
+      };
+      setSchemaResult(_schema);
+      setStageStatus(s => ({ ...s, schema: "failed" }));
+      persist({ schema: "failed", cleaning: "idle", validation: "idle", transformation: "idle" }, _schema, null, null, null);
+      await logActivity("Validation", cu?.name || "User", `Schema validation failed: ${String(error)}`, "Failed", _schema);
+      setPipelineRunning(false);
+      return;
+    }
+
+    setStageStatus(s => ({ ...s, schema: schemaPassed ? "passed" : "failed" }));
+    if (!schemaPassed) {
+      persist({ schema: "failed", cleaning: "idle", validation: "idle", transformation: "idle" }, _schema, null, null, null);
+      setPipelineRunning(false);
+      return;
+    }
+
+    // ── Stage 2: Data Cleaning ────────────────────────────────────────────────
+    setStageStatus(s => ({ ...s, cleaning: "running" }));
+    let cleanedKey: string | null = null;
+    let cleaningPassed = false;
+    try {
+      const url = `${NEXT_PUBLIC_API_URL}/api/clean-data?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "x-project-id": cp.id },
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(parseErrorDetail(err.detail, "Data cleaning failed"));
+      }
+      const data = await resp.json();
+      _cleaning = data;
+      setCleaningResult(_cleaning);
+      cleanedKey = data.cleanedS3Key || null;
+      cleaningPassed = data.success === true;
+      console.log("[pipeline] cleaned source key:", cleanedKey);
+      await updateProjectStage("DATA_CLEANED", 45);
+      await logActivity(
+        "Transformation",
+        cu?.name || "User",
+        `Data cleaning complete. ${data.total_changes} change${data.total_changes === 1 ? "" : "s"} applied.`,
+        "Success",
+        data
+      );
+    } catch (error) {
+      _cleaning = {
+        success: false,
+        cleanedS3Key: null,
+        summary: { total_rows_processed: 0, rows_removed: 0, values_trimmed: 0, extra_spaces_fixed: 0, email_corrections: 0, null_conversions: 0 },
+        changes: [],
+        total_changes: 0,
+        error: String(error),
+      };
+      setCleaningResult(_cleaning);
+      setStageStatus(s => ({ ...s, cleaning: "failed" }));
+      persist({ schema: "passed", cleaning: "failed", validation: "idle", transformation: "idle" }, _schema, _cleaning, null, null);
+      await logActivity("Transformation", cu?.name || "User", `Data cleaning failed: ${String(error)}`, "Failed", _cleaning);
+      setPipelineRunning(false);
+      return;
+    }
+
+    setStageStatus(s => ({ ...s, cleaning: cleaningPassed ? "passed" : "failed" }));
+    if (!cleaningPassed) {
+      persist({ schema: "passed", cleaning: "failed", validation: "idle", transformation: "idle" }, _schema, _cleaning, null, null);
+      setPipelineRunning(false);
+      return;
+    }
+
+    // ── Stage 3: Data Validation ──────────────────────────────────────────────
+    setStageStatus(s => ({ ...s, validation: "running" }));
+    const effectiveSourceKey = cleanedKey || sourceKey;
+    let validationPassed = false;
+    let validationTotalRecords = 0;
+    try {
+      let url = `${NEXT_PUBLIC_API_URL}/api/validate-data?source_key=${encodeURIComponent(effectiveSourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      if (masterKey) url += `&master_key=${encodeURIComponent(masterKey)}`;
+      console.log("[pipeline] validate-data effective source key:", effectiveSourceKey);
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "x-project-id": cp.id },
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(parseErrorDetail(err.detail, "Data validation failed"));
+      }
+      const data = await resp.json();
+      _validation = data;
+      setDataValidationResult(_validation);
+      validationTotalRecords = data.total_records ?? 0;
+      if (data.reportS3Key) {
+        await fetch(`/api/projects/${cp.id}/outputs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: "data_validation_report.xlsx",
+            fileType: "validation_report",
+            s3Key: data.reportS3Key,
+            recordsCount: data.total_issues,
+          }),
+        });
+      }
+      validationPassed = data.success === true && data.total_issues === 0;
+      await updateProjectStage("DATA_VALIDATED", 55);
+      await logActivity("Validation", cu?.name || "User", `Data validation complete. Issues: ${data.total_issues ?? 0}`, "Success", data);
+    } catch (error) {
+      _validation = { success: false, total_records: 0, total_issues: 0, issues: [], error: String(error) };
+      setDataValidationResult(_validation);
+      setStageStatus(s => ({ ...s, validation: "failed" }));
+      persist({ schema: "passed", cleaning: "passed", validation: "failed", transformation: "idle" }, _schema, _cleaning, _validation, null);
+      await logActivity("Validation", cu?.name || "User", `Data validation failed: ${String(error)}`, "Failed", _validation);
+      setPipelineRunning(false);
+      return;
+    }
+
+    setStageStatus(s => ({ ...s, validation: validationPassed ? "passed" : "failed" }));
+    if (!validationPassed) {
+      persist({ schema: "passed", cleaning: "passed", validation: "failed", transformation: "idle" }, _schema, _cleaning, _validation, null);
+      setPipelineRunning(false);
+      return;
+    }
+
+    // ── Stage 4: Transformation ────────────────────────────────────────────────
+    setStageStatus(s => ({ ...s, transformation: "running" }));
+    try {
+      const effectiveSource = cleanedKey || sourceKey;
+      if (!effectiveSource || !masterKey || !logicKey) {
+        throw new Error("Missing required migration files for transformation.");
+      }
+      const url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(effectiveSource)}&master_key=${encodeURIComponent(masterKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      console.log("[pipeline] transform-data effective source key:", effectiveSource);
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "x-project-id": cp.id },
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(parseErrorDetail(errorBody?.detail, "Data transformation failed"));
+      }
+      const data = await response.json();
+      const sheetOutputs: SheetOutput[] = (data.outputs ?? []).map((o: any) => ({
+        sheetName: o.sheetName,
+        fileName: o.fileName,
+        transformedS3Key: o.transformedS3Key,
+        totalRows: o.total_rows ?? 0,
+        transformedColumns: o.transformed_columns ?? [],
+        lookupStats: o.lookup_stats ?? [],
+      }));
+
+      for (const out of sheetOutputs) {
+        await fetch(`/api/projects/${cp.id}/outputs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: out.fileName,
+            fileType: "transformed_data",
+            s3Key: out.transformedS3Key,
+            recordsCount: validationTotalRecords,
+          }),
+        });
+      }
+
+      // Auto-download: ZIP if multiple sheets, otherwise the single file
+      if (data.zipS3Key) {
+        const link = document.createElement("a");
+        link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(data.zipS3Key)}`;
+        link.setAttribute("download", data.zipFileName || "transformed_data.zip");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } else if (sheetOutputs[0]?.transformedS3Key) {
+        const out = sheetOutputs[0];
+        const link = document.createElement("a");
+        link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(out.transformedS3Key)}`;
+        link.setAttribute("download", out.fileName || "transformed_data.xlsx");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+
+      const finalTransformResult: TransformResult = {
+        outputs: sheetOutputs,
+        zipS3Key: data.zipS3Key ?? null,
+        zipFileName: data.zipFileName ?? null,
+        generatedAt: data.generatedAt || new Date().toISOString(),
+        totalRecords: validationTotalRecords,
+      };
+      setTransformResult(finalTransformResult);
+      persist(
+        { schema: "passed", cleaning: "passed", validation: "passed", transformation: "passed" },
+        _schema, _cleaning, _validation, finalTransformResult,
+      );
+      await updateProjectStage("TRANSFORMED", 100);
+      await logActivity("Transformation", cu?.name || "User", "Completed Data Transformation", "Success", data);
+      setStageStatus(s => ({ ...s, transformation: "passed" }));
+    } catch (error) {
+      setTransformError(error instanceof Error ? error.message : "Data transformation failed");
+      setStageStatus(s => ({ ...s, transformation: "failed" }));
+      persist({ schema: "passed", cleaning: "passed", validation: "passed", transformation: "failed" }, _schema, _cleaning, _validation, null);
+      await logActivity("Transformation", cu?.name || "User", `Data transformation failed: ${error instanceof Error ? error.message : String(error)}`, "Failed", { error: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setPipelineRunning(false);
+    }
+  };
+
   // Base on DB-confirmed file state, not the fake progress animation,
   // so the Continue button only enables once files are truly registered in S3/DB.
   const isContinueEnabled = !!(
@@ -668,7 +1129,19 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         setPreviewData,
         generatePreview,
         isPreviewLoading,
-        previewError
+        previewError,
+
+        // Pipeline
+        pipelineRunning,
+        stageStatus,
+        schemaResult,
+        cleaningResult,
+        dataValidationResult,
+        transformResult,
+        transformError,
+        runPipeline,
+        resetPipelineState,
+        restorePipelineState,
       }}
     >
       {children}

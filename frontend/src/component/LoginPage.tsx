@@ -105,12 +105,6 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
     }
   };
 
-  const handleFillDemo = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword("12345678");
-    setError(null);
-  };
-
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 relative overflow-hidden select-none font-sans">
       
@@ -235,29 +229,6 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
                 Sign Up
               </button>
             </p>
-          </div>
-
-          {/* Quick Demo Logins Section */}
-          <div className="pt-4 border-t border-slate-800/80 space-y-3">
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider block text-center">
-              Quick Test Profiles
-            </span>
-            <div className="grid grid-cols-3 gap-2.5">
-              {[
-                { name: "Amit", email: "amit@mail.com" },
-                { name: "Arthita", email: "arthita@mail.com" },
-                { name: "Priyanshu", email: "priyanshu@mail.com" }
-              ].map((user) => (
-                <button
-                  key={user.name}
-                  type="button"
-                  onClick={() => handleFillDemo(user.email)}
-                  className="px-2.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-[12px] font-bold transition-all text-center truncate cursor-pointer select-none"
-                >
-                  {user.name}
-                </button>
-              ))}
-            </div>
           </div>
 
         </div>

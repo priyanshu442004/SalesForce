@@ -10,7 +10,7 @@ import { useTheme } from "../context/ThemeContext";
 export default function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { currentUser, currentProject } = useMigration();
+  const { currentUser } = useMigration();
   const { theme, toggleTheme } = useTheme();
 
   if (!currentUser) return null;
@@ -20,12 +20,6 @@ export default function Header() {
       case "/":
         return "Dashboard";
       case "/upload":
-        if (currentUser && currentProject) {
-          return `Upload Files - ${currentUser.name} `;
-        }
-        if (currentUser) {
-          return `Upload Files - ${currentUser.name}`;
-        }
         return "Upload Files";
       case "/transformation-workspace":
         return "Transformation Workspace";
