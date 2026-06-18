@@ -531,16 +531,47 @@ export default function TransformationWorkspacePage() {
     logActivity,
   } = useMigration();
 
+  // True while the auto-run triggered by "Continue to Transformation Workspace" is pending.
+  // Used to show "Starting pipeline…" only when an actual auto-run is imminent, not when the
+  // user navigates here from the sidebar with files already uploaded.
+  const [autoRunPending, setAutoRunPending] = useState(false);
+
+  // Read the sessionStorage flag synchronously on first mount so the spinner shows immediately.
+  useEffect(() => {
+    if (sessionStorage.getItem("autoRunPipeline") === "true") setAutoRunPending(true);
+  }, []);
+
   // Auto-run on navigate from Upload Files page
   const pipelineStartedRef = useRef(false);
   useEffect(() => {
     if (pipelineStartedRef.current) return;
-    if (sessionStorage.getItem("autoRunPipeline") !== "true") return;
+    if (!autoRunPending) return;
     if (!currentProject || !isContinueEnabled) return;
     pipelineStartedRef.current = true;
     sessionStorage.removeItem("autoRunPipeline");
+    setAutoRunPending(false);
     runPipeline(); // eslint-disable-line @typescript-eslint/no-use-before-define
-  }, [currentProject, isContinueEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentProject, isContinueEnabled, autoRunPending]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Restore pipeline state from sessionStorage when navigating back to this page.
+  // Fires on mount (or project switch) when no auto-run is pending.
+  useEffect(() => {
+    if (!currentProject?.id) return;
+    if (pipelineStartedRef.current) return; // auto-run already started — let it win
+    if (autoRunPending) return;             // auto-run is about to start — let it win
+    const saved = sessionStorage.getItem(`pipeline_state_${currentProject.id}`);
+    if (!saved) return;
+    try {
+      const s = JSON.parse(saved);
+      if (s.stageStatus)             setStageStatus(s.stageStatus);
+      if (s.schemaResult !== undefined)         setSchemaResult(s.schemaResult);
+      if (s.cleaningResult !== undefined)       setCleaningResult(s.cleaningResult);
+      if (s.dataValidationResult !== undefined) setDataValidationResult(s.dataValidationResult);
+      if (s.transformResult !== undefined)      setTransformResult(s.transformResult);
+    } catch (_e) {
+      console.warn("[TransformationWorkspace] Could not restore cached pipeline state:", _e);
+    }
+  }, [currentProject?.id, autoRunPending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-advance selected step to the latest active/completed step
   useEffect(() => {
@@ -557,7 +588,30 @@ export default function TransformationWorkspacePage() {
     const sourceKey = activeFiles.find((f: any) => f.slot === "source" && f.isActive)?.s3Key;
     const masterKey = activeFiles.find((f: any) => f.slot === "master" && f.isActive)?.s3Key;
     const logicKey = activeFiles.find((f: any) => f.slot === "logic" && f.isActive)?.s3Key;
+    // TEMP logging — remove after stale-file bug is confirmed fixed
+    console.log("[getActiveKeys] source_key:", sourceKey, "| master_key:", masterKey, "| logic_key:", logicKey);
+    console.log("[getActiveKeys] all active project files:", activeFiles.filter((f: any) => f.isActive).map((f: any) => `${f.slot}:${f.s3Key}`));
     return { sourceKey, masterKey, logicKey };
+  };
+
+  // Persist the current pipeline result set to sessionStorage so it survives navigation.
+  const savePipelineState = (
+    status: Record<PipelineStage, StageStatus>,
+    schema: SchemaResult | null,
+    cleaning: CleaningResult | null,
+    validation: DataValidationResult | null,
+    transform: TransformResult | null,
+  ) => {
+    if (!currentProject?.id) return;
+    try {
+      sessionStorage.setItem(`pipeline_state_${currentProject.id}`, JSON.stringify({
+        stageStatus: status,
+        schemaResult: schema,
+        cleaningResult: cleaning,
+        dataValidationResult: validation,
+        transformResult: transform,
+      }));
+    } catch (_e) { /* sessionStorage quota exceeded — non-critical */ }
   };
 
   // ---------------------------------------------------------------------------
@@ -685,6 +739,9 @@ export default function TransformationWorkspacePage() {
   // ---------------------------------------------------------------------------
 
   const runPipeline = async () => {
+    // Clear any previously cached state so a fresh run never restores stale results.
+    if (currentProject?.id) sessionStorage.removeItem(`pipeline_state_${currentProject.id}`);
+
     setPipelineRunning(true);
     setStageStatus({ schema: "idle", cleaning: "idle", validation: "idle", transformation: "idle" });
     setSchemaResult(null);
@@ -694,6 +751,11 @@ export default function TransformationWorkspacePage() {
     setTransformError(null);
 
     const { sourceKey, masterKey, logicKey } = getActiveKeys();
+
+    // Shadow captures — hold result objects so we can persist state at each exit point.
+    let _schema: SchemaResult | null = null;
+    let _cleaning: CleaningResult | null = null;
+    let _validation: DataValidationResult | null = null;
 
     if (!sourceKey || !logicKey) {
       setSchemaResult({
@@ -721,12 +783,13 @@ export default function TransformationWorkspacePage() {
         throw new Error(parseErrorDetail(err.detail, "Schema validation failed"));
       }
       const data = await resp.json();
-      setSchemaResult(data);
+      _schema = data;
+      setSchemaResult(_schema);
       schemaPassed = data.schema_valid === true && data.missing_fields?.length === 0 && data.additional_fields?.length === 0;
       await updateProjectStage("SCHEMA_VALIDATED", 35);
       await logActivity("System", currentUser?.name || "System", "Completed Schema Validation", "Success");
     } catch (error) {
-      setSchemaResult({
+      _schema = {
         schema_valid: false,
         source_field_count: 0,
         mapping_field_count: 0,
@@ -734,8 +797,10 @@ export default function TransformationWorkspacePage() {
         missing_fields: [],
         additional_fields: [],
         error: String(error),
-      });
+      };
+      setSchemaResult(_schema);
       setStageStatus(s => ({ ...s, schema: "failed" }));
+      savePipelineState({ schema: "failed", cleaning: "idle", validation: "idle", transformation: "idle" }, _schema, null, null, null);
       await logActivity("System", currentUser?.name || "System", `Schema validation failed: ${String(error)}`, "Failed");
       setPipelineRunning(false);
       return;
@@ -743,6 +808,7 @@ export default function TransformationWorkspacePage() {
 
     setStageStatus(s => ({ ...s, schema: schemaPassed ? "passed" : "failed" }));
     if (!schemaPassed) {
+      savePipelineState({ schema: "failed", cleaning: "idle", validation: "idle", transformation: "idle" }, _schema, null, null, null);
       setPipelineRunning(false);
       return;
     }
@@ -762,7 +828,8 @@ export default function TransformationWorkspacePage() {
         throw new Error(parseErrorDetail(err.detail, "Data cleaning failed"));
       }
       const data = await resp.json();
-      setCleaningResult(data);
+      _cleaning = data;
+      setCleaningResult(_cleaning);
       cleanedKey = data.cleanedS3Key || null;
       cleaningPassed = data.success === true;
       console.log("[pipeline] cleaned source key:", cleanedKey);
@@ -774,15 +841,17 @@ export default function TransformationWorkspacePage() {
         "Success"
       );
     } catch (error) {
-      setCleaningResult({
+      _cleaning = {
         success: false,
         cleanedS3Key: null,
         summary: { total_rows_processed: 0, rows_removed: 0, values_trimmed: 0, extra_spaces_fixed: 0, email_corrections: 0, null_conversions: 0 },
         changes: [],
         total_changes: 0,
         error: String(error),
-      });
+      };
+      setCleaningResult(_cleaning);
       setStageStatus(s => ({ ...s, cleaning: "failed" }));
+      savePipelineState({ schema: "passed", cleaning: "failed", validation: "idle", transformation: "idle" }, _schema, _cleaning, null, null);
       await logActivity("System", currentUser?.name || "System", `Data cleaning failed: ${String(error)}`, "Failed");
       setPipelineRunning(false);
       return;
@@ -790,6 +859,7 @@ export default function TransformationWorkspacePage() {
 
     setStageStatus(s => ({ ...s, cleaning: cleaningPassed ? "passed" : "failed" }));
     if (!cleaningPassed) {
+      savePipelineState({ schema: "passed", cleaning: "failed", validation: "idle", transformation: "idle" }, _schema, _cleaning, null, null);
       setPipelineRunning(false);
       return;
     }
@@ -812,7 +882,8 @@ export default function TransformationWorkspacePage() {
         throw new Error(parseErrorDetail(err.detail, "Data validation failed"));
       }
       const data = await resp.json();
-      setDataValidationResult(data);
+      _validation = data;
+      setDataValidationResult(_validation);
       validationTotalRecords = data.total_records ?? 0;
       if (data.reportS3Key && currentProject?.id) {
         await fetch(`/api/projects/${currentProject.id}/outputs`, {
@@ -830,8 +901,10 @@ export default function TransformationWorkspacePage() {
       await updateProjectStage("DATA_VALIDATED", 55);
       await logActivity("System", currentUser?.name || "System", `Data validation complete. Issues: ${data.total_issues ?? 0}`, "Success");
     } catch (error) {
-      setDataValidationResult({ success: false, total_records: 0, total_issues: 0, issues: [], error: String(error) });
+      _validation = { success: false, total_records: 0, total_issues: 0, issues: [], error: String(error) };
+      setDataValidationResult(_validation);
       setStageStatus(s => ({ ...s, validation: "failed" }));
+      savePipelineState({ schema: "passed", cleaning: "passed", validation: "failed", transformation: "idle" }, _schema, _cleaning, _validation, null);
       await logActivity("System", currentUser?.name || "System", `Data validation failed: ${String(error)}`, "Failed");
       setPipelineRunning(false);
       return;
@@ -839,6 +912,7 @@ export default function TransformationWorkspacePage() {
 
     setStageStatus(s => ({ ...s, validation: validationPassed ? "passed" : "failed" }));
     if (!validationPassed) {
+      savePipelineState({ schema: "passed", cleaning: "passed", validation: "failed", transformation: "idle" }, _schema, _cleaning, _validation, null);
       setPipelineRunning(false);
       return;
     }
@@ -904,19 +978,26 @@ export default function TransformationWorkspacePage() {
         link.remove();
       }
 
-      setTransformResult({
+      const finalTransformResult: TransformResult = {
         outputs: sheetOutputs,
         zipS3Key: data.zipS3Key ?? null,
         zipFileName: data.zipFileName ?? null,
         generatedAt: data.generatedAt || new Date().toISOString(),
         totalRecords: validationTotalRecords,
-      });
+      };
+      setTransformResult(finalTransformResult);
+      // Persist complete successful pipeline state so it survives navigation.
+      savePipelineState(
+        { schema: "passed", cleaning: "passed", validation: "passed", transformation: "passed" },
+        _schema, _cleaning, _validation, finalTransformResult,
+      );
       await updateProjectStage("TRANSFORMED", 100);
       await logActivity("System", currentUser?.name || "System", "Completed Data Transformation", "Success", data);
       setStageStatus(s => ({ ...s, transformation: "passed" }));
     } catch (error) {
       setTransformError(error instanceof Error ? error.message : "Data transformation failed");
       setStageStatus(s => ({ ...s, transformation: "failed" }));
+      savePipelineState({ schema: "passed", cleaning: "passed", validation: "passed", transformation: "failed" }, _schema, _cleaning, _validation, null);
       await logActivity("System", currentUser?.name || "System", `Data transformation failed: ${error instanceof Error ? error.message : String(error)}`, "Failed", { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setPipelineRunning(false);
@@ -1495,7 +1576,9 @@ export default function TransformationWorkspacePage() {
                 ? "All stages passed. Click any step in the progress bar to review its metrics."
                 : pipelineHasRun
                 ? "Pipeline stopped. Click any completed step to review results, then re-run after fixing issues."
-                : "Starting pipeline automatically — schema validation, cleaning, data validation, and transformation will run in sequence."}
+                : autoRunPending
+                ? "Starting pipeline automatically — schema validation, cleaning, data validation, and transformation will run in sequence."
+                : "Upload your files and run the pipeline, or use the button below to start now."}
             </p>
           </div>
 
@@ -1540,8 +1623,8 @@ export default function TransformationWorkspacePage() {
         {/* Detail panel for the selected step */}
         {selectedStep && renderDetailPanel(selectedStep)}
 
-        {/* Idle — briefly shown while context loads before auto-run fires */}
-        {!pipelineHasRun && !pipelineRunning && isContinueEnabled && (
+        {/* Auto-run is imminent — waiting for project context to finish loading */}
+        {!pipelineHasRun && !pipelineRunning && isContinueEnabled && autoRunPending && (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1E293B] py-20 text-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
               <LoaderCircle size={28} className="animate-spin" />
@@ -1550,6 +1633,27 @@ export default function TransformationWorkspacePage() {
             <p className="mt-2 max-w-sm text-xs leading-6 text-slate-500 dark:text-slate-400">
               Loading project data, then running schema validation, cleaning, data validation, and transformation.
             </p>
+          </div>
+        )}
+
+        {/* Idle — files are ready but no run is pending (e.g. opened from sidebar) */}
+        {!pipelineHasRun && !pipelineRunning && isContinueEnabled && !autoRunPending && (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1E293B] py-20 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+              <Wand2 size={28} />
+            </span>
+            <h3 className="mt-4 text-base font-bold text-slate-900 dark:text-slate-100">Ready to run</h3>
+            <p className="mt-2 max-w-sm text-xs leading-6 text-slate-500 dark:text-slate-400">
+              All files are uploaded. Click below to run the full pipeline — schema validation, cleaning, data validation, and transformation.
+            </p>
+            <button
+              type="button"
+              onClick={runPipeline}
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition-colors"
+            >
+              <Sparkles size={14} />
+              Run Pipeline
+            </button>
           </div>
         )}
 

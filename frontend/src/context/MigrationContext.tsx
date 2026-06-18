@@ -619,10 +619,13 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isContinueEnabled =
-    !!(uploadedFiles.source?.completed &&
-      uploadedFiles.master?.completed &&
-      uploadedFiles.logic?.completed);
+  // Base on DB-confirmed file state, not the fake progress animation,
+  // so the Continue button only enables once files are truly registered in S3/DB.
+  const isContinueEnabled = !!(
+    currentProject?.files.some((f: ProjectFile) => f.slot === "source" && f.isActive) &&
+    currentProject?.files.some((f: ProjectFile) => f.slot === "master" && f.isActive) &&
+    currentProject?.files.some((f: ProjectFile) => f.slot === "logic" && f.isActive)
+  );
 
   return (
     <MigrationContext.Provider
