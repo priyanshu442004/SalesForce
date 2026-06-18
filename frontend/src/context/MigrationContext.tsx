@@ -606,6 +606,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     fileList.forEach((file) => {
       let slot = "";
       if (forcedSlot) {
+        // Explicit slot chosen by the user (Replace / Browse button) — never reassign.
         slot = forcedSlot;
       } else {
         const fn = file.name.toLowerCase();
@@ -617,6 +618,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
           slot = "logic";
         }
 
+        // Only run fallback auto-assignment when no forced slot was given.
         if (!slot || usedSlots.has(slot) || uploadedFiles[slot]) {
           if (!uploadedFiles.source && !usedSlots.has("source")) {
             slot = "source";
@@ -856,7 +858,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     let schemaPassed = false;
     try {
       const url = `${NEXT_PUBLIC_API_URL}/api/validate-schema?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
-      const resp = await fetch(url, { method: "POST" });
+      const resp = await fetch(url, { method: "POST", headers: { "x-project-id": cp.id } });
       if (!resp.ok) {
         const err = await resp.json();
         throw new Error(parseErrorDetail(err.detail, "Schema validation failed"));

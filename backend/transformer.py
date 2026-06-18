@@ -34,29 +34,6 @@ def sanitize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def sanitize_value(val: Any) -> Any:
-    if pd.isna(val):
-        return None
-    if isinstance(val, float):
-        if val.is_integer():
-            return int(val)
-    if isinstance(val, str):
-        val_strip = val.strip()
-        if re.match(r"^-?\d+\.0+$", val_strip):
-            try:
-                return int(float(val_strip))
-            except ValueError:
-                pass
-    return val
-
-
-def sanitize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    for col in df.columns:
-        if df[col].dtype in ["float64", "object"]:
-            df[col] = df[col].apply(sanitize_value)
-    return df
-
-
 
 def is_blank(value: Any) -> bool:
     if value is None:
@@ -67,7 +44,7 @@ def is_blank(value: Any) -> bool:
         return True
     if isinstance(value, str):
         stripped = value.strip()
-        return stripped == "" or stripped == "NULL"
+        return stripped == "" or stripped.upper() == "NULL"
     return False
 
 
@@ -79,8 +56,57 @@ def clean_cell(value: Any) -> str:
     return str(value).strip()
 
 
+_DATETIME_RE = re.compile(r"^date[\s\-/&]*time$")
+
+_MULTISELECT_ALIASES: frozenset[str] = frozenset({
+    "picklist(multiselect)",
+    "picklist (multiselect)",
+    "multipicklist",
+    "picklist(multiple)",
+    "picklist (multiple)",
+    "picklistmultiselect",
+    "picklist multiselect",
+    "picklist multiple",
+})
+
+
+def normalize_datatype(value: Any) -> str:
+    """Return the canonical lower-case datatype string for a mapping-logic value.
+
+    Handles:
+    - Case insensitivity  (EMAIL → email)
+    - DateTime aliases    (Date/Time, date-time, date & time → datetime)
+    - Multiselect aliases (Multipicklist, Picklist(Multiple) → picklist(multiselect))
+    - Whitespace around parentheses/commas (text ( 50 ) → text(50))
+    """
+    if value is None:
+        return ""
+    if isinstance(value, float) and math.isnan(value):
+        return ""
+    s = str(value).strip().lower()
+    if not s:
+        return ""
+
+    # DateTime aliases — any "date<sep>time" pattern maps to "datetime"
+    if _DATETIME_RE.fullmatch(s):
+        return "datetime"
+
+    # Multiselect picklist aliases → single canonical key
+    if s in _MULTISELECT_ALIASES:
+        return "picklist(multiselect)"
+
+    # Normalise whitespace around parentheses and commas so that
+    # "text ( 50 )" → "text(50)" and "number( 5 , 2 )" → "number(5,2)"
+    s = re.sub(r"\s*\(\s*", "(", s)
+    s = re.sub(r"\s*\)\s*", ")", s)
+    s = re.sub(r"\s*,\s*", ",", s)
+
+    return s
+
+
 def normalize_type(value: Any) -> str:
-    return clean_cell(value).lower().replace(" ", "")
+    """Thin wrapper kept for backward-compat; prefer normalize_datatype directly."""
+    return normalize_datatype(value)
 
 
 def resolve_mapping_columns(logic_df: pd.DataFrame) -> dict[str, Any]:
@@ -235,7 +261,7 @@ def transform_mapped_value(value: Any, value_mapping: dict[str, str], data_type:
             return normalized.upper()
 
     # Multiselect Picklist
-    if data_type in {"picklist(multiselect)", "picklistmultiselect"}:
+    if data_type == "picklist(multiselect)":
         import re
 
         selected_values = [
@@ -290,8 +316,8 @@ def _load_rules_from_df(logic_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
         value_mapping = parse_value_mapping(format_value)
 
         is_date = data_type == "date"
-        is_datetime = data_type in {"datetime", "date&time"}
-        is_multiselect = data_type in {"picklist(multiselect)", "picklistmultiselect"}
+        is_datetime = data_type == "datetime"
+        is_multiselect = data_type == "picklist(multiselect)"
         is_lookup = data_type == "lookup"
 
         if not value_mapping and not is_date and not is_datetime and not is_multiselect and not is_lookup:
@@ -358,17 +384,12 @@ def load_sheet_source_fields(
     return fields
 
 
-def _is_null_sentinel(value: Any) -> bool:
-    """True when the value is the literal string 'NULL' written by data_cleaning.py."""
-    return isinstance(value, str) and value.strip() == "NULL"
-
-
 def apply_transform_rule(series: pd.Series, rule: dict[str, Any]) -> list[str]:
     data_type = rule["data_type"]
 
     def _transform_one(value: Any) -> str:
-        if _is_null_sentinel(value):
-            return "NULL"
+        if is_blank(value):
+            return ""
 
         if rule["value_mapping"]:
             return transform_mapped_value(value, rule["value_mapping"], data_type)
@@ -376,7 +397,7 @@ def apply_transform_rule(series: pd.Series, rule: dict[str, Any]) -> list[str]:
         if data_type == "date":
             return transform_date_value(value, rule["format"])
 
-        if data_type in {"datetime", "date&time"}:
+        if data_type == "datetime":
             return transform_datetime_value(value)
 
         return ""
@@ -399,6 +420,7 @@ def apply_lookup_rule(
     search_column = rule["search_column"]
     copyable_column = rule["copyable_column"]
 
+
     if not master_sheet:
         return [""] * len(series), 0, 0
 
@@ -419,9 +441,6 @@ def apply_lookup_rule(
     missed = 0
 
     for value in series.tolist():
-        if _is_null_sentinel(value):
-            results.append("NULL")
-            continue
         source_value = clean_cell(value)
         if not source_value:
             results.append("")

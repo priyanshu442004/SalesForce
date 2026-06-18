@@ -46,10 +46,13 @@ def _is_truly_null(value: Any) -> bool:
 
 
 def _is_blank(value: Any) -> bool:
-    """True for None, NaN, empty string, or whitespace-only string."""
+    """True for None, NaN, empty/whitespace-only string, or any-case 'null' literal."""
     if _is_truly_null(value):
         return True
-    return isinstance(value, str) and value.strip() == ""
+    if isinstance(value, str):
+        s = value.strip()
+        return s == "" or s.upper() == "NULL"
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +272,7 @@ def run_data_cleaning(source_path: str, logic_path: str) -> dict[str, Any]:
             )
 
         print(f"\n[CLEAN] NOTE: pandas reads empty Excel cells as NaN.")
-        print(f"[CLEAN] All empty forms (NaN, None, '', whitespace) in optional cols → NULL.\n")
+        print(f"[CLEAN] Any 'null'/'NULL'/'Null'/etc. literal → blank for ALL fields (mandatory and optional).\n")
 
         changes: list[CleaningChange] = []
         total_rows_original = len(source_df)
@@ -320,50 +323,42 @@ def run_data_cleaning(source_path: str, logic_path: str) -> dict[str, Any]:
                 #   • pd.NA
                 #   • ""          (explicit empty string)
                 #   • "   "       (whitespace-only string)
+                #   • "null" / "NULL" / "Null" / any case variation
                 # ----------------------------------------------------------
                 is_null_type = _is_truly_null(raw)
                 is_blank_str = isinstance(raw, str) and raw.strip() == ""
-                is_empty = is_null_type or is_blank_str
+                is_null_literal = isinstance(raw, str) and raw.strip().upper() == "NULL"
 
                 print(
                     f"  [CELL] Row {row_num}, col={repr(col)}, "
                     f"mandatory={is_mandatory}, "
                     f"value={repr(raw)!s:30s}, "
-                    f"empty={is_empty}, "
-                    f"will_convert_to_null={is_empty and not is_mandatory}"
+                    f"null_literal={is_null_literal}"
                 )
 
-                # RULE 4 – Any empty value in an optional column → NULL
-                if is_empty:
-                    if not is_mandatory:
-                        # Whitespace strings may have had a trim step
-                        applied_rules: list[str] = []
-                        if is_blank_str and raw != raw.strip():
-                            applied_rules.append("Trim")
-                            values_trimmed += 1
-                        applied_rules.append("Empty→Null")
-                        rule_label = " + ".join(applied_rules)
+                # RULE 4 – Any "null" literal (any case) → blank for ALL fields.
+                # This applies regardless of whether the field is mandatory or optional.
+                if is_null_literal:
+                    source_df.at[i, col] = None
+                    print(
+                        f"  [NULL-LITERAL] Row {row_num}, col={repr(col)}: "
+                        f"{repr(raw)} → (blank)  (mandatory={is_mandatory})"
+                    )
+                    changes.append({
+                        "row": row_num,
+                        "column": col,
+                        "original_value": raw,
+                        "cleaned_value": "(blank)",
+                        "rule": "Null Literal→Blank",
+                    })
+                    null_conversions += 1
+                    continue
 
-                        original_repr = "NaN" if is_null_type else repr(raw)
-                        source_df.at[i, col] = "NULL"
-
-                        print(
-                            f"  [NULL] Row {row_num}, col={repr(col)}: "
-                            f"{original_repr} → NULL  (rule: {rule_label})"
-                        )
-                        changes.append({
-                            "row": row_num,
-                            "column": col,
-                            "original_value": original_repr,
-                            "cleaned_value": "NULL",
-                            "rule": rule_label,
-                        })
-                        null_conversions += 1
-                    else:
-                        print(
-                            f"  [BLANK-KEEP] Row {row_num}, col={repr(col)}: "
-                            f"value is empty but field is mandatory — not converted"
-                        )
+                if is_null_type or is_blank_str:
+                    # Already blank (NaN / None / empty / whitespace-only) — leave as-is.
+                    # Count whitespace-only strings as a trim operation.
+                    if is_blank_str and raw != raw.strip():
+                        values_trimmed += 1
                     continue  # nothing more to do for empty cells
 
                 # Non-strings (numbers, dates, booleans) have no further rules
@@ -415,7 +410,7 @@ def run_data_cleaning(source_path: str, logic_path: str) -> dict[str, Any]:
             "null_conversions": null_conversions,
         }
 
-        print(f"\n[CLEAN] Summary: {summary}")
+        print(f"\n[CLEAN] Summary: {summary}  (null_conversions = null-literal→blank count)")
         print(f"[CLEAN] Total changes logged: {len(changes)}")
         print(f"{'='*60}\n")
 

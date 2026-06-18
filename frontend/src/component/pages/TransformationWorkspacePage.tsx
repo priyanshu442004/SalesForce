@@ -892,7 +892,7 @@ export default function TransformationWorkspacePage() {
                           <td className="whitespace-nowrap px-4 py-3 font-semibold">{issue.field}</td>
                           <td className="whitespace-nowrap px-4 py-3 text-rose-700 dark:text-rose-400">{issue.issue_type}</td>
                           <td className="max-w-[260px] truncate px-4 py-3">{issue.value}</td>
-                          <td className="max-w-[360px] truncate px-4 py-3">{issue.expected}</td>
+                          <td className="max-w-[360px] truncate px-4 py-3">{issue.expected?.replace(/^one of:\s*/i, "")}</td>
                         </tr>
                       ))}
                     </tbody>

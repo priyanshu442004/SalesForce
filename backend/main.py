@@ -209,11 +209,17 @@ def compare_files(
 @app.post("/api/validate-schema")
 def validate_schema(
     source_key: str = Query(...),
-    logic_key: str = Query(...)
+    logic_key: str = Query(...),
+    x_project_id: str = Header(None)
 ):
     """
     Validates schema using source and mapping logic files stored in S3.
     """
+    project_id = x_project_id or "(unknown)"
+    print(f"[validate-schema] project_id: {project_id}")
+    print(f"[validate-schema] source_key: {source_key}")
+    print(f"[validate-schema] logic_key:  {logic_key}")
+
     temp_source = None
     temp_logic = None
     try:
@@ -419,6 +425,11 @@ def transform_data(
     into a single .zip file and uploaded to S3.
     """
     project_id = x_project_id or str(uuid.uuid4())
+    print(f"[transform-data] project_id:  {project_id}")
+    print(f"[transform-data] source_key:  {source_key}")
+    print(f"[transform-data] master_key:  {master_key}")
+    print(f"[transform-data] logic_key:   {logic_key}")
+
     temp_source = None
     temp_master = None
     temp_logic = None

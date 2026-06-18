@@ -2,12 +2,17 @@ import datetime as dt
 import math
 import re
 from typing import Any, Callable, Optional
-from transformer import resolve_mapping_columns, sanitize_dataframe
+from transformer import resolve_mapping_columns, sanitize_dataframe, normalize_datatype
 import pandas as pd
 
 
 EMAIL_RE = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$")
 PHONE_ALLOWED_RE = re.compile(r"^[+\d\-\s]+$")
+# Matches scientific notation strings produced by Excel when numeric cells are
+# read back as text (e.g. "9.2006E+11").
+_PHONE_SCI_RE = re.compile(r"^[+-]?\d+\.?\d*[Ee][+-]?\d+$")
+# Matches Number(before) or Number(before, after) format strings.
+_NUMBER_FORMAT_RE = re.compile(r"^number\(\s*(\d+)(?:\s*,\s*(\d+))?\s*\)$", re.IGNORECASE)
 
 
 ValidationIssue = dict[str, Any]
@@ -22,7 +27,7 @@ def is_blank(value: Any) -> bool:
         return True
     if isinstance(value, str):
         stripped = value.strip()
-        return stripped == "" or stripped == "NULL"
+        return stripped == "" or stripped.upper() == "NULL"
     return False
 
 
@@ -42,14 +47,52 @@ def validate_datetime(value: Any, _format: Any = None) -> bool:
     return not pd.isna(pd.to_datetime(value, errors="coerce"))
 
 
-def validate_number(value: Any, _format: Any = None) -> bool:
+def _parse_number_format(type_str: Any) -> tuple[Optional[int], Optional[int]]:
+    """Parse Number(before) or Number(before,after) from a data-type string.
+
+    Returns (max_before_decimal, max_after_decimal); None means unconstrained.
+    """
+    if is_blank(type_str):
+        return None, None
+    m = _NUMBER_FORMAT_RE.match(str(type_str).strip())
+    if not m:
+        return None, None
+    max_before = int(m.group(1))
+    max_after = int(m.group(2)) if m.group(2) is not None else None
+    return max_before, max_after
+
+
+def validate_number(value: Any, format_value: Any = None) -> bool:
     if isinstance(value, bool):
         return False
     try:
         number = float(value)
     except (TypeError, ValueError):
         return False
-    return math.isfinite(number)
+    if not math.isfinite(number):
+        return False
+
+    max_before, max_after = _parse_number_format(format_value)
+    if max_before is None:
+        return True  # plain Number — no digit-count constraints
+
+    # Build a plain decimal string for digit counting.
+    # Use the original string when the value is already a string (preserves the
+    # user-entered format); otherwise fall back to Python's str(float) which
+    # avoids scientific notation for typical business-data magnitudes.
+    raw = str(value).strip() if isinstance(value, str) else str(number)
+    raw = raw.lstrip("-+")  # digit counts ignore the sign
+
+    parts = raw.split(".")
+    before_part = parts[0]
+    # Trailing zeros after the decimal are insignificant (12345.120 == 12345.12).
+    after_part = parts[1].rstrip("0") if len(parts) > 1 else ""
+
+    if len(before_part) > max_before:
+        return False
+    if max_after is not None and len(after_part) > max_after:
+        return False
+    return True
 
 
 def validate_email(value: Any, _format: Any = None) -> bool:
@@ -65,11 +108,32 @@ def _normalize_phone_str(value: Any) -> str:
     # reports, so that callers always see the clean integer string form.
     if isinstance(value, float) and not math.isnan(value) and value == int(value):
         return str(int(value)).strip()
-    return str(value).strip()
+    s = str(value).strip()
+    # Also normalise scientific-notation strings (e.g. "9.2006E+11") that arise
+    # when Excel cells formatted as Text still show exponential notation.
+    if _PHONE_SCI_RE.match(s):
+        try:
+            f = float(s)
+            if not math.isnan(f) and f == int(f):
+                return str(int(f))
+        except (ValueError, OverflowError):
+            pass
+    return s
 
 
 def validate_phone(value: Any, _format: Any = None) -> bool:
-    return PHONE_ALLOWED_RE.fullmatch(_normalize_phone_str(value)) is not None
+    s = _normalize_phone_str(value)
+    if not PHONE_ALLOWED_RE.fullmatch(s):
+        return False
+    # Bare digit-only strings (no +, -, spaces): enforce a 7-10 digit cap so
+    # that scientific-notation-inflated values like 9.2006E+11 → 920060000000
+    # (12 digits) are correctly rejected.
+    if re.fullmatch(r"\d+", s):
+        return 7 <= len(s) <= 10
+    # Formatted strings (contain +, -, or spaces): validate digit count per
+    # E.164 (7-15 digits) to allow country-code prefixes like +91 XXXXXXXXXX.
+    digit_count = sum(c.isdigit() for c in s)
+    return 7 <= digit_count <= 15
 
 def validate_text(value: Any, format_value: Any = None) -> bool:
     if value is None:
@@ -184,19 +248,12 @@ def validate_picklist_multiselect(value: Any, format_value: Any = None) -> bool:
 VALIDATORS: dict[str, tuple[Callable[[Any, Any], bool], str, str]] = {
     "date": (validate_date, "Invalid Date", "Valid date format"),
     "datetime": (validate_datetime, "Invalid DateTime", "Valid date and time format"),
-    "date&time": (validate_datetime, "Invalid DateTime", "Valid date and time format"),
-    "date & time": (validate_datetime, "Invalid DateTime", "Valid date and time format"),
     "number": (validate_number, "Invalid Number", "Numeric value"),
     "email": (validate_email, "Invalid Email", "Valid email address"),
     "phone": (validate_phone, "Invalid Phone", "Valid phone number format"),
     "checkbox": (validate_checkbox, "Invalid Checkbox", "One of the configured checkbox values"),
     "picklist": (validate_picklist, "Invalid Picklist", "One of the configured picklist values"),
     "picklist(multiselect)": (
-        validate_picklist_multiselect,
-        "Invalid Picklist(Multiselect)",
-        "Comma-separated configured picklist values",
-    ),
-    "picklist (multiselect)": (
         validate_picklist_multiselect,
         "Invalid Picklist(Multiselect)",
         "Comma-separated configured picklist values",
@@ -254,7 +311,7 @@ def read_mapping_rules(logic_path: str) -> pd.DataFrame:
 
 
 def expected_message(data_type: str, format_value: Any, fallback: str) -> str:
-    if data_type in {"picklist", "picklist(multiselect)", "picklist (multiselect)"}:
+    if data_type in {"picklist", "picklist(multiselect)"}:
         options = parse_picklist_options(format_value)
 
         cleaned_options = []
@@ -268,6 +325,13 @@ def expected_message(data_type: str, format_value: Any, fallback: str) -> str:
 
         if cleaned_options:
             return "One of: " + ", ".join(cleaned_options)
+
+    if data_type.startswith("number"):
+        max_before, max_after = _parse_number_format(data_type)
+        if max_before is not None:
+            if max_after is not None:
+                return f"Up to {max_before} digits before decimal, up to {max_after} after"
+            return f"Up to {max_before} digits before decimal"
 
     return fallback
 
@@ -357,7 +421,7 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
             continue
 
         field_name = str(source_field).strip()
-        normalized_type = str(data_type).strip().lower() 
+        normalized_type = normalize_datatype(data_type)
 
         mp_flag = "" if is_blank(mandatory_primary) else str(mandatory_primary).strip().lower()
         is_mandatory = "mandatory" in mp_flag
@@ -387,6 +451,9 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
         if normalized_type.startswith("text"):
             lookup_type = "text"
 
+        if normalized_type.startswith("number"):
+            lookup_type = "number"
+
         validator_config = VALIDATORS.get(lookup_type)
 
         if validator_config is None or field_name not in source_df.columns:
@@ -403,6 +470,9 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
 
             if lookup_type == "text":
                 validation_config = data_type
+
+            if lookup_type == "number":
+                validation_config = normalized_type
 
             if not validator(value, validation_config):
                 issues.append(
@@ -579,7 +649,7 @@ def write_validation_report(issues: list[ValidationIssue], output_path: str) -> 
                 "Field": issue.get("field"),
                 "Issue Type": issue.get("issue_type"),
                 "Actual Value": issue.get("value"),
-                "Expected": issue.get("expected"),
+                "Expected": re.sub(r"(?i)^one of:\s*", "", issue.get("expected") or ""),
             }
             for issue in issues
         ],
