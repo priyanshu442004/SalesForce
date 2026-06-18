@@ -57,6 +57,8 @@ model ActivityHistory {
   actor       String
   description String
   status      String   // "Success", "Warning", "Error"
+  details     Json?    // Stores validation results, error info, etc.
+  fileStates  Json?    // Stores snapshot of active files at this timestamp
   
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)

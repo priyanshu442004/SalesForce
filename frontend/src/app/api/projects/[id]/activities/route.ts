@@ -30,13 +30,31 @@ export async function POST(
     const projectId = resolvedParams.id;
     const body = await request.json();
 
+    // Automatically snapshot current active files for this project
+    let fileStates = body.fileStates;
+    if (!fileStates) {
+      const activeFiles = await db.uploadedFileReference.findMany({
+        where: { projectId, isActive: true }
+      });
+      fileStates = activeFiles.map(f => ({
+        id: f.id,
+        slot: f.slot,
+        fileName: f.fileName,
+        fileSize: f.fileSize,
+        s3Key: f.s3Key,
+        uploadedAt: f.uploadedAt.toISOString()
+      }));
+    }
+
     const activity = await db.activityHistory.create({
       data: {
         projectId,
         category: body.category,
         actor: body.actor,
         description: body.description,
-        status: body.status // "Success", "Warning", "Error"
+        status: body.status, // "Success", "Warning", "Error"
+        details: body.details || null,
+        fileStates: fileStates || null
       }
     });
 

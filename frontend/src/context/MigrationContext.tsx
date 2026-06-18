@@ -76,7 +76,7 @@ interface MigrationContextType {
   selectProject: (projectId: string) => Promise<void>;
   refreshCurrentProject: () => Promise<void>;
   updateProjectStage: (stage: string, progress: number) => Promise<void>;
-  logActivity: (category: string, actor: string, description: string, status: string) => Promise<void>;
+  logActivity: (category: string, actor: string, description: string, status: string, details?: any) => Promise<void>;
   revertFileToVersion: (fileId: string) => Promise<void>;
   revertOutputToVersion: (outputId: string) => Promise<void>;
 
@@ -340,13 +340,13 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Create audit activity log
-  const logActivity = async (category: string, actor: string, description: string, status: string) => {
+  const logActivity = async (category: string, actor: string, description: string, status: string, details?: any) => {
     if (!currentProject) return;
     try {
       await fetch(`/api/projects/${currentProject.id}/activities`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, actor, description, status })
+        body: JSON.stringify({ category, actor, description, status, details })
       });
       await refreshCurrentProject();
     } catch (err) {

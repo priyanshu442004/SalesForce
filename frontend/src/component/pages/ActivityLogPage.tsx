@@ -3,13 +3,32 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useMigration } from "@/context/MigrationContext";
+import {
+  X,
+  Download,
+  AlertTriangle,
+  CheckCircle2,
+  Eye,
+  Info,
+  FileText,
+  Database,
+  Clock,
+  User,
+  Table2,
+  ChevronLeft,
+  ChevronRight,
+  Search
+} from "lucide-react";
 
 interface AuditLog {
+  id: string;
   timestamp: string;
   category: "Transformation" | "Mapping" | "Validation" | "Upload" | "System";
   actor: string;
   description: string;
   status: "Success" | "Warning" | "Error";
+  details: any;
+  fileStates: any;
 }
 
 // Highly reliable inline dynamic counting component
@@ -38,10 +57,434 @@ function AnimatedCount({ target, duration = 850, suffix = "" }: { target: number
   return <>{count}{suffix}</>;
 }
 
+// Reusable detailed modal for granular log analytics and downloads
+function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
+  const [issueSearch, setIssueSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  const downloadFile = (s3Key: string, fileName: string) => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+    const link = document.createElement("a");
+    link.href = `${apiUrl}/api/download-file?s3_key=${encodeURIComponent(s3Key)}`;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const details = log.details;
+  const fileStates = Array.isArray(log.fileStates) ? log.fileStates : [];
+
+  // Parse if it is a data validation activity
+  const isDataValidation = log.category === "Validation" && details && typeof details === "object" && "issues" in details;
+  const issues = isDataValidation && Array.isArray(details.issues) ? details.issues : [];
+
+  const filteredIssues = issues.filter((issue: any) => {
+    const term = issueSearch.toLowerCase();
+    return (
+      String(issue.row).includes(term) ||
+      String(issue.field).toLowerCase().includes(term) ||
+      String(issue.issue_type).toLowerCase().includes(term) ||
+      String(issue.value).toLowerCase().includes(term) ||
+      String(issue.expected).toLowerCase().includes(term)
+    );
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredIssues.length / itemsPerPage));
+  const paginatedIssues = filteredIssues.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Parse if it is a schema validation activity
+  const isSchemaValidation = (log.category === "Validation" || log.category === "System") && details && typeof details === "object" && "schema_valid" in details;
+  const schemaResult = isSchemaValidation ? details : null;
+
+  // Generic errors
+  const isGenericError = log.status === "Error" || (details && typeof details === "object" && "error" in details);
+  const errorMsg = details && typeof details === "object" && "error" in details ? details.error : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm sm:p-6 animate-fade-in">
+      <div className="flex h-full max-h-[85vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-scale-up-modal">
+        
+        {/* Modal Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-6 py-4.5">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider ${
+                log.category === "Transformation" ? "bg-purple-50 text-purple-700 ring-1 ring-purple-100" :
+                log.category === "Mapping" ? "bg-blue-50 text-blue-700 ring-1 ring-blue-100" :
+                log.category === "Validation" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100" :
+                log.category === "Upload" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" :
+                "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
+              }`}>
+                {log.category}
+              </span>
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black ${
+                log.status === "Success" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" :
+                log.status === "Warning" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100" :
+                "bg-rose-50 text-rose-700 ring-1 ring-rose-100"
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  log.status === "Success" ? "bg-emerald-600" :
+                  log.status === "Warning" ? "bg-amber-500" :
+                  "bg-rose-500"
+                }`} />
+                {log.status}
+              </span>
+            </div>
+            <h3 className="text-[17px] font-black tracking-tight text-slate-950">
+              {log.description}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-700"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Modal Info Bar */}
+        <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-100 bg-slate-50/50 px-6 py-3 text-xs font-bold text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <User size={13} className="text-slate-400" />
+            <span>Actor:</span>
+            <span className="text-slate-800">{log.actor}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Clock size={13} className="text-slate-400" />
+            <span>Timestamp:</span>
+            <span className="text-slate-800 font-mono">{log.timestamp}</span>
+          </div>
+          {fileStates.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <FileText size={13} className="text-slate-400" />
+              <span>Snapshot Files:</span>
+              <span className="rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] text-slate-700 font-extrabold">{fileStates.length}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Content */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 bg-slate-50/45">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start h-full">
+            
+            {/* Left Column: Granular Reports / Logs */}
+            <div className="lg:col-span-2 space-y-5">
+              <div className="border-b border-slate-200 pb-2">
+                <h4 className="text-[12px] font-black uppercase tracking-wider text-slate-400">
+                  Granular Details
+                </h4>
+              </div>
+
+              {/* Data Validation Output UI */}
+              {isDataValidation && (
+                <div className="space-y-4">
+                  {/* Stats tiles */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white border border-slate-200/70 p-4 rounded-xl shadow-sm">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Records Checked</p>
+                      <p className="text-2xl font-black text-slate-900 mt-1">{details.total_records ?? "N/A"}</p>
+                    </div>
+                    <div className="bg-white border border-slate-200/70 p-4 rounded-xl shadow-sm">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Issues Detected</p>
+                      <p className={`text-2xl font-black mt-1 ${issues.length > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                        {details.total_issues ?? issues.length}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Issues search and grid */}
+                  {issues.length > 0 ? (
+                    <div className="bg-white border border-slate-200/70 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                      <div className="p-3 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30">
+                        <Search size={14} className="text-slate-400" />
+                        <input
+                          type="text"
+                          value={issueSearch}
+                          onChange={(e) => {
+                            setIssueSearch(e.target.value);
+                            setCurrentPage(1);
+                          }}
+                          placeholder="Filter issues..."
+                          className="w-full text-xs font-semibold focus:outline-none bg-transparent"
+                        />
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse text-left text-xs">
+                          <thead className="bg-slate-50/80 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                            <tr>
+                              <th className="px-3 py-2.5">Row</th>
+                              <th className="px-3 py-2.5">Field</th>
+                              <th className="px-3 py-2.5">Issue Type</th>
+                              <th className="px-3 py-2.5">Value</th>
+                              <th className="px-3 py-2.5">Expected</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                            {paginatedIssues.map((issue: any, index: number) => (
+                              <tr key={index} className="hover:bg-slate-50/40">
+                                <td className="px-3 py-2.5 font-bold text-slate-400 font-mono">{issue.row}</td>
+                                <td className="px-3 py-2.5 font-bold text-slate-900">{issue.field}</td>
+                                <td className="px-3 py-2.5">
+                                  <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-[10.5px] font-bold">
+                                    {issue.issue_type}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 font-mono text-slate-600 truncate max-w-[120px]">{issue.value === null || issue.value === "" ? <span className="italic text-slate-300">empty</span> : String(issue.value)}</td>
+                                <td className="px-3 py-2.5 text-slate-500 truncate max-w-[150px]">{issue.expected}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      {/* Pagination Controls */}
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/40 text-[11px] font-bold text-slate-500">
+                        <span>
+                          Showing {filteredIssues.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredIssues.length)} of {filteredIssues.length} issues
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                            className="p-1 rounded border border-slate-200/50 bg-white hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                          >
+                            <ChevronLeft size={14} />
+                          </button>
+                          <span className="px-2">{currentPage} / {totalPages}</span>
+                          <button
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPage === totalPages}
+                            className="p-1 rounded border border-slate-200/50 bg-white hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                          >
+                            <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center bg-white border border-slate-200/70 rounded-xl shadow-sm text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-2">
+                      <CheckCircle2 size={24} className="text-emerald-600" />
+                      <span>Data validation passed cleanly. No issues detected!</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Schema Validation Output UI */}
+              {isSchemaValidation && schemaResult && (
+                <div className="space-y-4">
+                  {/* Summary Metric tiles */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-white border border-slate-200/70 p-3 rounded-xl shadow-sm">
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Source Fields</p>
+                      <p className="text-xl font-black text-slate-900 mt-1">{schemaResult.source_field_count ?? 0}</p>
+                    </div>
+                    <div className="bg-white border border-slate-200/70 p-3 rounded-xl shadow-sm">
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Mapping Fields</p>
+                      <p className="text-xl font-black text-slate-900 mt-1">{schemaResult.mapping_field_count ?? 0}</p>
+                    </div>
+                    <div className="bg-white border border-slate-200/70 p-3 rounded-xl shadow-sm">
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Matched Fields</p>
+                      <p className="text-xl font-black text-emerald-600 mt-1">{schemaResult.matched_field_count ?? 0}</p>
+                    </div>
+                    <div className="bg-white border border-slate-200/70 p-3 rounded-xl shadow-sm">
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Discrepancies</p>
+                      <p className={`text-xl font-black mt-1 ${schemaResult.schema_valid ? "text-emerald-600" : "text-rose-600"}`}>
+                        {((schemaResult.missing_fields?.length || 0) + (schemaResult.additional_fields?.length || 0))}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Schema Validation Status Callout */}
+                  <div className={`p-4 rounded-xl border flex gap-3 items-start ${
+                    schemaResult.schema_valid ? "bg-emerald-50/70 border-emerald-200 text-emerald-800" : "bg-rose-50/70 border-rose-200 text-rose-800"
+                  }`}>
+                    <span className={`p-1 bg-white rounded-full shadow-sm ${schemaResult.schema_valid ? "text-emerald-600" : "text-rose-600"}`}>
+                      {schemaResult.schema_valid ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                    </span>
+                    <div>
+                      <h5 className="font-bold text-xs">
+                        {schemaResult.schema_valid ? "Compatible Field Schema Match" : "Field Discrepancies Found"}
+                      </h5>
+                      <p className="text-[11.5px] mt-0.5 leading-4 font-bold opacity-90">
+                        {schemaResult.schema_valid
+                          ? "Source fields match perfectly with the mapping rules."
+                          : "Review discrepancies below to align source columns with target specifications."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Missing/Additional fields details */}
+                  {!schemaResult.schema_valid && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Missing from Source */}
+                      <div className="bg-white border border-slate-200/70 rounded-xl p-4 shadow-sm">
+                        <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
+                          Missing from source data ({schemaResult.missing_fields?.length || 0})
+                        </h5>
+                        <div className="mt-3 max-h-32 overflow-y-auto flex flex-wrap gap-1.5">
+                          {Array.isArray(schemaResult.missing_fields) && schemaResult.missing_fields.length > 0 ? (
+                            schemaResult.missing_fields.map((f: string) => (
+                              <span key={f} className="px-2 py-1 bg-rose-50 text-rose-700 rounded-md text-[10.5px] font-bold border border-rose-100/30">
+                                {f}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-400 italic font-bold">None</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Missing from Logic */}
+                      <div className="bg-white border border-slate-200/70 rounded-xl p-4 shadow-sm">
+                        <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+                          Missing from mapping logic ({schemaResult.additional_fields?.length || 0})
+                        </h5>
+                        <div className="mt-3 max-h-32 overflow-y-auto flex flex-wrap gap-1.5">
+                          {Array.isArray(schemaResult.additional_fields) && schemaResult.additional_fields.length > 0 ? (
+                            schemaResult.additional_fields.map((f: string) => (
+                              <span key={f} className="px-2 py-1 bg-amber-50 text-amber-700 rounded-md text-[10.5px] font-bold border border-amber-100/30">
+                                {f}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-400 italic font-bold">None</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Generic Error message display */}
+              {isGenericError && errorMsg && !isDataValidation && !isSchemaValidation && (
+                <div className="p-4 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl flex gap-3 items-start shadow-sm">
+                  <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <h5 className="font-bold text-xs">Error details</h5>
+                    <p className="mt-1.5 text-xs text-rose-700 font-mono whitespace-pre-wrap break-all leading-5">
+                      {errorMsg}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* General details formatting */}
+              {details && !isDataValidation && !isSchemaValidation && (
+                <div className="space-y-2">
+                  <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                    Operation Metadata
+                  </h5>
+                  <pre className="p-4 bg-slate-900 text-slate-100 rounded-2xl text-[11px] font-mono overflow-auto max-h-72 leading-5 shadow-inner">
+                    {JSON.stringify(details, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {/* No details metadata */}
+              {!details && (
+                <div className="p-8 text-center bg-white border border-slate-200/50 rounded-xl shadow-sm text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-1.5">
+                  <Info size={20} className="text-slate-300" />
+                  <span>No granular metadata or issue logs captured for this activity.</span>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: File State Snapshot Download */}
+            <div className="space-y-5">
+              <div className="border-b border-slate-200 pb-2">
+                <h4 className="text-[12px] font-black uppercase tracking-wider text-slate-400">
+                  File State Snapshot
+                </h4>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[11px] leading-4 text-slate-400 font-bold">
+                  Download the specific version of files active in the project workspace at this timestamp:
+                </p>
+
+                {fileStates.length > 0 ? (
+                  fileStates.map((file: any) => {
+                    const isSource = file.slot === "source";
+                    const isMaster = file.slot === "master";
+                    
+                    return (
+                      <div
+                        key={file.id || file.s3Key}
+                        className="bg-white border border-slate-200/60 rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm hover:border-slate-300 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                            isSource ? "bg-blue-50 text-blue-700" :
+                            isMaster ? "bg-emerald-50 text-emerald-700" :
+                            "bg-purple-50 text-purple-700"
+                          }`}>
+                            <Table2 size={17} />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[12.5px] font-black text-slate-900 truncate" title={file.fileName}>
+                                {file.fileName}
+                              </span>
+                              <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-extrabold uppercase tracking-wide shrink-0 ${
+                                isSource ? "bg-blue-100 text-blue-800" :
+                                isMaster ? "bg-emerald-100 text-emerald-800" :
+                                "bg-purple-100 text-purple-800"
+                              }`}>
+                                {file.slot}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                              Size: {file.fileSize || "Unknown"}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => downloadFile(file.s3Key, file.fileName)}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-[#002BFF] hover:bg-slate-100 transition-colors shrink-0"
+                          title={`Download ${file.fileName}`}
+                        >
+                          <Download size={14} />
+                        </button>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="p-8 text-center bg-white border border-dashed border-slate-200 rounded-xl text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-1.5">
+                    <Database size={18} className="text-slate-300" />
+                    <span>No active file state snapshot captured at this timestamp.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex shrink-0 items-center justify-end border-t border-slate-100 bg-white px-6 py-4">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+          >
+            Close Details
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ActivityLogPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const { currentProject } = useMigration();
 
@@ -68,13 +511,16 @@ export default function ActivityLogPage() {
     );
   }
 
-  // Parse real activities from the project DB state
+  // Parse activities from current project
   const logs: AuditLog[] = (currentProject.activities || []).map((act: any) => ({
+    id: act.id,
     timestamp: new Date(act.timestamp).toLocaleString(),
     category: act.category as any,
     actor: act.actor,
     description: act.description,
     status: act.status as any,
+    details: act.details,
+    fileStates: act.fileStates,
   }));
 
   const filteredLogs = logs.filter(log => {
@@ -102,11 +548,25 @@ export default function ActivityLogPage() {
           from { opacity: 0; transform: translateY(6px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scaleUpModal {
+          from { opacity: 0; transform: scale(0.96) translateY(8px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
         .animate-scale-up {
           animation: scaleUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         .animate-row {
           animation: fadeInRow 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-scale-up-modal {
+          animation: scaleUpModal 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
 
@@ -127,7 +587,7 @@ export default function ActivityLogPage() {
           System Activity Log — {currentProject.name}
         </h3>
         <span className="text-[14.5px] font-bold text-slate-400">
-          Review real-time operations, file history, and S3 validation audit trails.
+          Review real-time operations, file history, and validation audit trails. Click any log entry to view details.
         </span>
       </div>
 
@@ -252,16 +712,18 @@ export default function ActivityLogPage() {
                 <th className="pb-4">Category</th>
                 <th className="pb-4">Actor</th>
                 <th className="pb-4">Action Description</th>
-                <th className="pb-4 text-right pr-4">Status</th>
+                <th className="pb-4">Status</th>
+                <th className="pb-4 text-right pr-4">Details</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 text-[15.5px] font-bold text-[#000839]">
               {filteredLogs.length > 0 ? (
                 filteredLogs.map((log, idx) => (
                   <tr 
-                    key={idx} 
-                    className="hover:bg-slate-50/20 transition-all opacity-0 animate-row"
-                    style={{ animationDelay: `${300 + idx * 45}ms` }}
+                    key={log.id || idx} 
+                    onClick={() => setSelectedLog(log)}
+                    className="hover:bg-slate-50/50 hover:border-l-[#002BFF] border-l-4 border-l-transparent cursor-pointer transition-all opacity-0 animate-row"
+                    style={{ animationDelay: `${300 + idx * 35}ms` }}
                   >
                     <td className="py-4.5 pl-3 font-mono text-[14px] text-slate-400">{log.timestamp}</td>
                     <td className="py-4.5">
@@ -277,7 +739,7 @@ export default function ActivityLogPage() {
                     </td>
                     <td className="py-4.5 text-[#000839]/85 font-black">{log.actor}</td>
                     <td className="py-4.5 text-[#000839]/70 font-medium max-w-[350px] truncate">{log.description}</td>
-                    <td className="py-4.5 text-right pr-4">
+                    <td className="py-4.5">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-black ${
                         log.status === "Success" ? "bg-[#e6f4ea] text-[#137333]" :
                         log.status === "Warning" ? "bg-amber-50 text-amber-600" :
@@ -291,11 +753,23 @@ export default function ActivityLogPage() {
                         <span>{log.status}</span>
                       </span>
                     </td>
+                    <td className="py-4.5 text-right pr-4">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedLog(log);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-slate-100 hover:bg-[#002BFF] hover:text-white transition-all duration-200 text-[#002BFF]"
+                      >
+                        <Eye size={13} />
+                        <span>View</span>
+                      </button>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 font-black">
+                  <td colSpan={6} className="py-12 text-center text-slate-400 font-black">
                     No system log history found matching your search.
                   </td>
                 </tr>
@@ -304,6 +778,11 @@ export default function ActivityLogPage() {
           </table>
         </div>
       </div>
+
+      {/* Detail Modal Overlay */}
+      {selectedLog && (
+        <LogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />
+      )}
 
     </div>
   );

@@ -765,7 +765,7 @@ export default function UploadFilesPage() {
 
       // Update Project progress stage to VALIDATING/SCHEMA
       await updateProjectStage("SCHEMA_VALIDATED", 35);
-      await logActivity("System", currentUser?.name || "Tester", "Completed Schema Validation", "Success");
+      await logActivity("System", currentUser?.name || "Tester", "Completed Schema Validation", "Success", data);
     } catch (error) {
       console.error(error);
       setSchemaResult({
@@ -777,7 +777,7 @@ export default function UploadFilesPage() {
         additional_fields: [],
         error: String(error),
       });
-      await logActivity("System", currentUser?.name || "Tester", `Schema validation failed: ${String(error)}`, "Failed");
+      await logActivity("System", currentUser?.name || "Tester", `Schema validation failed: ${String(error)}`, "Failed", { error: String(error) });
     } finally {
       setSchemaLoading(false);
     }
@@ -840,7 +840,7 @@ export default function UploadFilesPage() {
       }
 
       await updateProjectStage("DATA_VALIDATED", 55);
-      await logActivity("System", currentUser?.name || "Tester", `Completed Data validation. Issues count: ${data.total_issues}`, "Success");
+      await logActivity("System", currentUser?.name || "Tester", `Completed Data validation. Issues count: ${data.total_issues}`, "Success", data);
     } catch (error) {
       console.error(error);
       setDataValidationResult({
@@ -850,7 +850,7 @@ export default function UploadFilesPage() {
         issues: [],
         error: String(error),
       });
-      await logActivity("System", currentUser?.name || "Tester", `Data validation failed: ${String(error)}`, "Failed");
+      await logActivity("System", currentUser?.name || "Tester", `Data validation failed: ${String(error)}`, "Failed", { error: String(error) });
     } finally {
       setDataValidationLoading(false);
     }
@@ -925,11 +925,11 @@ export default function UploadFilesPage() {
       }
 
       await updateProjectStage("TRANSFORMED", 100);
-      await logActivity("System", currentUser?.name || "Tester", "Completed Data Transformation", "Success");
+      await logActivity("System", currentUser?.name || "Tester", "Completed Data Transformation", "Success", data);
     } catch (error) {
       console.error(error);
       setTransformError(error instanceof Error ? error.message : "Data transformation failed");
-      await logActivity("System", currentUser?.name || "Tester", `Data transformation failed: ${error instanceof Error ? error.message : ""}`, "Failed");
+      await logActivity("System", currentUser?.name || "Tester", `Data transformation failed: ${error instanceof Error ? error.message : ""}`, "Failed", { error: error instanceof Error ? error.message : "Data transformation failed" });
     } finally {
       setTransformLoading(false);
     }
