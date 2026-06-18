@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+async function syncToS3(projectId: string, description: string, timestamp: Date) {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+    const s3LogUrl = `${apiUrl}/api/log-change-s3?project_id=${projectId}&change_name=${encodeURIComponent(description)}&timestamp=${encodeURIComponent(timestamp.toISOString())}`;
+    await fetch(s3LogUrl, { method: "POST" });
+  } catch (s3Err) {
+    console.error("Failed to sync change to S3 activity log:", s3Err);
+  }
+}
+
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await params;
@@ -23,7 +33,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await params;
@@ -52,6 +62,8 @@ export async function POST(
       }
     });
 
+    await syncToS3(projectId, `Registered generated output: '${fileName}' (${fileType})`, newOutput.generatedAt);
+
     return NextResponse.json({ success: true, output: newOutput });
   } catch (error: any) {
     console.error("Failed to register generated output:", error);
@@ -61,7 +73,7 @@ export async function POST(
 
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await params;
@@ -94,6 +106,8 @@ export async function PUT(
       where: { id: outputId },
       data: { isActive: true }
     });
+
+    await syncToS3(projectId, `Reverted output version to: '${revertedOutput.fileName}' (${fileType})`, revertedOutput.generatedAt);
 
     return NextResponse.json({ success: true, output: revertedOutput });
   } catch (error: any) {

@@ -774,11 +774,10 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
         source_columns = [str(c) for c in src_df.columns]
 
         # Read mapping logic column A (first sheet)
-        logic_excel = pd.ExcelFile(logic_path)
-        logic_sheet = logic_excel.sheet_names[0]
-
-        logic_df = pd.read_excel(logic_path, sheet_name=logic_sheet)
-
+        # Read mapping file
+        with pd.ExcelFile(logic_path) as logic_excel:
+            logic_sheet = logic_excel.sheet_names[0]
+            logic_df = pd.read_excel(logic_excel, sheet_name=logic_sheet)
         mapping_columns = resolve_mapping_columns(logic_df)
 
         source_field_column = mapping_columns["source_field"]

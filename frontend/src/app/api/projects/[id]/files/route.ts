@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+async function syncToS3(projectId: string, description: string, timestamp: Date) {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+    const s3LogUrl = `${apiUrl}/api/log-change-s3?project_id=${projectId}&change_name=${encodeURIComponent(description)}&timestamp=${encodeURIComponent(timestamp.toISOString())}`;
+    await fetch(s3LogUrl, { method: "POST" });
+  } catch (s3Err) {
+    console.error("Failed to sync change to S3 activity log:", s3Err);
+  }
+}
+
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await params;
@@ -23,7 +33,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await params;
@@ -53,7 +63,7 @@ export async function POST(
     });
 
     // Log the upload activity
-    await db.activityHistory.create({
+    const activity = await db.activityHistory.create({
       data: {
         projectId,
         category: "Upload",
@@ -62,6 +72,8 @@ export async function POST(
         status: "Success"
       }
     });
+
+    await syncToS3(projectId, activity.description, activity.timestamp);
 
     return NextResponse.json({ success: true, file: newFile });
   } catch (error: any) {
@@ -72,7 +84,7 @@ export async function POST(
 
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await params;
@@ -107,7 +119,7 @@ export async function PUT(
     });
 
     // Log the revert activity
-    await db.activityHistory.create({
+    const activity = await db.activityHistory.create({
       data: {
         projectId,
         category: "System",
@@ -116,6 +128,8 @@ export async function PUT(
         status: "Success"
       }
     });
+
+    await syncToS3(projectId, activity.description, activity.timestamp);
 
     return NextResponse.json({ success: true, file: revertedFile });
   } catch (error: any) {
@@ -126,7 +140,7 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await params;
@@ -145,7 +159,7 @@ export async function DELETE(
     });
 
     // Add activity log
-    await db.activityHistory.create({
+    const activity = await db.activityHistory.create({
       data: {
         projectId,
         category: "System",
@@ -154,6 +168,8 @@ export async function DELETE(
         status: "Success"
       }
     });
+
+    await syncToS3(projectId, activity.description, activity.timestamp);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

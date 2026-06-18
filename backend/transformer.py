@@ -328,14 +328,19 @@ def apply_lookup_rule(
     series: pd.Series,
     rule: dict[str, Any],
     master_excel: pd.ExcelFile,
-) -> list[str]:
+) -> tuple[list[str], int, int]:
+    """Returns (results, matched_count, missed_count).
 
+    matched_count = non-blank rows where the lookup produced a non-empty value.
+    missed_count  = non-blank rows where the lookup produced an empty value.
+    Blank / NULL-sentinel rows are not counted as lookup attempts.
+    """
     master_sheet = rule["master_sheet"]
     search_column = rule["search_column"]
     copyable_column = rule["copyable_column"]
 
     if not master_sheet:
-        return [""] * len(series)
+        return [""] * len(series), 0, 0
 
     master_df = pd.read_excel(
         master_excel,
@@ -352,16 +357,25 @@ def apply_lookup_rule(
             lookup_map[search_value] = copy_value
 
     results = []
+    matched = 0
+    missed = 0
 
     for value in series.tolist():
-        # Preserve NULL sentinel — do not attempt a lookup for it.
         if _is_null_sentinel(value):
             results.append("NULL")
             continue
         source_value = clean_cell(value)
-        results.append(lookup_map.get(source_value, ""))
+        if not source_value:
+            results.append("")
+            continue
+        result = lookup_map.get(source_value, "")
+        results.append(result)
+        if result:
+            matched += 1
+        else:
+            missed += 1
 
-    return results
+    return results, matched, missed
 
 def transform_source_data(source_path: str, logic_path: str, master_path: str, output_path: str) -> dict[str, Any]:
     if not os.path.exists(source_path):
@@ -373,10 +387,10 @@ def transform_source_data(source_path: str, logic_path: str, master_path: str, o
 
     source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
     transform_rules = load_transform_rules(logic_path)
-
     output_columns: list[pd.Series] = []
     output_headers: list[str] = []
     transformed_columns: list[str] = []
+    lookup_stats: list[dict[str, Any]] = []
 
     with pd.ExcelFile(master_path) as master_excel:
         for column in source_df.columns:
@@ -391,7 +405,13 @@ def transform_source_data(source_path: str, logic_path: str, master_path: str, o
                 continue
 
             if rule["data_type"] == "lookup":
-                transformed_values = apply_lookup_rule(source_df[column], rule, master_excel)
+                transformed_values, lk_matched, lk_missed = apply_lookup_rule(source_df[column], rule, master_excel)
+                lookup_stats.append({
+                    "column": source_column_name,
+                    "matched": lk_matched,
+                    "missed": lk_missed,
+                    "total": lk_matched + lk_missed,
+                })
             else:
                 transformed_values = apply_transform_rule(source_df[column], rule)
 
@@ -430,5 +450,6 @@ def transform_source_data(source_path: str, logic_path: str, master_path: str, o
         "total_rows": len(transformed_df),
         "total_columns": len(transformed_df.columns),
         "transformed_columns": transformed_columns,
+        "lookup_stats": lookup_stats,
         "output_path": output_path,
     }

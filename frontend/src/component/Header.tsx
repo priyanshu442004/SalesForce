@@ -9,7 +9,7 @@ import { useMigration } from "../context/MigrationContext";
 export default function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { transformationsView, transformationsTab, currentUser } = useMigration();
+  const { transformationsView, transformationsTab, currentUser, currentProject } = useMigration();
 
   if (!currentUser) return null;
 
@@ -19,7 +19,13 @@ export default function Header() {
       case "/":
         return "Dashboard";
       case "/upload":
-        return clean("02. Upload Files - Layer 1");
+        if (currentUser && currentProject) {
+          return `Upload Files - ${currentUser.name} `;
+        }
+        if (currentUser) {
+          return `Upload Files - ${currentUser.name}`;
+        }
+        return "Upload Files";
       case "/mapping":
         return clean("03. AI Mapping Summary - Layer 2");
       case "/transformations":

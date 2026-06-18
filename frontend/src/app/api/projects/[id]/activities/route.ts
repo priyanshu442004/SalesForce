@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await params;
@@ -23,7 +23,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await params;
@@ -39,6 +39,14 @@ export async function POST(
         status: body.status // "Success", "Warning", "Error"
       }
     });
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      const s3LogUrl = `${apiUrl}/api/log-change-s3?project_id=${projectId}&change_name=${encodeURIComponent(body.description)}&timestamp=${encodeURIComponent(activity.timestamp.toISOString())}`;
+      await fetch(s3LogUrl, { method: "POST" });
+    } catch (s3Err) {
+      console.error("Failed to sync change to S3 activity log:", s3Err);
+    }
 
     return NextResponse.json({ success: true, activity });
   } catch (error: any) {

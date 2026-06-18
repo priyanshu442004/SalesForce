@@ -58,11 +58,18 @@ def validate_email(value: Any, _format: Any = None) -> bool:
     return EMAIL_RE.fullmatch(value.strip()) is not None
 
 
-def validate_phone(value: Any, _format: Any = None) -> bool:
-    phone = str(value).strip()
-    return PHONE_ALLOWED_RE.fullmatch(phone) is not None
+def _normalize_phone_str(value: Any) -> str:
+    # pandas loads numeric Excel columns as Python floats, so a phone number
+    # like 9878106871 arrives as 9878106871.0.  The spurious ".0" suffix must
+    # be stripped before regex validation and before storing the value in issue
+    # reports, so that callers always see the clean integer string form.
+    if isinstance(value, float) and not math.isnan(value) and value == int(value):
+        return str(int(value)).strip()
+    return str(value).strip()
 
-import re
+
+def validate_phone(value: Any, _format: Any = None) -> bool:
+    return PHONE_ALLOWED_RE.fullmatch(_normalize_phone_str(value)) is not None
 
 def validate_text(value: Any, format_value: Any = None) -> bool:
     if value is None:
@@ -206,7 +213,6 @@ def read_mapping_rules(logic_path: str) -> pd.DataFrame:
     with pd.ExcelFile(logic_path) as logic_excel:
         logic_df = pd.read_excel(logic_excel, sheet_name=logic_excel.sheet_names[0])
 
-
     columns = resolve_mapping_columns(logic_df)
 
     rename_map = {
@@ -215,7 +221,6 @@ def read_mapping_rules(logic_path: str) -> pd.DataFrame:
         columns["format"]: "format",
     }
     select_cols = ["source_field", "data_type", "format"]
-
     for extra_col in ("mandatory_primary", "master_sheet", "search_column", "copyable_column"):
         if extra_col in columns:
             rename_map[columns[extra_col]] = extra_col
@@ -410,38 +415,38 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
 
     # Lookup validation (only when a master workbook is available).
     if master_path:
-        master_excel = pd.ExcelFile(master_path)
-        for _, mapping_row in mapping_df.iterrows():
-            source_field = mapping_row["source_field"]
-            data_type = mapping_row["data_type"]
+        with pd.ExcelFile(master_path) as master_excel:
+            for _, mapping_row in mapping_df.iterrows():
+                source_field = mapping_row["source_field"]
+                data_type = mapping_row["data_type"]
 
-            if is_blank(source_field) or is_blank(data_type):
-                continue
+                if is_blank(source_field) or is_blank(data_type):
+                    continue
 
-            if str(data_type).strip().lower() != "lookup":
-                continue
+                if str(data_type).strip().lower() != "lookup":
+                    continue
 
-            field_name = str(source_field).strip()
-            if field_name not in source_df.columns:
-                continue
+                field_name = str(source_field).strip()
+                if field_name not in source_df.columns:
+                    continue
 
-            master_sheet = "" if is_blank(mapping_row.get("master_sheet")) else str(mapping_row.get("master_sheet")).strip()
-            search_column = "" if is_blank(mapping_row.get("search_column")) else str(mapping_row.get("search_column")).strip()
-            copyable_column = "" if is_blank(mapping_row.get("copyable_column")) else str(mapping_row.get("copyable_column")).strip()
+                master_sheet = "" if is_blank(mapping_row.get("master_sheet")) else str(mapping_row.get("master_sheet")).strip()
+                search_column = "" if is_blank(mapping_row.get("search_column")) else str(mapping_row.get("search_column")).strip()
+                copyable_column = "" if is_blank(mapping_row.get("copyable_column")) else str(mapping_row.get("copyable_column")).strip()
 
-            if not master_sheet or not search_column:
-                continue
+                if not master_sheet or not search_column:
+                    continue
 
-            issues.extend(
-                validate_lookup_field(
-                    source_df[field_name],
-                    field_name,
-                    master_sheet,
-                    search_column,
-                    copyable_column,
-                    master_excel,
+                issues.extend(
+                    validate_lookup_field(
+                        source_df[field_name],
+                        field_name,
+                        master_sheet,
+                        search_column,
+                        copyable_column,
+                        master_excel,
+                    )
                 )
-            )
 
                     # Duplicate email validation
     email_columns = [
@@ -495,7 +500,7 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
                     "row": int(row_index) + 2,
                     "field": phone_column,
                     "issue_type": "Duplicate Phone",
-                    "value": str(value),
+                    "value": _normalize_phone_str(value),
                     "expected": "Unique phone number",
                 }
             )

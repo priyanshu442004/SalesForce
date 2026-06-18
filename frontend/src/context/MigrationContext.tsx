@@ -82,7 +82,7 @@ interface MigrationContextType {
 
   previewData: any | null;
   setPreviewData: React.Dispatch<React.SetStateAction<any | null>>;
-  generatePreview: () => Promise<void>;
+  generatePreview: (cleanedSourceKey?: string | null) => Promise<void>;
   isPreviewLoading: boolean;
   previewError: string | null;
 }
@@ -96,6 +96,8 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     master: null,
     logic: null
   });
+
+  const [sessionUploadedSourceKey, setSessionUploadedSourceKey] = useState<string | null>(null);
 
   // DB States
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -120,6 +122,11 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
 
   const [transformationsView, setTransformationsView] = useState<"list" | "create">("list");
   const [transformationsTab, setTransformationsTab] = useState<string>("Transformation Center");
+
+  // Reset session-uploaded source key when project changes
+  useEffect(() => {
+    setSessionUploadedSourceKey(null);
+  }, [currentProject?.id]);
 
   // Load Users List
   const loadUsers = useCallback(async () => {
@@ -214,15 +221,25 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         logic: null
       };
 
+      // DEBUG — remove after confirming source card displays correctly
+      console.log("[MigrationContext] project.files:", currentProject.files);
+
       currentProject.files.forEach((f) => {
         if (f.isActive && (f.slot === "source" || f.slot === "master" || f.slot === "logic")) {
-          newFilesState[f.slot] = {
+          const uploadedFile = {
             name: f.fileName,
             size: f.fileSize,
             loading: false,
             progress: 100,
             completed: true
           };
+          newFilesState[f.slot] = uploadedFile;
+
+          // DEBUG — remove after confirming source card displays correctly
+          if (f.slot === "source") {
+            console.log("[MigrationContext] active source file found:", f.s3Key);
+            console.log("[MigrationContext] state assigned to source card:", uploadedFile);
+          }
         }
       });
 
@@ -356,6 +373,10 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json();
       if (data.success) {
+        const revertedFile = currentProject.files.find((f) => f.id === fileId);
+        if (revertedFile && revertedFile.slot === "source") {
+          setSessionUploadedSourceKey(revertedFile.s3Key);
+        }
         await refreshCurrentProject();
       }
     } catch (err) {
@@ -406,6 +427,9 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       // Register S3 file details in database
       const uploadedFile = resData.files.find((f: any) => f.slot === slot);
       if (uploadedFile) {
+        if (slot === "source") {
+          setSessionUploadedSourceKey(uploadedFile.s3Key);
+        }
         const dbRes = await fetch(`/api/projects/${currentProject.id}/files`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -516,6 +540,9 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   // Clear slot references
   const clearFile = async (slot: string) => {
     if (!currentProject) return;
+    if (slot === "source") {
+      setSessionUploadedSourceKey(null);
+    }
     setUploadedFiles((prev) => ({
       ...prev,
       [slot]: null
@@ -532,15 +559,17 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Compile Salesforce mappings using active S3 keys
-  const generatePreview = async () => {
+  const generatePreview = async (cleanedSourceKey?: string | null) => {
     if (!currentProject) return;
     setIsPreviewLoading(true);
     setPreviewError(null);
     try {
       const activeFiles = currentProject.files || [];
-      const sourceKey = activeFiles.find((f: any) => f.slot === "source" && f.isActive)?.s3Key;
+      const rawSourceKey = activeFiles.find((f: any) => f.slot === "source" && f.isActive)?.s3Key;
       const masterKey = activeFiles.find((f: any) => f.slot === "master" && f.isActive)?.s3Key;
       const logicKey = activeFiles.find((f: any) => f.slot === "logic" && f.isActive)?.s3Key;
+      // Prefer the cleaned file produced by the cleaning step over the raw upload.
+      const sourceKey = cleanedSourceKey || rawSourceKey;
 
       if (!sourceKey || !masterKey || !logicKey) {
         throw new Error("Missing active source, master or logic files needed for mapping.");

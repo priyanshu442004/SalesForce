@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import tempfile
 import uuid
@@ -245,6 +246,10 @@ def clean_data(
     temp_logic = None
     temp_cleaned_path = None
 
+    print(f"[clean-data] project_id: {project_id}")
+    print(f"[clean-data] source_key: {source_key}")
+    print(f"[clean-data] logic_key:  {logic_key}")
+
     try:
         temp_source = temp_download(source_key)
         temp_logic = temp_download(logic_key)
@@ -263,6 +268,7 @@ def clean_data(
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         s3_cleaned_key = f"projects/{project_id}/uploads/source_cleaned/{timestamp}_cleaned_source.xlsx"
         upload_to_s3(temp_cleaned_path, s3_cleaned_key)
+        print(f"[clean-data] cleaned S3 key: {s3_cleaned_key}")
 
         return {
             "success": True,
@@ -284,6 +290,7 @@ def clean_data(
 def validate_data(
     source_key: str = Query(...),
     logic_key: str = Query(...),
+    master_key: str = Query(None),
     x_project_id: str = Header(None)
 ):
     """
@@ -292,15 +299,25 @@ def validate_data(
 
 
     project_id = x_project_id or str(uuid.uuid4())
+    print(f"[validate-data] project_id:  {project_id}")
+    print(f"[validate-data] source_key:  {source_key}")
+    print(f"[validate-data] logic_key:   {logic_key}")
+    if master_key:
+        print(f"[validate-data] master_key:  {master_key}")
+
     temp_source = None
     temp_logic = None
+    temp_master = None
     temp_report_path = None
 
     try:
         temp_source = temp_download(source_key)
-        temp_logic = temp_download(logic_key)
         
-        out = run_data_validation(temp_source, temp_logic)
+        temp_logic = temp_download(logic_key)
+        if master_key:
+            temp_master = temp_download(master_key)
+        
+        out = run_data_validation(temp_source, temp_logic, master_path=temp_master)
         if not out.get("success"):
             raise HTTPException(status_code=500, detail=out.get("error", "Data validation failed"))
             
@@ -331,6 +348,8 @@ def validate_data(
             os.remove(temp_source)
         if temp_logic and os.path.exists(temp_logic):
             os.remove(temp_logic)
+        if temp_master and os.path.exists(temp_master):
+            os.remove(temp_master)
         if temp_report_path and os.path.exists(temp_report_path):
             os.remove(temp_report_path)
 
@@ -407,22 +426,26 @@ def transform_data(
         temp_fd, temp_output_path = tempfile.mkstemp(suffix=".xlsx")
         os.close(temp_fd)
         
-        transform_source_data(
+        transform_result = transform_source_data(
             source_path=temp_source,
             logic_path=temp_logic,
             master_path=temp_master,
             output_path=temp_output_path
         )
-        
+
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         s3_transform_key = f"projects/{project_id}/outputs/transformed_data/{timestamp}_transformed_data.xlsx"
-        
+
         upload_to_s3(temp_output_path, s3_transform_key)
-        
+
         return {
             "success": True,
             "transformedS3Key": s3_transform_key,
-            "fileName": "transformed_data.xlsx"
+            "fileName": "transformed_data.xlsx",
+            "total_rows": transform_result.get("total_rows", 0),
+            "transformed_columns": transform_result.get("transformed_columns", []),
+            "lookup_stats": transform_result.get("lookup_stats", []),
+            "generatedAt": datetime.now().isoformat(),
         }
     finally:
         if temp_source and os.path.exists(temp_source):
@@ -455,3 +478,39 @@ def download_file(s3_key: str = Query(...)):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to stream download: {str(e)}")
+
+@app.post("/api/log-change-s3")
+def log_change_s3(
+    project_id: str = Query(...),
+    change_name: str = Query(...),
+    timestamp: str = Query(None)
+):
+    """
+    Appends a change name and timestamp to the project's activity log file in S3.
+    """
+    if not timestamp:
+        timestamp = datetime.now().isoformat()
+    
+    s3_key = f"projects/{project_id}/activity_log.json"
+    
+    try:
+        response = s3_client.get_object(Bucket=AWS_BUCKET_NAME, Key=s3_key)
+        logs = json.loads(response['Body'].read().decode('utf-8'))
+    except Exception:
+        logs = []
+        
+    logs.append({
+        "change_name": change_name,
+        "timestamp": timestamp
+    })
+    
+    try:
+        s3_client.put_object(
+            Bucket=AWS_BUCKET_NAME,
+            Key=s3_key,
+            Body=json.dumps(logs, indent=2).encode('utf-8'),
+            ContentType="application/json"
+        )
+        return {"success": True, "message": "Logged change to S3 successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save change log to S3: {str(e)}")
