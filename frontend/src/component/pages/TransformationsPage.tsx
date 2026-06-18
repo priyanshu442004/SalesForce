@@ -408,7 +408,7 @@ export default function TransformationsPage() {
   });
 
   return (
-    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white">
+    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white dark:bg-[#0F172A]">
       
       {/* CSS Animations Injection */}
       <style jsx global>{`
@@ -444,19 +444,19 @@ export default function TransformationsPage() {
       {/* Persistent success Overlay */}
       {showSuccessOverlay && (
         <div className="fixed inset-0 bg-[#000839]/30 backdrop-blur-[3px] z-50 flex items-center justify-center animate-fade-in">
-          <div className="bg-white border border-slate-100 rounded-2xl p-7 shadow-2xl flex flex-col items-center gap-4 animate-scale-up">
-            <div className="w-14 h-14 bg-green-50 text-green-600 rounded-full flex items-center justify-center">
+          <div className="bg-white dark:bg-[#1E293B] border border-slate-100 dark:border-slate-700 rounded-2xl p-7 shadow-2xl flex flex-col items-center gap-4 animate-scale-up">
+            <div className="w-14 h-14 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
-            <span className="text-[17px] font-black text-[#000839]">Transformation Approved for Execution!</span>
+            <span className="text-[17px] font-black text-[#000839] dark:text-white">Transformation Approved for Execution!</span>
           </div>
         </div>
       )}
 
       {/* Top Page Sub-navigation tabs (Mockup exact layout and larger sizes) */}
-      <div className="flex items-center gap-3 overflow-x-auto pb-2 border-b border-slate-100/50 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "50ms" }}>
+      <div className="flex items-center gap-3 overflow-x-auto pb-2 border-b border-slate-100/50 dark:border-slate-700/50 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "50ms" }}>
         {tabs.map((tab, idx) => {
           const isActive = transformationsTab === tab.name;
           return (
@@ -465,8 +465,8 @@ export default function TransformationsPage() {
               onClick={() => handleTabChange(tab.name)}
               className={`px-5 py-3 rounded-xl text-[14.5px] lg:text-[15px] font-black flex items-center gap-2.5 border transition-all shrink-0 cursor-pointer ${
                 isActive
-                  ? "bg-blue-50/10 border-blue-500/40 text-[#002BFF] shadow-none"
-                  : "bg-white border-slate-200/60 text-slate-500 hover:text-slate-800 hover:bg-slate-50/45"
+                  ? "bg-blue-50/10 dark:bg-blue-900/20 border-blue-500/40 text-[#002BFF] shadow-none"
+                  : "bg-white dark:bg-[#1E293B] border-slate-200/60 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50/45 dark:hover:bg-slate-700"
               }`}
             >
               <Icon name={tab.icon as any} size={15.5} className={isActive ? "text-[#002BFF]" : "text-slate-400"} />
@@ -498,11 +498,11 @@ export default function TransformationsPage() {
                 
                 {/* Panel 1: Source Information */}
                 <div 
-                  className="col-span-1 md:col-span-3 bg-white border border-slate-100/90 rounded-2xl p-6 lg:p-7 flex flex-col justify-between opacity-0 animate-scale-up shadow-[0_2px_12px_rgba(0,0,0,0.01)]"
+                  className="col-span-1 md:col-span-3 bg-white dark:bg-[#1E293B] border border-slate-100/90 dark:border-slate-700 rounded-2xl p-6 lg:p-7 flex flex-col justify-between opacity-0 animate-scale-up shadow-[0_2px_12px_rgba(0,0,0,0.01)]"
                   style={{ animationDelay: "100ms" }}
                 >
                   <div className="space-y-6">
-                    <h3 className="text-[19px] font-black text-[#000839] tracking-tight">
+                    <h3 className="text-[19px] font-black text-[#000839] dark:text-white tracking-tight">
                       Source Information
                     </h3>
                     
@@ -510,12 +510,12 @@ export default function TransformationsPage() {
                       <span className="block text-[13px] font-black text-slate-400 uppercase tracking-wider">
                         Column Name
                       </span>
-                      <span className="block text-[19px] font-black text-[#000839]">
+                      <span className="block text-[19px] font-black text-[#000839] dark:text-white">
                         Start Date
                       </span>
                     </div>
 
-                    <div className="space-y-3.5 pt-5 border-t border-slate-50">
+                    <div className="space-y-3.5 pt-5 border-t border-slate-50 dark:border-slate-700">
                       <span className="block text-[13px] font-black text-slate-400 uppercase tracking-wider mb-1">
                         Sample Values
                       </span>
@@ -533,11 +533,11 @@ export default function TransformationsPage() {
 
                 {/* Panel 2: Transformation Configuration */}
                 <div 
-                  className="col-span-1 md:col-span-6 bg-white border border-slate-100/90 rounded-2xl p-6 lg:p-7 flex flex-col justify-between opacity-0 animate-scale-up shadow-[0_2px_12px_rgba(0,0,0,0.01)]"
+                  className="col-span-1 md:col-span-6 bg-white dark:bg-[#1E293B] border border-slate-100/90 dark:border-slate-700 rounded-2xl p-6 lg:p-7 flex flex-col justify-between opacity-0 animate-scale-up shadow-[0_2px_12px_rgba(0,0,0,0.01)]"
                   style={{ animationDelay: "150ms" }}
                 >
                   <div className="space-y-6">
-                    <h3 className="text-[19px] font-black text-[#000839] tracking-tight">
+                    <h3 className="text-[19px] font-black text-[#000839] dark:text-white tracking-tight">
                       Transformation Configuration
                     </h3>
 
@@ -550,7 +550,7 @@ export default function TransformationsPage() {
                           <select
                             value={transType}
                             onChange={(e) => setTransType(e.target.value)}
-                            className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 text-[#000839] text-[15.5px] font-black bg-white hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-blue-500/20 cursor-pointer appearance-none"
+                            className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 dark:border-slate-600 text-[#000839] dark:text-white text-[15.5px] font-black bg-white dark:bg-[#0F172A] hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500/20 cursor-pointer appearance-none"
                           >
                             <option value="Date Conversion">Date Conversion</option>
                             <option value="Trim, Title Case">Trim, Title Case</option>
@@ -574,7 +574,7 @@ export default function TransformationsPage() {
                             <select
                               value={inputFormat}
                               onChange={(e) => setInputFormat(e.target.value)}
-                              className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 text-[#000839] text-[15.5px] font-black bg-white hover:bg-slate-50 appearance-none"
+                              className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 dark:border-slate-600 text-[#000839] dark:text-white text-[15.5px] font-black bg-white dark:bg-[#0F172A] hover:bg-slate-50 dark:hover:bg-slate-800 appearance-none"
                             >
                               <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                               <option value="MM/DD/YYYY">MM/DD/YYYY</option>
@@ -596,7 +596,7 @@ export default function TransformationsPage() {
                             <select
                               value={outputFormat}
                               onChange={(e) => setOutputFormat(e.target.value)}
-                              className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 text-[#000839] text-[15.5px] font-black bg-white hover:bg-slate-50 appearance-none"
+                              className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 dark:border-slate-600 text-[#000839] dark:text-white text-[15.5px] font-black bg-white dark:bg-[#0F172A] hover:bg-slate-50 dark:hover:bg-slate-800 appearance-none"
                             >
                               <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                               <option value="DD-MM-YYYY">DD-MM-YYYY</option>
@@ -611,9 +611,9 @@ export default function TransformationsPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between border-t border-b border-slate-100/70 py-5 mt-2">
+                      <div className="flex items-center justify-between border-t border-b border-slate-100/70 dark:border-slate-700 py-5 mt-2">
                         <div className="space-y-1">
-                          <span className="block text-[15.5px] font-black text-[#000839]">
+                          <span className="block text-[15.5px] font-black text-[#000839] dark:text-white">
                             Handle Null Values
                           </span>
                           <span className="block text-[13px] font-bold text-slate-400">
@@ -644,7 +644,7 @@ export default function TransformationsPage() {
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
                           </div>
-                          <span className="text-[15px] font-black text-[#000839] group-hover:text-slate-800">
+                          <span className="text-[15px] font-black text-[#000839] dark:text-slate-200 group-hover:text-slate-800 dark:group-hover:text-white">
                             Default Value (Option) before conversion
                           </span>
                         </button>
@@ -661,7 +661,7 @@ export default function TransformationsPage() {
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
                           </div>
-                          <span className="text-[15px] font-black text-[#000839] group-hover:text-slate-800">
+                          <span className="text-[15px] font-black text-[#000839] dark:text-slate-200 group-hover:text-slate-800">
                             Trim spaces before
                           </span>
                         </button>
@@ -669,7 +669,7 @@ export default function TransformationsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-4 pt-7 border-t border-slate-100/50 mt-4">
+                  <div className="flex items-center justify-end gap-4 pt-7 border-t border-slate-100/50 dark:border-slate-700 mt-4">
                     <button
                       onClick={() => alert("Previewing: Date formatting logic...")}
                       className="px-6 py-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#002BFF] text-[14px] font-black transition-all duration-200 select-none cursor-pointer"
@@ -689,7 +689,7 @@ export default function TransformationsPage() {
 
                 {/* Panel 3: AI Suggestion & Impact */}
                 <div className="col-span-1 md:col-span-3 flex flex-col justify-between gap-5 lg:gap-6">
-                  <div className="bg-white border border-slate-100/90 rounded-2xl p-6 lg:p-7 flex-1 flex flex-col justify-between opacity-0 animate-scale-up shadow-[0_2px_12px_rgba(0,0,0,0.01)]" style={{ animationDelay: "200ms" }}>
+                  <div className="bg-white dark:bg-[#1E293B] border border-slate-100/90 dark:border-slate-700 rounded-2xl p-6 lg:p-7 flex-1 flex flex-col justify-between opacity-0 animate-scale-up shadow-[0_2px_12px_rgba(0,0,0,0.01)]" style={{ animationDelay: "200ms" }}>
                     <div className="space-y-4">
                       <h3 className="text-[19px] font-black text-[#000839] tracking-tight">AI Suggestion</h3>
                       <p className="text-[15.5px] text-slate-500 font-bold leading-relaxed">Convert &ldquo;Start Date&rdquo; values from {inputFormat} to {outputFormat}</p>
@@ -705,7 +705,7 @@ export default function TransformationsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-white border border-slate-100/90 rounded-2xl p-6 lg:p-7 flex-1 flex flex-col justify-between opacity-0 animate-scale-up shadow-[0_2px_12px_rgba(0,0,0,0.01)]" style={{ animationDelay: "250ms" }}>
+                  <div className="bg-white dark:bg-[#1E293B] border border-slate-100/90 dark:border-slate-700 rounded-2xl p-6 lg:p-7 flex-1 flex flex-col justify-between opacity-0 animate-scale-up shadow-[0_2px_12px_rgba(0,0,0,0.01)]" style={{ animationDelay: "250ms" }}>
                     <div className="space-y-4.5">
                       <div className="flex items-center gap-2 border-b border-slate-50 pb-3.5">
                         <div className="w-9 h-9 bg-[#e6f4ea] text-[#137333] rounded-lg flex items-center justify-center border border-[#e6f4ea]/45">
@@ -735,12 +735,12 @@ export default function TransformationsPage() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "100ms" }}>
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-[15px] lg:text-[15.5px] font-black text-[#000839]">Object:</span>
+                    <span className="text-[15px] lg:text-[15.5px] font-black text-[#000839] dark:text-white">Object:</span>
                     <div className="relative">
                       <select
                         value={selectedObject}
                         onChange={(e) => setSelectedObject(e.target.value)}
-                        className="pl-4 pr-10 py-3 rounded-xl border border-slate-200 text-[#000839] text-[14.5px] font-black bg-white hover:bg-slate-50 cursor-pointer appearance-none min-w-[140px]"
+                        className="pl-4 pr-10 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-[#000839] dark:text-white text-[14.5px] font-black bg-white dark:bg-[#1E293B] hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer appearance-none min-w-[140px]"
                       >
                         <option value="Account">Account</option>
                         <option value="Contact">Contact</option>
@@ -755,8 +755,8 @@ export default function TransformationsPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="px-4.5 py-3 rounded-xl bg-slate-100/70 border border-slate-200/40 text-[14px] lg:text-[14.5px] font-black text-slate-600">
-                      Total Fields: <span className="text-[#000839] font-black ml-0.5"><AnimatedCount target={activeData.total} /></span>
+                    <span className="px-4.5 py-3 rounded-xl bg-slate-100/70 dark:bg-slate-700/50 border border-slate-200/40 dark:border-slate-700 text-[14px] lg:text-[14.5px] font-black text-slate-600 dark:text-slate-300">
+                      Total Fields: <span className="text-[#000839] dark:text-white font-black ml-0.5"><AnimatedCount target={activeData.total} /></span>
                     </span>
                     <span className="px-4.5 py-3 rounded-xl bg-[#e6f4ea]/45 border border-[#e6f4ea]/30 text-[14px] lg:text-[14.5px] font-black text-[#137333]">
                       Mapped: <span className="font-black ml-0.5"><AnimatedCount target={activeData.mapped} /></span>
@@ -784,7 +784,7 @@ export default function TransformationsPage() {
                 <div className="overflow-x-auto flex-1 min-h-0">
                   <table className="w-full text-left border-collapse min-w-[800px]">
                     <thead>
-                      <tr className="border-b border-slate-100/80 bg-slate-50/10 text-[14.5px] font-black text-slate-500 uppercase tracking-tight">
+                      <tr className="border-b border-slate-100/80 dark:border-slate-700 bg-slate-50/10 dark:bg-transparent text-[14.5px] font-black text-slate-500 uppercase tracking-tight">
                         <th className="py-5 px-5">Source Column</th>
                         <th className="py-5 px-5">Target Field (Salesforce)</th>
                         <th className="py-5 px-5">Transformation</th>
@@ -793,17 +793,17 @@ export default function TransformationsPage() {
                         <th className="py-5 px-5 text-right pr-6">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100/80 text-[15.5px] lg:text-[16px]">
+                    <tbody className="divide-y divide-slate-100/80 dark:divide-slate-700/50 text-[15.5px] lg:text-[16px]">
                       {activeData.rules.map((rule, idx) => (
                         <tr 
                           key={`${selectedObject}-${idx}`} 
-                          className="hover:bg-slate-50/15 transition-all duration-150 group opacity-0 animate-row"
+                          className="hover:bg-slate-50/15 dark:hover:bg-slate-700/30 transition-all duration-150 group opacity-0 animate-row"
                           style={{ animationDelay: `${200 + idx * 40}ms` }}
                         >
-                          <td className="py-5 px-5 font-black text-[#000839]">{rule.sourceColumn}</td>
-                          <td className="py-5 px-5 font-bold text-slate-500">{rule.targetField}</td>
-                          <td className="py-5 px-5 font-black text-[#000839]/85">{rule.transformation}</td>
-                          <td className="py-5 px-5 font-bold text-slate-600">{rule.preview}</td>
+                          <td className="py-5 px-5 font-black text-[#000839] dark:text-white">{rule.sourceColumn}</td>
+                          <td className="py-5 px-5 font-bold text-slate-500 dark:text-slate-400">{rule.targetField}</td>
+                          <td className="py-5 px-5 font-black text-[#000839]/85 dark:text-slate-300">{rule.transformation}</td>
+                          <td className="py-5 px-5 font-bold text-slate-600 dark:text-slate-400">{rule.preview}</td>
                           <td className="py-5 px-5">
                             <span className={`px-4 py-2 rounded-lg text-[13px] font-black inline-block leading-none ${
                               rule.status === "Executed" ? "bg-[#e6f4ea] text-[#137333]" : "bg-[#fff7ed] text-[#c2410c]"
@@ -833,7 +833,7 @@ export default function TransformationsPage() {
                   </table>
                 </div>
 
-                <div className="pt-5 pb-8 flex items-center justify-between text-[14px] text-slate-400 font-bold border-t border-slate-100/55 flex-none mt-1">
+                <div className="pt-5 pb-8 flex items-center justify-between text-[14px] text-slate-400 font-bold border-t border-slate-100/55 dark:border-slate-700 flex-none mt-1">
                   <span>Showing {activeData.rules.length} transformation records</span>
                   <span>Object: {selectedObject} Schema</span>
                 </div>
@@ -860,7 +860,7 @@ export default function TransformationsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search transformations..."
-                className="w-full py-4.5 pl-13 pr-6 rounded-2xl border border-slate-200/80 bg-white text-[#000839] text-[16px] font-black placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/20 shadow-[0_2px_10px_rgba(0,0,0,0.005)]"
+                className="w-full py-4.5 pl-13 pr-6 rounded-2xl border border-slate-200/80 dark:border-slate-600 bg-white dark:bg-[#1E293B] text-[#000839] dark:text-white text-[16px] font-black placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 shadow-[0_2px_10px_rgba(0,0,0,0.005)]"
               />
             </div>
           </div>
@@ -874,8 +874,8 @@ export default function TransformationsPage() {
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-5 py-3 rounded-xl text-[14.5px] font-black border transition-all shrink-0 cursor-pointer ${
                     isCatActive
-                      ? "bg-slate-100/90 border-slate-200 text-[#000839]"
-                      : "bg-white border-slate-150 text-slate-500 hover:text-slate-700 hover:bg-slate-50/50"
+                      ? "bg-slate-100/90 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-[#000839] dark:text-white"
+                      : "bg-white dark:bg-[#1E293B] border-slate-150 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50/50 dark:hover:bg-slate-700"
                   }`}
                 >
                   {cat}
@@ -890,7 +890,7 @@ export default function TransformationsPage() {
               {filteredCards.map((card, idx) => (
                 <div
                   key={idx}
-                  className="bg-white border border-slate-100/90 hover:border-slate-200/85 hover:shadow-[0_4px_20px_rgba(0,43,255,0.035)] transition-all duration-200 rounded-2xl p-6.5 lg:p-7 flex items-center gap-5.5 group cursor-pointer opacity-0 animate-row min-h-[105px]"
+                  className="bg-white dark:bg-[#1E293B] border border-slate-100/90 dark:border-slate-700 hover:border-slate-200/85 dark:hover:border-slate-600 hover:shadow-[0_4px_20px_rgba(0,43,255,0.035)] transition-all duration-200 rounded-2xl p-6.5 lg:p-7 flex items-center gap-5.5 group cursor-pointer opacity-0 animate-row min-h-[105px]"
                   style={{ animationDelay: `${150 + idx * 30}ms` }}
                 >
                   <div className={`w-14 h-14 ${card.bgIconClass} border rounded-2xl flex items-center justify-center ${card.colorClass} group-hover:scale-[1.04] transition-transform flex-shrink-0`}>
@@ -910,7 +910,7 @@ export default function TransformationsPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-3 pt-4 border-t border-slate-50 flex-none mt-2">
+          <div className="flex items-center justify-center gap-3 pt-4 border-t border-slate-50 dark:border-slate-700 flex-none mt-2">
             <button 
               onClick={() => setActivePage(0)}
               className="w-6 h-6 rounded-full flex items-center justify-center border border-blue-500/40 focus:outline-none cursor-pointer"
@@ -939,9 +939,9 @@ export default function TransformationsPage() {
             </button>
           </div>
 
-          <div className="flex-none flex items-center justify-between border-b border-slate-50 pb-2">
+          <div className="flex-none flex items-center justify-between border-b border-slate-50 dark:border-slate-700 pb-2">
             <div className="space-y-1">
-              <h3 className="text-[20px] font-black text-[#000839]">
+              <h3 className="text-[20px] font-black text-[#000839] dark:text-white">
                 Preview Transformation
               </h3>
               <div className="text-[14px] font-bold text-slate-500 flex items-center gap-1.5">

@@ -85,7 +85,7 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="p-6 sm:p-8 lg:p-10 space-y-7 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white">
+    <div className="p-6 sm:p-8 lg:p-10 space-y-7 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white dark:bg-[#0F172A]">
       
       {/* CSS Animations Injection */}
       <style jsx global>{`
@@ -119,8 +119,8 @@ export default function ProjectsPage() {
               Active Projects
             </h2>
           </div>
-          <p className="text-[14.5px] font-extrabold text-slate-500">
-            Manage migration projects for tester: <span className="text-slate-700 font-black">{currentUser?.name || ""}</span>
+          <p className="text-[14.5px] font-extrabold text-slate-500 dark:text-slate-400">
+            Manage migration projects for tester: <span className="text-slate-700 dark:text-slate-300 font-black">{currentUser?.name || ""}</span>
           </p>
         </div>
 
@@ -134,7 +134,7 @@ export default function ProjectsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search projects..."
-              className="w-full pl-11 pr-10 h-13 rounded-2xl border border-slate-200 text-[#000839] text-[14.5px] font-black placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/10 bg-white"
+              className="w-full pl-11 pr-10 h-13 rounded-2xl border border-slate-200 dark:border-slate-600 text-[#000839] dark:text-white text-[14.5px] font-black placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/10 bg-white dark:bg-[#1E293B]"
             />
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -160,7 +160,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects Table Card */}
-      <div className="flex-1 bg-white border border-slate-200/90 rounded-3xl p-6 lg:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.01)] min-h-[350px] overflow-hidden flex flex-col opacity-0 animate-scale-up" style={{ animationDelay: "150ms" }}>
+      <div className="flex-1 bg-white dark:bg-[#1E293B] border border-slate-200/90 dark:border-slate-700 rounded-3xl p-6 lg:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.01)] min-h-[350px] overflow-hidden flex flex-col opacity-0 animate-scale-up" style={{ animationDelay: "150ms" }}>
         {isLoadingProjects ? (
           <div className="flex-1 flex justify-center items-center">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -169,7 +169,7 @@ export default function ProjectsPage() {
           <div className="overflow-x-auto flex-1 min-h-0">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
-                <tr className="border-b border-slate-100/95 text-[14px] font-black text-slate-400 uppercase tracking-tight">
+                <tr className="border-b border-slate-100/95 dark:border-slate-700 text-[14px] font-black text-slate-400 uppercase tracking-tight">
                   <th className="pb-4.5 pl-3">Project Name</th>
                   <th className="pb-4.5">Status</th>
                   <th className="pb-4.5 w-60">Progress</th>
@@ -179,7 +179,7 @@ export default function ProjectsPage() {
                   <th className="pb-4.5 text-right pr-5">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50 text-[15px] font-extrabold text-[#000839]">
+              <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50 text-[15px] font-extrabold text-[#000839] dark:text-slate-200">
                 {filteredProjects.length > 0 ? (
                   filteredProjects.map((project, idx) => {
                     const isCurrent = currentProject?.id === project.id;
@@ -192,11 +192,11 @@ export default function ProjectsPage() {
                     return (
                       <tr 
                         key={project.id} 
-                        className={`hover:bg-slate-50/20 transition-all opacity-0 animate-row ${isCurrent ? "bg-blue-50/30 hover:bg-blue-50/40" : ""}`}
+                        className={`hover:bg-slate-50/20 dark:hover:bg-slate-700/30 transition-all opacity-0 animate-row ${isCurrent ? "bg-blue-50/30 dark:bg-blue-900/20 hover:bg-blue-50/40 dark:hover:bg-blue-900/30" : ""}`}
                         style={{ animationDelay: `${200 + idx * 50}ms` }}
                       >
                         {/* Project Name */}
-                        <td className="py-5.5 pl-3 font-black text-[#000839] text-[16px]">
+                        <td className="py-5.5 pl-3 font-black text-[#000839] dark:text-white text-[16px]">
                           <div className="flex items-center gap-2">
                             <span>{project.name}</span>
                             {isCurrent && (
@@ -221,7 +221,7 @@ export default function ProjectsPage() {
                         {/* Progress Bar & Percentage */}
                         <td className="py-5.5">
                           <div className="flex items-center gap-3.5">
-                            <div className="w-32 h-2.5 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
+                            <div className="w-32 h-2.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex-shrink-0">
                               <div 
                                 className={`h-full rounded-full transition-all duration-700 animate-progress ${
                                   project.status === "Completed" ? "bg-[#137333]" :
@@ -231,7 +231,7 @@ export default function ProjectsPage() {
                                 style={{ width: `${project.progress}%` }}
                               />
                             </div>
-                            <span className="text-[14.5px] font-black text-[#000839] w-12">
+                            <span className="text-[14.5px] font-black text-[#000839] dark:text-slate-300 w-12">
                               <AnimatedCount target={project.progress} />%
                             </span>
                           </div>
@@ -243,7 +243,7 @@ export default function ProjectsPage() {
                         </td>
 
                         {/* Records with dynamic animated count */}
-                        <td className="py-5.5 text-[15.5px] text-[#000839]/90 font-black">
+                        <td className="py-5.5 text-[15.5px] text-[#000839]/90 dark:text-slate-300 font-black">
                           <AnimatedCount target={project.recordsCount} format={true} />
                         </td>
 
@@ -254,7 +254,7 @@ export default function ProjectsPage() {
                         <td className="py-5.5 text-right pr-5">
                           <button
                             onClick={() => handleSelectProject(project.id)}
-                            className="px-4 py-2 rounded-xl bg-blue-50 hover:bg-[#002BFF] text-[#002BFF] hover:text-white text-[13px] font-black tracking-wide transition-all shadow-sm active:scale-95 cursor-pointer"
+                            className="px-4 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 hover:bg-[#002BFF] text-[#002BFF] dark:text-blue-400 hover:text-white text-[13px] font-black tracking-wide transition-all shadow-sm active:scale-95 cursor-pointer"
                           >
                             {isCurrent ? "Continue" : "Open Workspace"}
                           </button>
@@ -275,7 +275,7 @@ export default function ProjectsPage() {
         )}
 
         {/* Footer section */}
-        <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-slate-100/90 mt-4 gap-4 flex-none">
+        <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-slate-100/90 dark:border-slate-700 mt-4 gap-4 flex-none">
           <span className="text-[14.5px] font-black text-slate-400">
             Showing {filteredProjects.length} of {projectList.length} projects
           </span>
@@ -285,9 +285,9 @@ export default function ProjectsPage() {
       {/* New Project Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-scale-up">
-          <div className="w-full max-w-md bg-white rounded-3xl border border-slate-100 shadow-2xl p-7 space-y-6">
+          <div className="w-full max-w-md bg-white dark:bg-[#1E293B] rounded-3xl border border-slate-100 dark:border-slate-700 shadow-2xl p-7 space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-[#000839]">Create New Migration</h3>
+              <h3 className="text-xl font-black text-[#000839] dark:text-white">Create New Migration</h3>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-50 transition-colors"
@@ -310,7 +310,7 @@ export default function ProjectsPage() {
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   placeholder="e.g., Enterprise Migration Phase 1"
-                  className="w-full px-4 h-12 rounded-xl border border-slate-200 text-[#000839] text-[14.5px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+                  className="w-full px-4 h-12 rounded-xl border border-slate-200 dark:border-slate-600 text-[#000839] dark:text-white dark:bg-slate-700 dark:placeholder-slate-400 text-[14.5px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/25"
                 />
               </div>
 
@@ -318,7 +318,7 @@ export default function ProjectsPage() {
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-5 h-11 rounded-xl hover:bg-slate-100 text-slate-500 text-[14px] font-black transition-colors"
+                  className="px-5 h-11 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 text-[14px] font-black transition-colors"
                 >
                   Cancel
                 </button>

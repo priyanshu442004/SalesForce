@@ -80,7 +80,7 @@ export default function ExportPage() {
   ];
 
   return (
-    <div className="p-6 sm:p-8 lg:p-10 space-y-7 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white">
+    <div className="p-6 sm:p-8 lg:p-10 space-y-7 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white dark:bg-[#0F172A]">
       
       {/* CSS Animations Injection */}
       <style jsx global>{`
@@ -134,10 +134,10 @@ export default function ExportPage() {
 
       {/* Description block exactly as mockup */}
       <div className="flex-none flex flex-col space-y-1.5 opacity-0 animate-scale-up" style={{ animationDelay: "150ms" }}>
-        <h1 className="text-[26px] font-black text-[#000839] tracking-tight">
+        <h1 className="text-[26px] font-black text-[#000839] dark:text-white tracking-tight">
           Export Salesforce Ready Files
         </h1>
-        <p className="text-[14.5px] font-extrabold text-slate-500">
+        <p className="text-[14.5px] font-extrabold text-slate-500 dark:text-slate-400">
           Your data is ready to export. Download the files below.
         </p>
       </div>
@@ -146,9 +146,9 @@ export default function ExportPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-7 items-start opacity-0 animate-scale-up" style={{ animationDelay: "200ms" }}>
         
         {/* Column 1: Files Generated */}
-        <div className="bg-[#FFFFFF] border border-slate-200/60 rounded-3xl p-6.5 lg:p-8 flex flex-col justify-between shadow-[0_4px_24px_rgba(0,0,0,0.015)] min-h-[460px]">
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-3xl p-6.5 lg:p-8 flex flex-col justify-between shadow-[0_4px_24px_rgba(0,0,0,0.015)] min-h-[460px]">
           <div className="space-y-6">
-            <h3 className="text-[19px] font-black text-[#000839] tracking-tight border-b border-slate-50 pb-2.5">
+            <h3 className="text-[19px] font-black text-[#000839] dark:text-white tracking-tight border-b border-slate-100 dark:border-slate-700 pb-2.5">
               Files Generated
             </h3>
 
@@ -165,17 +165,17 @@ export default function ExportPage() {
                     <div className="w-10 h-10 bg-[#e6f4ea] text-[#137333] rounded-xl flex items-center justify-center flex-shrink-0">
                       <DocumentSvg size={18} />
                     </div>
-                    <span className="text-[15.5px] font-black text-[#000839]">{file.name}</span>
+                    <span className="text-[15.5px] font-black text-[#000839] dark:text-slate-100">{file.name}</span>
                   </div>
-                  <span className="text-[14.5px] font-extrabold text-slate-500">{file.size}</span>
+                  <span className="text-[14.5px] font-extrabold text-slate-500 dark:text-slate-400">{file.size}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Download all zip button at the bottom */}
-          <div className="pt-6 border-t border-slate-100/65 mt-5">
-            <button className="w-full bg-[#f4f7ff] hover:bg-[#ebf0ff] text-[#002BFF] border border-[#002BFF]/10 py-4.5 rounded-2xl text-[15.5px] font-black transition-all flex items-center justify-between px-5 select-none cursor-pointer">
+          <div className="pt-6 border-t border-slate-100/65 dark:border-slate-700 mt-5">
+            <button className="w-full bg-[#f4f7ff] dark:bg-blue-900/20 hover:bg-[#ebf0ff] dark:hover:bg-blue-900/30 text-[#002BFF] dark:text-blue-400 border border-[#002BFF]/10 dark:border-blue-700/30 py-4.5 rounded-2xl text-[15.5px] font-black transition-all flex items-center justify-between px-5 select-none cursor-pointer">
               <div className="flex items-center gap-3">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -190,9 +190,9 @@ export default function ExportPage() {
         </div>
 
         {/* Column 2: Reports */}
-        <div className="bg-[#FFFFFF] border border-slate-200/60 rounded-3xl p-6.5 lg:p-8 flex flex-col justify-between shadow-[0_4px_24px_rgba(0,0,0,0.015)] min-h-[460px]">
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-3xl p-6.5 lg:p-8 flex flex-col justify-between shadow-[0_4px_24px_rgba(0,0,0,0.015)] min-h-[460px]">
           <div className="space-y-6">
-            <h3 className="text-[19px] font-black text-[#002BFF] tracking-tight border-b border-slate-50 pb-2.5">
+            <h3 className="text-[19px] font-black text-[#002BFF] tracking-tight border-b border-slate-100 dark:border-slate-700 pb-2.5">
               Reports
             </h3>
 
@@ -207,15 +207,15 @@ export default function ExportPage() {
                   <div className="flex items-center gap-3.5">
                     {/* Conditional green / purple document icons */}
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                      report.color === "green" 
-                        ? "bg-[#e6f4ea] text-[#137333]" 
-                        : "bg-[#f3e8ff] text-[#7c3aed]"
+                      report.color === "green"
+                        ? "bg-[#e6f4ea] dark:bg-emerald-900/20 text-[#137333] dark:text-emerald-400"
+                        : "bg-[#f3e8ff] dark:bg-purple-900/20 text-[#7c3aed] dark:text-purple-400"
                     }`}>
                       <DocumentSvg size={18} />
                     </div>
-                    <span className="text-[15.5px] font-black text-[#000839]">{report.name}</span>
+                    <span className="text-[15.5px] font-black text-[#000839] dark:text-slate-100">{report.name}</span>
                   </div>
-                  <span className="text-[14.5px] font-extrabold text-slate-500">{report.size}</span>
+                  <span className="text-[14.5px] font-extrabold text-slate-500 dark:text-slate-400">{report.size}</span>
                 </div>
               ))}
             </div>
@@ -223,53 +223,53 @@ export default function ExportPage() {
         </div>
 
         {/* Column 3: Export Summary */}
-        <div className="bg-[#FFFFFF] border border-slate-200/60 rounded-3xl p-6.5 lg:p-8 flex flex-col justify-between shadow-[0_4px_24px_rgba(0,0,0,0.015)] min-h-[460px]">
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-3xl p-6.5 lg:p-8 flex flex-col justify-between shadow-[0_4px_24px_rgba(0,0,0,0.015)] min-h-[460px]">
           <div className="space-y-6">
-            <h3 className="text-[19px] font-black text-[#000839] tracking-tight border-b border-slate-50 pb-2.5">
+            <h3 className="text-[19px] font-black text-[#000839] dark:text-white tracking-tight border-b border-slate-100 dark:border-slate-700 pb-2.5">
               Export Summary
             </h3>
 
             {/* List of summary statistics matching mockup exactly */}
-            <div className="space-y-4 text-[15.5px] font-extrabold text-slate-500">
+            <div className="space-y-4 text-[15.5px] font-extrabold text-slate-500 dark:text-slate-400">
               
-              <div className="flex items-center justify-between py-1 border-b border-slate-50 pb-2">
+              <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-700 pb-2">
                 <span>Objects Generated</span>
-                <span className="font-black text-[#000839] text-[16.5px]">
+                <span className="font-black text-[#000839] dark:text-white text-[16.5px]">
                   <AnimatedCount target={8} />
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-1 border-b border-slate-50 pb-2">
+              <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-700 pb-2">
                 <span>Files Generated</span>
-                <span className="font-black text-[#000839] text-[16.5px]">
+                <span className="font-black text-[#000839] dark:text-white text-[16.5px]">
                   <AnimatedCount target={12} />
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-1 border-b border-slate-50 pb-2">
+              <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-700 pb-2">
                 <span>Total Records</span>
-                <span className="font-black text-[#000839] text-[16.5px]">
+                <span className="font-black text-[#000839] dark:text-white text-[16.5px]">
                   <AnimatedCount target={12356} format={true} />
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-1 border-b border-slate-50 pb-2">
+              <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-700 pb-2">
                 <span>Valid Records</span>
-                <span className="font-black text-[#000839] text-[16.5px]">
+                <span className="font-black text-[#000839] dark:text-white text-[16.5px]">
                   <AnimatedCount target={11785} format={true} />
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-1 border-b border-slate-50 pb-2">
+              <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-700 pb-2">
                 <span>Invalid Records</span>
-                <span className="font-black text-[#000839] text-[16.5px]">
+                <span className="font-black text-[#000839] dark:text-white text-[16.5px]">
                   <AnimatedCount target={571} />
                 </span>
               </div>
 
               <div className="flex items-center justify-between py-1 pt-1">
                 <span>Exported On</span>
-                <span className="font-black text-[#000839] text-[15.5px]">25 May 2024, 10:48 AM</span>
+                <span className="font-black text-[#000839] dark:text-white text-[15.5px]">25 May 2024, 10:48 AM</span>
               </div>
 
             </div>

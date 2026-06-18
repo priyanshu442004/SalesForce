@@ -94,7 +94,7 @@ export default function ValidationPage() {
   const err4 = useCountUp(23, 900, 250);
 
   return (
-    <div className="flex-1 flex flex-col space-y-6 lg:space-y-7 p-7 lg:p-9 min-h-0 bg-[#f8fafd] overflow-y-auto">
+    <div className="flex-1 flex flex-col space-y-6 lg:space-y-7 p-7 lg:p-9 min-h-0 bg-[#f8fafd] dark:bg-[#0F172A] overflow-y-auto">
       
       {/* Dynamic Keyframe style definitions */}
       <style jsx global>{`
@@ -152,10 +152,10 @@ export default function ValidationPage() {
 
       {/* Header titles with enlarged fonts */}
       <div className="flex-none flex flex-col space-y-2 opacity-0 animate-scale-up" style={{ animationDelay: "100ms" }}>
-        <h3 className="text-[23px] font-black text-[#000839]">
+        <h3 className="text-[23px] font-black text-[#000839] dark:text-white">
           Data Validation & Quality Check
         </h3>
-        <span className="text-[13.5px] font-bold text-slate-400">
+        <span className="text-[13.5px] font-bold text-slate-400 dark:text-slate-400">
           Validate transformed data against Salesforce rules.
         </span>
       </div>
@@ -164,8 +164,8 @@ export default function ValidationPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "150ms" }}>
         
         {/* Card 1: Total Records */}
-        <div className="bg-white border border-slate-200/50 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_8px_rgba(0,0,0,0.005)]">
-          <div className="w-13 h-13 rounded-full bg-blue-50/70 border border-blue-100 flex items-center justify-center flex-shrink-0">
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/50 dark:border-slate-700 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_8px_rgba(0,0,0,0.005)]">
+          <div className="w-13 h-13 rounded-full bg-blue-50/70 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30 flex items-center justify-center flex-shrink-0">
             <div className="w-9 h-9 rounded-full bg-[#002BFF] flex items-center justify-center text-white shadow-sm">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/>
@@ -175,15 +175,15 @@ export default function ValidationPage() {
           </div>
           <div className="space-y-0.5">
             <span className="block text-[13.5px] font-bold text-slate-400">Total Records</span>
-            <span className="block text-[24px] font-black text-[#000839] tracking-tight leading-none">
+            <span className="block text-[24px] font-black text-[#000839] dark:text-white tracking-tight leading-none">
               {countTotal.toLocaleString()}
             </span>
           </div>
         </div>
 
         {/* Card 2: Valid Records */}
-        <div className="bg-white border border-slate-200/50 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_8px_rgba(0,0,0,0.005)]">
-          <div className="w-13 h-13 rounded-full bg-emerald-50/70 border border-emerald-100 flex items-center justify-center flex-shrink-0">
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/50 dark:border-slate-700 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_8px_rgba(0,0,0,0.005)]">
+          <div className="w-13 h-13 rounded-full bg-emerald-50/70 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 flex items-center justify-center flex-shrink-0">
             <div className="w-9 h-9 rounded-full bg-[#137333] flex items-center justify-center text-white shadow-sm">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
@@ -192,15 +192,15 @@ export default function ValidationPage() {
           </div>
           <div className="space-y-0.5">
             <span className="block text-[13.5px] font-bold text-slate-400">Valid Records</span>
-            <span className="block text-[24px] font-black text-[#000839] tracking-tight leading-none">
+            <span className="block text-[24px] font-black text-[#000839] dark:text-white tracking-tight leading-none">
               {countValid.toLocaleString()}
             </span>
           </div>
         </div>
 
         {/* Card 3: Invalid Records */}
-        <div className="bg-white border border-slate-200/50 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_8px_rgba(0,0,0,0.005)]">
-          <div className="w-13 h-13 rounded-full bg-rose-50/70 border border-rose-100 flex items-center justify-center flex-shrink-0">
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/50 dark:border-slate-700 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_8px_rgba(0,0,0,0.005)]">
+          <div className="w-13 h-13 rounded-full bg-rose-50/70 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800/30 flex items-center justify-center flex-shrink-0">
             <div className="w-9 h-9 rounded-full bg-[#e11d48] flex items-center justify-center text-white shadow-sm">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="8" x2="12" y2="12"/>
@@ -210,7 +210,7 @@ export default function ValidationPage() {
           </div>
           <div className="space-y-0.5">
             <span className="block text-[13.5px] font-bold text-slate-400">Invalid Records</span>
-            <span className="block text-[24px] font-black text-[#000839] tracking-tight leading-none">
+            <span className="block text-[24px] font-black text-[#000839] dark:text-white tracking-tight leading-none">
               {countInvalid.toLocaleString()}
             </span>
           </div>
@@ -220,7 +220,7 @@ export default function ValidationPage() {
         <div className="bg-white border border-slate-200/50 rounded-2xl p-5 flex items-center justify-between shadow-[0_2px_8px_rgba(0,0,0,0.005)]">
           <div className="space-y-0.5">
             <span className="block text-[13.5px] font-bold text-slate-400">Success Rate</span>
-            <span className="block text-[24px] font-black text-[#000839] tracking-tight leading-none">
+            <span className="block text-[24px] font-black text-[#000839] dark:text-white tracking-tight leading-none">
               {countSuccessRate}%
             </span>
           </div>
@@ -245,8 +245,8 @@ export default function ValidationPage() {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch pb-2 opacity-0 animate-scale-up" style={{ animationDelay: "200ms" }}>
         
         {/* Column 1: Validation Summary Donut Card */}
-        <div className="col-span-1 md:col-span-4 bg-white border border-slate-200/60 rounded-2xl p-6 lg:p-7 flex flex-col justify-between items-stretch shadow-[0_2px_12px_rgba(0,0,0,0.006)] min-h-[390px]">
-          <h4 className="text-[15px] font-bold text-slate-700 pb-2.5">
+        <div className="col-span-1 md:col-span-4 bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-2xl p-6 lg:p-7 flex flex-col justify-between items-stretch shadow-[0_2px_12px_rgba(0,0,0,0.006)] min-h-[390px]">
+          <h4 className="text-[15px] font-bold text-slate-700 dark:text-slate-200 pb-2.5">
             Validation Summary
           </h4>
 
@@ -257,7 +257,7 @@ export default function ValidationPage() {
                   cx="50"
                   cy="50"
                   r="38"
-                  className="stroke-slate-100"
+                  className="stroke-slate-100 dark:stroke-slate-700"
                   strokeWidth="12"
                   fill="transparent"
                 />
@@ -273,7 +273,7 @@ export default function ValidationPage() {
               </svg>
               
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[40px] font-black text-[#000839] leading-none">
+                <span className="text-[40px] font-black text-[#000839] dark:text-white leading-none">
                   {countSuccessRate}%
                 </span>
                 <span className="text-[14.5px] font-black text-[#0ba175] mt-1.5 tracking-wide">
@@ -285,9 +285,9 @@ export default function ValidationPage() {
         </div>
 
         {/* Column 2: Validation Checks List Card */}
-        <div className="col-span-1 md:col-span-4 bg-white border border-slate-200/60 rounded-2xl p-6 lg:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.006)] min-h-[390px]">
+        <div className="col-span-1 md:col-span-4 bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-2xl p-6 lg:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.006)] min-h-[390px]">
           <div className="space-y-4 flex-1 flex flex-col">
-            <h4 className="text-[15px] font-bold text-slate-700 border-b border-slate-50 pb-2">
+            <h4 className="text-[15px] font-bold text-slate-700 dark:text-slate-200 border-b border-slate-50 dark:border-slate-700 pb-2">
               Validation Checks
             </h4>
 
@@ -304,9 +304,9 @@ export default function ValidationPage() {
                       <line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
                   </div>
-                  <span className="font-bold text-[#000839]/90">Missing Required Fields</span>
+                  <span className="font-bold text-[#000839]/90 dark:text-slate-200">Missing Required Fields</span>
                 </div>
-                <span className="font-black text-[#000839]">{check1}</span>
+                <span className="font-black text-[#000839] dark:text-white">{check1}</span>
               </div>
 
               {/* Check Item 2 */}
@@ -320,9 +320,9 @@ export default function ValidationPage() {
                       <line x1="3" y1="10" x2="21" y2="10"/>
                     </svg>
                   </div>
-                  <span className="font-bold text-[#000839]/90">Invalid Date Format</span>
+                  <span className="font-bold text-[#000839]/90 dark:text-slate-200">Invalid Date Format</span>
                 </div>
-                <span className="font-black text-[#000839]">{check2}</span>
+                <span className="font-black text-[#000839] dark:text-white">{check2}</span>
               </div>
 
               {/* Check Item 3 */}
@@ -334,9 +334,9 @@ export default function ValidationPage() {
                       <polyline points="22 4 12 14.01 9 11.01"/>
                     </svg>
                   </div>
-                  <span className="font-bold text-[#000839]/90">Invalid Picklist Values</span>
+                  <span className="font-bold text-[#000839]/90 dark:text-slate-200">Invalid Picklist Values</span>
                 </div>
-                <span className="font-black text-[#000839]">{check3}</span>
+                <span className="font-black text-[#000839] dark:text-white">{check3}</span>
               </div>
 
               {/* Check Item 4 */}
@@ -350,9 +350,9 @@ export default function ValidationPage() {
                       <path d="M11 18H8a2 2 0 0 1-2-2V9" />
                     </svg>
                   </div>
-                  <span className="font-bold text-[#000839]/90">Lookup Values Not Found</span>
+                  <span className="font-bold text-[#000839]/90 dark:text-slate-200">Lookup Values Not Found</span>
                 </div>
-                <span className="font-black text-[#000839]">{check4}</span>
+                <span className="font-black text-[#000839] dark:text-white">{check4}</span>
               </div>
 
               {/* Check Item 5 */}
@@ -364,9 +364,9 @@ export default function ValidationPage() {
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                     </svg>
                   </div>
-                  <span className="font-bold text-[#000839]/90">Duplicate External IDs</span>
+                  <span className="font-bold text-[#000839]/90 dark:text-slate-200">Duplicate External IDs</span>
                 </div>
-                <span className="font-black text-[#000839]">{check5}</span>
+                <span className="font-black text-[#000839] dark:text-white">{check5}</span>
               </div>
 
             </div>
@@ -374,9 +374,9 @@ export default function ValidationPage() {
         </div>
 
         {/* Column 3: Recent Errors Card */}
-        <div className="col-span-1 md:col-span-4 bg-white border border-slate-200/60 rounded-2xl p-6 lg:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.006)] min-h-[390px]">
+        <div className="col-span-1 md:col-span-4 bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-2xl p-6 lg:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.006)] min-h-[390px]">
           <div className="space-y-4 flex-1 flex flex-col">
-            <h4 className="text-[15px] font-bold text-slate-700 border-b border-slate-50 pb-2">
+            <h4 className="text-[15px] font-bold text-slate-700 dark:text-slate-200 border-b border-slate-50 dark:border-slate-700 pb-2">
               Recent Errors
             </h4>
 
@@ -392,11 +392,11 @@ export default function ValidationPage() {
                     </svg>
                   </div>
                   <div className="space-y-0.5">
-                    <span className="block font-black text-[#000839] text-[15px] leading-none">Phone</span>
+                    <span className="block font-black text-[#000839] dark:text-slate-100 text-[15px] leading-none">Phone</span>
                     <span className="block text-[12.5px] font-bold text-slate-400/90 mt-0.5">Invalid phone number format</span>
                   </div>
                 </div>
-                <span className="font-black text-[#000839]">{err1}</span>
+                <span className="font-black text-[#000839] dark:text-white">{err1}</span>
               </div>
 
               {/* Row 2 */}
@@ -408,11 +408,11 @@ export default function ValidationPage() {
                     </svg>
                   </div>
                   <div className="space-y-0.5">
-                    <span className="block font-black text-[#000839] text-[15px] leading-none">Start_Date__c</span>
+                    <span className="block font-black text-[#000839] dark:text-slate-100 text-[15px] leading-none">Start_Date__c</span>
                     <span className="block text-[12.5px] font-bold text-slate-400/90 mt-0.5">Invalid date format</span>
                   </div>
                 </div>
-                <span className="font-black text-[#000839]">{err2}</span>
+                <span className="font-black text-[#000839] dark:text-white">{err2}</span>
               </div>
 
               {/* Row 3 */}
@@ -424,11 +424,11 @@ export default function ValidationPage() {
                     </svg>
                   </div>
                   <div className="space-y-0.5">
-                    <span className="block font-black text-[#000839] text-[15px] leading-none">AccountId</span>
+                    <span className="block font-black text-[#000839] dark:text-slate-100 text-[15px] leading-none">AccountId</span>
                     <span className="block text-[12.5px] font-bold text-slate-400/90 mt-0.5">Lookup value not found</span>
                   </div>
                 </div>
-                <span className="font-black text-[#000839]">{err3}</span>
+                <span className="font-black text-[#000839] dark:text-white">{err3}</span>
               </div>
 
               {/* Row 4 */}
@@ -440,11 +440,11 @@ export default function ValidationPage() {
                     </svg>
                   </div>
                   <div className="space-y-0.5">
-                    <span className="block font-black text-[#000839] text-[15px] leading-none">Amount</span>
+                    <span className="block font-black text-[#000839] dark:text-slate-100 text-[15px] leading-none">Amount</span>
                     <span className="block text-[12.5px] font-bold text-slate-400/90 mt-0.5">Must be a number</span>
                   </div>
                 </div>
-                <span className="font-black text-[#000839]">{err4}</span>
+                <span className="font-black text-[#000839] dark:text-white">{err4}</span>
               </div>
 
             </div>

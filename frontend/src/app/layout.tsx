@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { MigrationProvider } from "@/context/MigrationContext";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { ThemeScript } from "@/component/ThemeScript";
 import Sidebar from "@/component/Sidebar";
 import Header from "@/component/Header";
 import AuthGuard from "@/component/AuthGuard";
@@ -23,28 +25,33 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${plusJakartaSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans bg-[#f8fafc] text-slate-900">
-        <MigrationProvider>
-          <AuthGuard>
-            <div className="min-h-screen w-full flex bg-[#f8fafc] select-none font-sans overflow-x-hidden overflow-y-auto lg:overflow-hidden">
-              
-              {/* Sidebar from src/component/ */}
-              <Sidebar />
+      <head>
+        <ThemeScript />
+      </head>
+      <body className="min-h-full flex flex-col font-sans bg-[#f8fafc] dark:bg-[#0F172A] text-slate-900 dark:text-slate-100">
+        <ThemeProvider>
+          <MigrationProvider>
+            <AuthGuard>
+              <div className="min-h-screen w-full flex bg-[#f8fafc] dark:bg-[#0F172A] select-none font-sans overflow-x-hidden overflow-y-auto lg:overflow-hidden">
 
-              {/* Main Content Area */}
-              <main className="flex-1 flex flex-col bg-[#f8fafc] min-h-screen lg:h-screen lg:overflow-hidden w-full">
-                
-                {/* Header from src/component/ */}
-                <Header />
+                {/* Sidebar from src/component/ */}
+                <Sidebar />
 
-                {/* Page Router Contents */}
-                {children}
-                
-              </main>
+                {/* Main Content Area */}
+                <main className="flex-1 flex flex-col bg-[#f8fafc] dark:bg-[#0F172A] min-h-screen lg:h-screen lg:overflow-hidden w-full">
 
-            </div>
-          </AuthGuard>
-        </MigrationProvider>
+                  {/* Header from src/component/ */}
+                  <Header />
+
+                  {/* Page Router Contents */}
+                  {children}
+
+                </main>
+
+              </div>
+            </AuthGuard>
+          </MigrationProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

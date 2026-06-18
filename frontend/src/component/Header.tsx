@@ -5,16 +5,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon from "./Icon";
 import { useMigration } from "../context/MigrationContext";
+import { useTheme } from "../context/ThemeContext";
 
 export default function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { transformationsView, transformationsTab, currentUser, currentProject } = useMigration();
+  const { theme, toggleTheme } = useTheme();
 
   if (!currentUser) return null;
 
   const getPageTitle = () => {
-    const clean = (title:any) => title.replace(/^\d+\.\s*/, "").replace(/\s*-\s*Layer\s*\d+$/i, "");
+    const clean = (title: any) => title.replace(/^\d+\.\s*/, "").replace(/\s*-\s*Layer\s*\d+$/i, "");
     switch (pathname) {
       case "/":
         return "Dashboard";
@@ -29,21 +31,11 @@ export default function Header() {
       case "/mapping":
         return clean("03. AI Mapping Summary - Layer 2");
       case "/transformations":
-        if (transformationsTab === "Execution Engine") {
-          return "Execution Engine";
-        }
-        if (transformationsTab === "Human Feedback Loop") {
-          return "Human Feedback Loop";
-        }
-        if (transformationsTab === "Preview Engine") {
-          return "Preview Engine";
-        }
-        if (transformationsTab === "Transformation Library") {
-          return "Transformation Library";
-        }
-        return transformationsView === "create"
-          ? "Transformation Center"
-          : "Transformation Workspace";
+        if (transformationsTab === "Execution Engine") return "Execution Engine";
+        if (transformationsTab === "Human Feedback Loop") return "Human Feedback Loop";
+        if (transformationsTab === "Preview Engine") return "Preview Engine";
+        if (transformationsTab === "Transformation Library") return "Transformation Library";
+        return transformationsView === "create" ? "Transformation Center" : "Transformation Workspace";
       case "/validation":
         return clean("10. Validation - Layer 4");
       case "/export":
@@ -82,46 +74,50 @@ export default function Header() {
 
   return (
     <>
-      <header className="px-6 lg:px-8 py-4 lg:py-5 flex items-center justify-between border-b border-slate-200 bg-white sticky top-0 z-30 shadow-sm flex-none">
+      <header className="px-6 lg:px-8 py-4 lg:py-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] sticky top-0 z-30 shadow-sm flex-none">
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setMobileMenuOpen(true)} 
-            className="lg:hidden p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 cursor-pointer"
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="lg:hidden p-2 rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 cursor-pointer"
           >
             <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
             </svg>
           </button>
-          <h1 className="text-[19px] lg:text-[22px] font-extrabold text-[#000839] tracking-tight">
+          <h1 className="text-[19px] lg:text-[22px] font-extrabold text-[#000839] dark:text-white tracking-tight">
             {getPageTitle()}
           </h1>
         </div>
-        
+
         <div className="flex items-center gap-3">
-          <button className="w-8.5 h-8.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all duration-200 cursor-pointer">
-            <Icon name="moon" size={14.5} />
+          <button
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            className="w-8.5 h-8.5 rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 transition-all duration-200 cursor-pointer"
+          >
+            <Icon name={theme === "dark" ? "sun" : "moon"} size={14.5} />
           </button>
-          <button className="w-8.5 h-8.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-all duration-200 cursor-pointer">
+          <button className="w-8.5 h-8.5 rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 transition-all duration-200 cursor-pointer">
             <Icon name="help" size={14.5} />
           </button>
         </div>
       </header>
 
-      {/* MOBILE DRAWER */}
+      {/* MOBILE DRAWER — always dark by design */}
       {mobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-[#040815]/60 backdrop-blur-sm z-50 lg:hidden animate-fade-in-up" 
+        <div
+          className="fixed inset-0 bg-[#040815]/60 backdrop-blur-sm z-50 lg:hidden animate-fade-in-up"
           onClick={() => setMobileMenuOpen(false)}
         >
-          <aside 
-            className="w-[260px] bg-[#0d162d] flex flex-col justify-between text-slate-300 p-5 h-full" 
+          <aside
+            className="w-[260px] bg-[#0d162d] flex flex-col justify-between text-slate-300 p-5 h-full"
             onClick={e => e.stopPropagation()}
           >
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-[#1e293b]/40 pb-4">
                 <span className="font-extrabold text-white text-[15px] tracking-wider uppercase">AI Migrate</span>
-                <button 
-                  onClick={() => setMobileMenuOpen(false)} 
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
                   className="text-slate-400 hover:text-white cursor-pointer select-none"
                 >
                   ✕

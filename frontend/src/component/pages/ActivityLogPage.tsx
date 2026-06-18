@@ -104,10 +104,10 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm sm:p-6 animate-fade-in">
-      <div className="flex h-full max-h-[85vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-scale-up-modal">
+      <div className="flex h-full max-h-[85vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-2xl animate-scale-up-modal">
         
         {/* Modal Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-6 py-4.5">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-[#1E293B] px-6 py-4.5">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider ${
@@ -132,46 +132,46 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                 {log.status}
               </span>
             </div>
-            <h3 className="text-[17px] font-black tracking-tight text-slate-950">
+            <h3 className="text-[17px] font-black tracking-tight text-slate-950 dark:text-white">
               {log.description}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-700"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-700 text-slate-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Modal Info Bar */}
-        <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-100 bg-slate-50/50 px-6 py-3 text-xs font-bold text-slate-500">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 px-6 py-3 text-xs font-bold text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-1.5">
             <User size={13} className="text-slate-400" />
             <span>Actor:</span>
-            <span className="text-slate-800">{log.actor}</span>
+            <span className="text-slate-800 dark:text-slate-200">{log.actor}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Clock size={13} className="text-slate-400" />
             <span>Timestamp:</span>
-            <span className="text-slate-800 font-mono">{log.timestamp}</span>
+            <span className="text-slate-800 dark:text-slate-200 font-mono">{log.timestamp}</span>
           </div>
           {fileStates.length > 0 && (
             <div className="flex items-center gap-1.5">
               <FileText size={13} className="text-slate-400" />
               <span>Snapshot Files:</span>
-              <span className="rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] text-slate-700 font-extrabold">{fileStates.length}</span>
+              <span className="rounded bg-slate-200/70 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-slate-300 font-extrabold">{fileStates.length}</span>
             </div>
           )}
         </div>
 
         {/* Modal Content */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-6 bg-slate-50/45">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 bg-slate-50/45 dark:bg-[#0F172A]/50">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start h-full">
             
             {/* Left Column: Granular Reports / Logs */}
             <div className="lg:col-span-2 space-y-5">
-              <div className="border-b border-slate-200 pb-2">
+              <div className="border-b border-slate-200 dark:border-slate-700 pb-2">
                 <h4 className="text-[12px] font-black uppercase tracking-wider text-slate-400">
                   Granular Details
                 </h4>
@@ -182,11 +182,11 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                 <div className="space-y-4">
                   {/* Stats tiles */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white border border-slate-200/70 p-4 rounded-xl shadow-sm">
+                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-4 rounded-xl shadow-sm">
                       <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Records Checked</p>
-                      <p className="text-2xl font-black text-slate-900 mt-1">{details.total_records ?? "N/A"}</p>
+                      <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{details.total_records ?? "N/A"}</p>
                     </div>
-                    <div className="bg-white border border-slate-200/70 p-4 rounded-xl shadow-sm">
+                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-4 rounded-xl shadow-sm">
                       <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Issues Detected</p>
                       <p className={`text-2xl font-black mt-1 ${issues.length > 0 ? "text-rose-600" : "text-emerald-600"}`}>
                         {details.total_issues ?? issues.length}
@@ -196,8 +196,8 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
 
                   {/* Issues search and grid */}
                   {issues.length > 0 ? (
-                    <div className="bg-white border border-slate-200/70 rounded-xl overflow-hidden shadow-sm flex flex-col">
-                      <div className="p-3 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30">
+                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                      <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2 bg-slate-50/30 dark:bg-slate-800/30">
                         <Search size={14} className="text-slate-400" />
                         <input
                           type="text"
@@ -207,12 +207,12 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                             setCurrentPage(1);
                           }}
                           placeholder="Filter issues..."
-                          className="w-full text-xs font-semibold focus:outline-none bg-transparent"
+                          className="w-full text-xs font-semibold focus:outline-none bg-transparent dark:text-slate-200 dark:placeholder-slate-500"
                         />
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-left text-xs">
-                          <thead className="bg-slate-50/80 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                          <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
                             <tr>
                               <th className="px-3 py-2.5">Row</th>
                               <th className="px-3 py-2.5">Field</th>
@@ -221,11 +221,11 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                               <th className="px-3 py-2.5">Expected</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-300 font-medium">
                             {paginatedIssues.map((issue: any, index: number) => (
-                              <tr key={index} className="hover:bg-slate-50/40">
-                                <td className="px-3 py-2.5 font-bold text-slate-400 font-mono">{issue.row}</td>
-                                <td className="px-3 py-2.5 font-bold text-slate-900">{issue.field}</td>
+                              <tr key={index} className="hover:bg-slate-50/40 dark:hover:bg-slate-700/30">
+                                <td className="px-3 py-2.5 font-bold text-slate-400 dark:text-slate-500 font-mono">{issue.row}</td>
+                                <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-slate-200">{issue.field}</td>
                                 <td className="px-3 py-2.5">
                                   <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-[10.5px] font-bold">
                                     {issue.issue_type}
@@ -240,7 +240,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                       </div>
                       
                       {/* Pagination Controls */}
-                      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/40 text-[11px] font-bold text-slate-500">
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/30 text-[11px] font-bold text-slate-500 dark:text-slate-400">
                         <span>
                           Showing {filteredIssues.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredIssues.length)} of {filteredIssues.length} issues
                         </span>
@@ -248,7 +248,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                           <button
                             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                             disabled={currentPage === 1}
-                            className="p-1 rounded border border-slate-200/50 bg-white hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                            className="p-1 rounded border border-slate-200/50 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 transition-colors"
                           >
                             <ChevronLeft size={14} />
                           </button>
@@ -256,7 +256,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                           <button
                             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                             disabled={currentPage === totalPages}
-                            className="p-1 rounded border border-slate-200/50 bg-white hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                            className="p-1 rounded border border-slate-200/50 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 transition-colors"
                           >
                             <ChevronRight size={14} />
                           </button>
@@ -264,7 +264,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                       </div>
                     </div>
                   ) : (
-                    <div className="p-8 text-center bg-white border border-slate-200/70 rounded-xl shadow-sm text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-2">
+                    <div className="p-8 text-center bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl shadow-sm text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-2">
                       <CheckCircle2 size={24} className="text-emerald-600" />
                       <span>Data validation passed cleanly. No issues detected!</span>
                     </div>
@@ -277,19 +277,19 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                 <div className="space-y-4">
                   {/* Summary Metric tiles */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-white border border-slate-200/70 p-3 rounded-xl shadow-sm">
+                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-3 rounded-xl shadow-sm">
                       <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Source Fields</p>
-                      <p className="text-xl font-black text-slate-900 mt-1">{schemaResult.source_field_count ?? 0}</p>
+                      <p className="text-xl font-black text-slate-900 dark:text-white mt-1">{schemaResult.source_field_count ?? 0}</p>
                     </div>
-                    <div className="bg-white border border-slate-200/70 p-3 rounded-xl shadow-sm">
+                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-3 rounded-xl shadow-sm">
                       <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Mapping Fields</p>
-                      <p className="text-xl font-black text-slate-900 mt-1">{schemaResult.mapping_field_count ?? 0}</p>
+                      <p className="text-xl font-black text-slate-900 dark:text-white mt-1">{schemaResult.mapping_field_count ?? 0}</p>
                     </div>
-                    <div className="bg-white border border-slate-200/70 p-3 rounded-xl shadow-sm">
+                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-3 rounded-xl shadow-sm">
                       <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Matched Fields</p>
                       <p className="text-xl font-black text-emerald-600 mt-1">{schemaResult.matched_field_count ?? 0}</p>
                     </div>
-                    <div className="bg-white border border-slate-200/70 p-3 rounded-xl shadow-sm">
+                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-3 rounded-xl shadow-sm">
                       <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Discrepancies</p>
                       <p className={`text-xl font-black mt-1 ${schemaResult.schema_valid ? "text-emerald-600" : "text-rose-600"}`}>
                         {((schemaResult.missing_fields?.length || 0) + (schemaResult.additional_fields?.length || 0))}
@@ -320,7 +320,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                   {!schemaResult.schema_valid && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Missing from Source */}
-                      <div className="bg-white border border-slate-200/70 rounded-xl p-4 shadow-sm">
+                      <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl p-4 shadow-sm">
                         <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
                           Missing from source data ({schemaResult.missing_fields?.length || 0})
@@ -339,7 +339,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                       </div>
                       
                       {/* Missing from Logic */}
-                      <div className="bg-white border border-slate-200/70 rounded-xl p-4 shadow-sm">
+                      <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl p-4 shadow-sm">
                         <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
                           Missing from mapping logic ({schemaResult.additional_fields?.length || 0})
@@ -397,7 +397,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
 
             {/* Right Column: File State Snapshot Download */}
             <div className="space-y-5">
-              <div className="border-b border-slate-200 pb-2">
+              <div className="border-b border-slate-200 dark:border-slate-700 pb-2">
                 <h4 className="text-[12px] font-black uppercase tracking-wider text-slate-400">
                   File State Snapshot
                 </h4>
@@ -416,19 +416,19 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                     return (
                       <div
                         key={file.id || file.s3Key}
-                        className="bg-white border border-slate-200/60 rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm hover:border-slate-300 transition-colors"
+                        className="bg-white dark:bg-[#0F172A] border border-slate-200/60 dark:border-slate-700 rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                            isSource ? "bg-blue-50 text-blue-700" :
-                            isMaster ? "bg-emerald-50 text-emerald-700" :
-                            "bg-purple-50 text-purple-700"
+                            isSource ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" :
+                            isMaster ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" :
+                            "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
                           }`}>
                             <Table2 size={17} />
                           </span>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[12.5px] font-black text-slate-900 truncate" title={file.fileName}>
+                              <span className="text-[12.5px] font-black text-slate-900 dark:text-slate-200 truncate" title={file.fileName}>
                                 {file.fileName}
                               </span>
                               <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-extrabold uppercase tracking-wide shrink-0 ${
@@ -455,7 +455,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                     );
                   })
                 ) : (
-                  <div className="p-8 text-center bg-white border border-dashed border-slate-200 rounded-xl text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-1.5">
+                  <div className="p-8 text-center bg-white dark:bg-[#0F172A] border border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-1.5">
                     <Database size={18} className="text-slate-300" />
                     <span>No active file state snapshot captured at this timestamp.</span>
                   </div>
@@ -467,10 +467,10 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
         </div>
 
         {/* Modal Footer */}
-        <div className="flex shrink-0 items-center justify-end border-t border-slate-100 bg-white px-6 py-4">
+        <div className="flex shrink-0 items-center justify-end border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-[#1E293B] px-6 py-4">
           <button
             onClick={onClose}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors cursor-pointer"
           >
             Close Details
           </button>
@@ -494,10 +494,10 @@ export default function ActivityLogPage() {
 
   if (!currentProject) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 min-h-[calc(100vh-80px)] bg-slate-50">
+      <div className="flex flex-col items-center justify-center p-8 min-h-[calc(100vh-80px)] bg-slate-50 dark:bg-[#0F172A]">
         <div className="max-w-md text-center space-y-4">
-          <h3 className="text-xl font-black text-slate-800">No active project workspace</h3>
-          <p className="text-sm text-slate-500 font-medium">
+          <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">No active project workspace</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
             Please select or create a project first to view the activity audit logs.
           </p>
           <Link
@@ -536,7 +536,7 @@ export default function ActivityLogPage() {
   const successRate = logs.length > 0 ? Math.round((successCount / logs.length) * 100) : 100;
 
   return (
-    <div className="p-5 sm:p-7 lg:p-9 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden select-none bg-white">
+    <div className="p-5 sm:p-7 lg:p-9 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden select-none bg-white dark:bg-[#0F172A]">
       
       {/* CSS Animations Injection */}
       <style jsx global>{`
@@ -583,10 +583,10 @@ export default function ActivityLogPage() {
 
       {/* Title and Description */}
       <div className="flex-none flex flex-col space-y-1 border-b border-slate-100/60 pb-3.5 opacity-0 animate-scale-up" style={{ animationDelay: "100ms" }}>
-        <h3 className="text-[20px] font-black text-[#000839]">
+        <h3 className="text-[20px] font-black text-[#000839] dark:text-white">
           System Activity Log — {currentProject.name}
         </h3>
-        <span className="text-[14.5px] font-bold text-slate-400">
+        <span className="text-[14.5px] font-bold text-slate-400 dark:text-slate-400">
           Review real-time operations, file history, and validation audit trails. Click any log entry to view details.
         </span>
       </div>
@@ -595,8 +595,8 @@ export default function ActivityLogPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "150ms" }}>
         
         {/* Metric 1: Total Operations */}
-        <div className="bg-white border border-slate-100 rounded-2xl p-5.5 flex items-center gap-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
-          <div className="w-12 h-12 bg-blue-50 border border-blue-500/20 text-[#002BFF] rounded-xl flex items-center justify-center">
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-100 dark:border-slate-700 rounded-2xl p-5.5 flex items-center gap-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
+          <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 border border-blue-500/20 text-[#002BFF] dark:text-blue-400 rounded-xl flex items-center justify-center">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 22c5.523 0 10-2.239 10-5V7c0-2.761-4.477-5-10-5S2 4.239 2 7v10c0 2.761 4.477 5 10 5z" />
               <path d="M22 7c0 2.761-4.477 5-10 5S2 9.761 2 7" />
@@ -604,15 +604,15 @@ export default function ActivityLogPage() {
           </div>
           <div className="space-y-0.5">
             <span className="block text-[13.5px] font-bold text-slate-400">Total Operations</span>
-            <span className="block text-[25px] font-black text-[#000839]">
+            <span className="block text-[25px] font-black text-[#000839] dark:text-white">
               <AnimatedCount target={logs.length} />
             </span>
           </div>
         </div>
 
         {/* Metric 2: Warnings/Errors */}
-        <div className="bg-white border border-slate-100 rounded-2xl p-5.5 flex items-center gap-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
-          <div className="w-12 h-12 bg-amber-50 border border-amber-500/20 text-[#d97706] rounded-xl flex items-center justify-center">
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-100 dark:border-slate-700 rounded-2xl p-5.5 flex items-center gap-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
+          <div className="w-12 h-12 bg-amber-50 dark:bg-amber-900/30 border border-amber-500/20 text-[#d97706] dark:text-amber-400 rounded-xl flex items-center justify-center">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
@@ -628,8 +628,8 @@ export default function ActivityLogPage() {
         </div>
 
         {/* Metric 3: Success Rate */}
-        <div className="bg-white border border-slate-100 rounded-2xl p-5.5 flex items-center gap-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
-          <div className="w-12 h-12 bg-[#e6f4ea] border border-[#e6f4ea]/45 text-[#137333] rounded-xl flex items-center justify-center">
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-100 dark:border-slate-700 rounded-2xl p-5.5 flex items-center gap-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
+          <div className="w-12 h-12 bg-[#e6f4ea] dark:bg-emerald-900/30 border border-[#e6f4ea]/45 text-[#137333] dark:text-emerald-400 rounded-xl flex items-center justify-center">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="20 6 9 17 4 12" />
             </svg>
@@ -643,8 +643,8 @@ export default function ActivityLogPage() {
         </div>
 
         {/* Metric 4: Active Files */}
-        <div className="bg-white border border-slate-100 rounded-2xl p-5.5 flex items-center gap-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
-          <div className="w-12 h-12 bg-purple-50 border border-purple-500/20 text-[#7c3aed] rounded-xl flex items-center justify-center">
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-100 dark:border-slate-700 rounded-2xl p-5.5 flex items-center gap-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
+          <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/30 border border-purple-500/20 text-[#7c3aed] dark:text-purple-400 rounded-xl flex items-center justify-center">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
               <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
@@ -652,7 +652,7 @@ export default function ActivityLogPage() {
           </div>
           <div className="space-y-0.5">
             <span className="block text-[13.5px] font-bold text-slate-400">Active Files</span>
-            <span className="block text-[25px] font-black text-[#7c3aed]">
+            <span className="block text-[25px] font-black text-[#7c3aed] dark:text-purple-400">
               <AnimatedCount target={currentProject.files?.filter((f: any) => f.isActive).length || 0} />
             </span>
           </div>
@@ -670,7 +670,7 @@ export default function ActivityLogPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search logs by actor or description..."
-            className="w-full pl-11 pr-5 py-3.5 rounded-2xl border border-slate-200 text-[#000839] text-[14.5px] font-black placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/10 bg-white"
+            className="w-full pl-11 pr-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 text-[#000839] dark:text-white text-[14.5px] font-black placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/10 bg-white dark:bg-[#1E293B]"
           />
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -691,7 +691,7 @@ export default function ActivityLogPage() {
                 className={`px-5 py-3 rounded-xl text-[13.5px] font-black border transition-all cursor-pointer whitespace-nowrap ${
                   isActive
                     ? "bg-[#002BFF] border-transparent text-white shadow-md shadow-blue-500/10"
-                    : "bg-white border-slate-200/60 text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                    : "bg-white dark:bg-[#1E293B] border-slate-200/60 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
                 }`}
               >
                 {cat}
@@ -703,11 +703,11 @@ export default function ActivityLogPage() {
       </div>
 
       {/* Main Logs Table Grid */}
-      <div className="flex-1 bg-white border border-slate-200/90 rounded-2xl p-6 lg:p-7 shadow-[0_2px_12px_rgba(0,0,0,0.008)] min-h-[350px] overflow-hidden flex flex-col opacity-0 animate-scale-up" style={{ animationDelay: "250ms" }}>
+      <div className="flex-1 bg-white dark:bg-[#1E293B] border border-slate-200/90 dark:border-slate-700 rounded-2xl p-6 lg:p-7 shadow-[0_2px_12px_rgba(0,0,0,0.008)] min-h-[350px] overflow-hidden flex flex-col opacity-0 animate-scale-up" style={{ animationDelay: "250ms" }}>
         <div className="overflow-x-auto flex-1 min-h-0">
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
-              <tr className="border-b border-slate-100/85 text-[14.5px] font-black text-slate-400 uppercase tracking-tight">
+              <tr className="border-b border-slate-100/85 dark:border-slate-700 text-[14.5px] font-black text-slate-400 uppercase tracking-tight">
                 <th className="pb-4 pl-3">Timestamp</th>
                 <th className="pb-4">Category</th>
                 <th className="pb-4">Actor</th>
@@ -716,29 +716,29 @@ export default function ActivityLogPage() {
                 <th className="pb-4 text-right pr-4">Details</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50 text-[15.5px] font-bold text-[#000839]">
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50 text-[15.5px] font-bold text-[#000839] dark:text-slate-200">
               {filteredLogs.length > 0 ? (
                 filteredLogs.map((log, idx) => (
                   <tr 
                     key={log.id || idx} 
                     onClick={() => setSelectedLog(log)}
-                    className="hover:bg-slate-50/50 hover:border-l-[#002BFF] border-l-4 border-l-transparent cursor-pointer transition-all opacity-0 animate-row"
+                    className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 hover:border-l-[#002BFF] border-l-4 border-l-transparent cursor-pointer transition-all opacity-0 animate-row"
                     style={{ animationDelay: `${300 + idx * 35}ms` }}
                   >
                     <td className="py-4.5 pl-3 font-mono text-[14px] text-slate-400">{log.timestamp}</td>
                     <td className="py-4.5">
                       <span className={`px-3 py-1.5 rounded-xl text-[12.5px] font-black ${
-                        log.category === "Transformation" ? "bg-purple-50 text-purple-600 border border-purple-100/40" :
-                        log.category === "Mapping" ? "bg-blue-50 text-blue-600 border border-blue-100/40" :
-                        log.category === "Validation" ? "bg-amber-50 text-amber-600 border border-amber-100/40" :
-                        log.category === "Upload" ? "bg-emerald-50 text-emerald-600 border border-emerald-100/40" :
-                        "bg-slate-100 text-slate-600 border border-slate-200/40"
+                        log.category === "Transformation" ? "bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-100/40 dark:border-purple-800/30" :
+                        log.category === "Mapping" ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100/40 dark:border-blue-800/30" :
+                        log.category === "Validation" ? "bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100/40 dark:border-amber-800/30" :
+                        log.category === "Upload" ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100/40 dark:border-emerald-800/30" :
+                        "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border border-slate-200/40 dark:border-slate-600/40"
                       }`}>
                         {log.category}
                       </span>
                     </td>
-                    <td className="py-4.5 text-[#000839]/85 font-black">{log.actor}</td>
-                    <td className="py-4.5 text-[#000839]/70 font-medium max-w-[350px] truncate">{log.description}</td>
+                    <td className="py-4.5 text-[#000839]/85 dark:text-slate-300 font-black">{log.actor}</td>
+                    <td className="py-4.5 text-[#000839]/70 dark:text-slate-400 font-medium max-w-[350px] truncate">{log.description}</td>
                     <td className="py-4.5">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-black ${
                         log.status === "Success" ? "bg-[#e6f4ea] text-[#137333]" :
@@ -759,7 +759,7 @@ export default function ActivityLogPage() {
                           e.stopPropagation();
                           setSelectedLog(log);
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-slate-100 hover:bg-[#002BFF] hover:text-white transition-all duration-200 text-[#002BFF]"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-slate-100 dark:bg-slate-700 hover:bg-[#002BFF] hover:text-white transition-all duration-200 text-[#002BFF] dark:text-blue-400"
                       >
                         <Eye size={13} />
                         <span>View</span>
