@@ -152,8 +152,12 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID="$GOOGLE_ID"
 GOOGLE_CLIENT_SECRET="$GOOGLE_SECRET"
 EOT
 
+# Clean any corrupted node_modules or locks to prevent ENOTEMPTY rename errors
+rm -rf node_modules package-lock.json
+
 # Install packages with low-memory footprint
 npm install --no-audit --no-fund --loglevel error
+
 
 
 # Prisma database sync
