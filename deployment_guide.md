@@ -133,6 +133,13 @@ npm install
 npx prisma generate --schema=../db/schema.prisma
 npx prisma db push --schema=../db/schema.prisma
 
+# (Optional but Recommended for t2/t3.micro): Create 2GB swap space to avoid build crashes
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
 # Build the Next.js app
 npm run build
 cd ..
