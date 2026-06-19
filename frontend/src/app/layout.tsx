@@ -14,7 +14,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "AI Migrate - Salesforce Data Migration Platform",
+  title: "Data migration",
   description: "Next-generation data cleaning, auto-mapping, and migration engine powered by artificial intelligence.",
 };
 
