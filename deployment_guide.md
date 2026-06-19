@@ -163,9 +163,22 @@ pm2 start ./run-backend.sh --name "salesforce-backend"
 ```
 
 ### 7.2 Start Frontend (Next.js)
+Create a startup shell script for the frontend:
 ```bash
-pm2 start npm --name "salesforce-frontend" --cwd "/home/ubuntu/salesforce-migration/frontend" -- run start
+nano run-frontend.sh
 ```
+Add:
+```bash
+#!/bin/bash
+cd /home/ubuntu/salesforce-migration/frontend
+exec npm run start
+```
+Make it executable and start it with PM2:
+```bash
+chmod +x run-frontend.sh
+pm2 start ./run-frontend.sh --name "salesforce-frontend"
+```
+
 
 
 ### 7.3 Save PM2 State & Enable Startup
