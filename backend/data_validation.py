@@ -15,6 +15,10 @@ _PHONE_SCI_RE = re.compile(r"^[+-]?\d+\.?\d*[Ee][+-]?\d+$")
 _NUMBER_FORMAT_RE = re.compile(r"^number\(\s*(\d+)(?:\s*,\s*(\d+))?\s*\)$", re.IGNORECASE)
 
 
+# Reserved mapping keyword — represents an empty source cell in value mappings,
+# never a literal source value.  Must match transformer._BLANK_KEYWORD.
+_BLANK_KEYWORD = "blank"
+
 ValidationIssue = dict[str, Any]
 
 
@@ -159,12 +163,10 @@ def validate_checkbox(value: Any, _format: Any = None) -> bool:
     if not options:
         return True
 
-    # Mentor rule: blank = False
-    if value is None or str(value).strip() == "":
+    if is_blank(value):
         return True
 
     normalized = str(value).strip().lower()
-
 
     allowed = set()
 
@@ -173,10 +175,14 @@ def validate_checkbox(value: Any, _format: Any = None) -> bool:
 
         if "=" in option:
             left, right = option.split("=", 1)
-            allowed.add(left.strip().lower())
+            key = left.strip().lower()
+            if key != _BLANK_KEYWORD:   # "blank" is reserved; not a valid source value
+                allowed.add(key)
         else:
-            allowed.add(option.lower())
-    
+            key = option.lower()
+            if key != _BLANK_KEYWORD:
+                allowed.add(key)
+
     return normalized in allowed
 
 
@@ -197,6 +203,10 @@ def validate_picklist(value: Any, format_value: Any = None) -> bool:
     options = parse_picklist_options(format_value)
     if not options:
         return True
+
+    if is_blank(value):
+        return True
+
     allowed = set()
 
     for option in options:
@@ -204,21 +214,23 @@ def validate_picklist(value: Any, format_value: Any = None) -> bool:
 
         if "=" in option:
             source_val, target_val = option.split("=", 1)
-
-        # During validation we validate SOURCE values
-            allowed.add(source_val.strip().lower())
+            key = source_val.strip().lower()
+            if key != _BLANK_KEYWORD:   # "blank" is reserved; not a valid source value
+                allowed.add(key)
         else:
-            allowed.add(option.lower())
-    if "HOUL=HOUL" in str(format_value):
-        print("PICKLIST FORMAT =", format_value)
-        print("PICKLIST OPTIONS =", options)
-        print("VALUE =", value)
+            key = option.lower()
+            if key != _BLANK_KEYWORD:
+                allowed.add(key)
+
     return str(value).strip().lower() in allowed
 
 
 def validate_picklist_multiselect(value: Any, format_value: Any = None) -> bool:
     options = parse_picklist_options(format_value)
     if not options:
+        return True
+
+    if is_blank(value):
         return True
 
     import re
@@ -239,11 +251,23 @@ def validate_picklist_multiselect(value: Any, format_value: Any = None) -> bool:
 
         if "=" in option:
             source_val, target_val = option.split("=", 1)
-            allowed.add(source_val.strip().lower())
+            key = source_val.strip().lower()
+            if key != _BLANK_KEYWORD:   # "blank" is reserved; not a valid source value
+                allowed.add(key)
         else:
-            allowed.add(option.lower())
+            key = option.lower()
+            if key != _BLANK_KEYWORD:
+                allowed.add(key)
 
     return all(item in allowed for item in selected_values)
+
+# Transformation types whose Transformation/Cleaning definition MUST be non-blank.
+# Uses normalized (canonical) type names so all aliases are covered automatically.
+_TYPES_REQUIRING_FORMAT: frozenset[str] = frozenset({
+    "picklist",
+    "picklist(multiselect)",  # covers Multipicklist, Picklist(Multiple), etc.
+    "checkbox",
+})
 
 VALIDATORS: dict[str, tuple[Callable[[Any, Any], bool], str, str]] = {
     "date": (validate_date, "Invalid Date", "Valid date format"),
@@ -319,9 +343,12 @@ def expected_message(data_type: str, format_value: Any, fallback: str) -> str:
         for option in options:
             if "=" in option:
                 source_val, _ = option.split("=", 1)
-                cleaned_options.append(source_val.strip())
+                sv = source_val.strip()
+                if sv.lower() != _BLANK_KEYWORD:   # "blank" is config-only, not a real source value
+                    cleaned_options.append(sv)
             else:
-                cleaned_options.append(option)
+                if option.strip().lower() != _BLANK_KEYWORD:
+                    cleaned_options.append(option)
 
         if cleaned_options:
             return "One of: " + ", ".join(cleaned_options)
@@ -407,6 +434,30 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
     mapping_df = read_mapping_rules(logic_path)
 
     issues: list[ValidationIssue] = []
+
+    # ── Mapping configuration validation ─────────────────────────────────────
+    # Picklist, Picklist(Multiselect)/Multipicklist/Picklist(Multiple), and
+    # Checkbox rows must have a non-blank Transformation/Cleaning definition.
+    # These errors are emitted first so they appear at the top of the report
+    # and naturally block transformation (total_issues > 0).
+    for _, cfg_row in mapping_df.iterrows():
+        cfg_source_field = cfg_row["source_field"]
+        cfg_data_type    = cfg_row["data_type"]
+        cfg_format       = cfg_row["format"]
+
+        if is_blank(cfg_source_field) or is_blank(cfg_data_type):
+            continue
+
+        cfg_type = normalize_datatype(cfg_data_type)
+        if cfg_type in _TYPES_REQUIRING_FORMAT and is_blank(cfg_format):
+            issues.append({
+                "row": 0,
+                "field": str(cfg_source_field).strip(),
+                "issue_type": "Missing Transformation Mapping",
+                "value": "",
+                "expected": "Transformation mapping required for Picklist/Multipicklist/Checkbox",
+            })
+    # ─────────────────────────────────────────────────────────────────────────
 
     # Track primary-key columns for duplicate detection after the main loop.
     primary_fields: list[str] = []

@@ -189,13 +189,21 @@ def resolve_mapping_columns(logic_df: pd.DataFrame) -> dict[str, Any]:
     return columns
 
 
+# Reserved mapping keyword: when a mapping entry has this key it applies to
+# empty/blank source cells — NOT to the literal text "blank" in the data.
+_BLANK_KEYWORD = "blank"
+
+
 def parse_value_mapping(format_value: Any) -> dict[str, str]:
     raw_value = clean_cell(format_value)
     if "=" not in raw_value:
         return {}
 
+    # Accept both ";" and "," as pair separators (same logic as parse_picklist_options).
+    delimiter = ";" if ";" in raw_value and "," not in raw_value else ","
+
     mapping: dict[str, str] = {}
-    for pair in raw_value.split(","):
+    for pair in raw_value.split(delimiter):
         if "=" not in pair:
             continue
         source, target = pair.split("=", 1)
@@ -252,9 +260,17 @@ def parse_datetime(value: Any) -> pd.Timestamp | None:
 
 def transform_mapped_value(value: Any, value_mapping: dict[str, str], data_type: str) -> str:
     if is_blank(value):
+        # "blank" is a reserved mapping keyword: its target is used for empty cells.
+        if _BLANK_KEYWORD in value_mapping:
+            return value_mapping[_BLANK_KEYWORD]
         return "False" if data_type == "checkbox" else ""
 
     normalized = clean_cell(value).lower()
+
+    # The literal text "blank" in source data does NOT trigger the "blank" mapping
+    # entry — that entry is reserved for genuinely empty cells only.
+    if normalized == _BLANK_KEYWORD:
+        return ""
 
     if data_type == "checkbox":
         if normalized in {"true", "false"}:
@@ -273,6 +289,9 @@ def transform_mapped_value(value: Any, value_mapping: dict[str, str], data_type:
         transformed_values = []
 
         for item in selected_values:
+            # "blank" as an individual item is reserved — skip the mapping entry.
+            if item.lower() == _BLANK_KEYWORD:
+                continue
             mapped = value_mapping.get(item.lower())
             if mapped:
                 transformed_values.append(mapped)
@@ -388,11 +407,13 @@ def apply_transform_rule(series: pd.Series, rule: dict[str, Any]) -> list[str]:
     data_type = rule["data_type"]
 
     def _transform_one(value: Any) -> str:
-        if is_blank(value):
-            return ""
-
+        # Value-mapping takes priority over the blank short-circuit so that
+        # a "blank=X" mapping entry is honoured for empty source cells.
         if rule["value_mapping"]:
             return transform_mapped_value(value, rule["value_mapping"], data_type)
+
+        if is_blank(value):
+            return ""
 
         if data_type == "date":
             return transform_date_value(value, rule["format"])
