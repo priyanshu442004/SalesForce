@@ -75,12 +75,15 @@ def temp_download(s3_key: str) -> str:
     temp_fd, temp_path = tempfile.mkstemp(suffix=suffix)
     os.close(temp_fd)
     try:
-        s3_client.download_file(AWS_BUCKET_NAME, s3_key, temp_path)
+        response = s3_client.get_object(Bucket=AWS_BUCKET_NAME, Key=s3_key)
+        with open(temp_path, "wb") as f:
+            f.write(response["Body"].read())
         return temp_path
     except Exception as e:
         if os.path.exists(temp_path):
             os.remove(temp_path)
         raise HTTPException(status_code=500, detail=f"Failed to download {s3_key} from S3: {str(e)}")
+
 
 # Helper to upload local file to S3
 def upload_to_s3(local_path: str, s3_key: str):
