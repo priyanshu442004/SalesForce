@@ -209,6 +209,9 @@ server {
     listen [::]:80;
     server_name $DOMAIN;
 
+    # Increase file upload limits globally to 300MB
+    client_max_body_size 300M;
+
     # Frontend Proxy (Next.js)
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -227,11 +230,9 @@ server {
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host \$host;
         proxy_cache_bypass \$http_upgrade;
-        
-        # Increase file upload limits (e.g. 50MB)
-        client_max_body_size 50M;
     }
 }
+
 EOT
 
 # Enable config and restart nginx
