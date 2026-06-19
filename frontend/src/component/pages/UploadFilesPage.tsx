@@ -167,7 +167,7 @@ export default function UploadFilesPage() {
   const [isSubmittingProj, setIsSubmittingProj] = useState(false);
   const [projTab, setProjTab] = useState<"select" | "create">("select");
 
-  const { currentProject, setCurrentProject, projectList, createProject, selectProject, uploadedFiles, handleFileUpload, clearFile, isContinueEnabled } = useMigration();
+  const { currentProject, setCurrentProject, projectList, createProject, selectProject, uploadedFiles, handleFileUpload, clearFile, isContinueEnabled, resetPipelineState } = useMigration();
 
   React.useEffect(() => {
     if (projectList.length === 0) setProjTab("create");
@@ -325,7 +325,7 @@ export default function UploadFilesPage() {
               </p>
             </div>
             <Button type="button" variant="dark"
-              onClick={() => { sessionStorage.setItem("autoRunPipeline", "true"); router.push("/transformation-workspace"); }}
+              onClick={() => { resetPipelineState(); sessionStorage.setItem("autoRunPipeline", "true"); router.push("/transformation-workspace"); }}
               disabled={!isContinueEnabled}>
               Continue to Transformation Workspace
               <ArrowRight size={15} />

@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import traceback
-from transformer import resolve_mapping_columns, sanitize_dataframe
+from transformer import resolve_mapping_columns, sanitize_dataframe, anf_parse_field_names, normalize_type
 
 def is_column_all_empty_or_null(series):
     """
@@ -782,7 +782,10 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
         # Aggregate source-field references from ALL mapping sheets
         all_mapping_fields_ordered: list[str] = []
         seen_mapping: set[str] = set()
+        anf_errors: list[str] = []
         sheet_count = 0
+
+        src_lower_set = {c.lower() for c in source_columns}
 
         with pd.ExcelFile(logic_path) as logic_excel:
             sheet_count = len(logic_excel.sheet_names)
@@ -792,25 +795,37 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
                 mapping_columns = resolve_mapping_columns(logic_df)
 
                 source_field_col = mapping_columns["source_field"]
-                header_label = _norm(str(source_field_col))
+                mandatory_col    = mapping_columns.get("mandatory_primary")
+                format_col       = mapping_columns.get("format")
+                data_type_col    = mapping_columns.get("data_type")
+                header_label     = _norm(str(source_field_col))
 
-                raw_values = (
-                    logic_df[source_field_col]
-                    .astype(object)
-                    .fillna("")
-                    .tolist()
-                )
-
-                for v in raw_values:
-                    vs = _norm(str(v))
+                for _, row in logic_df.iterrows():
+                    vs = _norm(str(row.get(source_field_col, "")))
                     if not vs:
                         continue
                     # Skip the column header if it appears as a data row
                     if vs.lower() == header_label.lower():
                         continue
-                    # "Add new Field" entries don't reference source columns
+                    # Skip rows where the source field is literally "add new field"
                     if vs.lower() == "add new field":
                         continue
+                    # Skip "Add New Field" rows and validate their expressions.
+                    if mandatory_col:
+                        mp = _norm(str(row.get(mandatory_col, "")))
+                        if mp.lower() == "add new field":
+                            if format_col and data_type_col:
+                                expr       = _norm(str(row.get(format_col, "")))
+                                dtype_raw  = _norm(str(row.get(data_type_col, "")))
+                                if expr:
+                                    dtype_norm  = normalize_type(dtype_raw)
+                                    field_names = anf_parse_field_names(expr, dtype_norm)
+                                    for fname in field_names:
+                                        if fname.lower() not in src_lower_set:
+                                            anf_errors.append(
+                                                f"{vs} (Add New Field): '{fname}' not found in source"
+                                            )
+                            continue
                     if vs not in seen_mapping:
                         seen_mapping.add(vs)
                         all_mapping_fields_ordered.append(vs)
@@ -829,6 +844,7 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
 
         missing_fields    = [map_norm_map[n] for n in sorted(missing_norm)]
         additional_fields = [src_norm_map[n] for n in sorted(additional_norm)]
+        missing_fields.extend(anf_errors)
 
         result = {
             "schema_valid": len(missing_fields) == 0 and len(additional_fields) == 0,

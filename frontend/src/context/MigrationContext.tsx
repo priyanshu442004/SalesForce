@@ -60,11 +60,9 @@ export type SchemaResult = {
 };
 
 export type DataValidationIssue = {
-  row: number;
   field: string;
-  issue_type: string;
-  value: string;
-  expected: string;
+  issue_types: string;
+  count: number;
 };
 
 export type DataValidationResult = {
@@ -248,6 +246,8 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   const [transformError, setTransformError] = useState<string | null>(null);
 
   const pipelineProjectIdRef = useRef<string | null>(null);
+  // Monotonic counter: only the latest in-flight refreshCurrentProject() response is applied.
+  const refreshGenRef = useRef(0);
 
   // Reset session-uploaded source key when project changes
   useEffect(() => {
@@ -357,44 +357,52 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     }
   }, [projectList]);
 
-  // Sync React file upload list with active S3 references in current project
+  // Sync React file upload list with active S3 references in current project.
+  // Slots that are currently mid-upload (loading === true) are never overwritten
+  // by a DB refresh — doing so causes the card to flicker to blank while the
+  // upload is still in progress.
   useEffect(() => {
     if (currentProject) {
-      const newFilesState: Record<string, UploadedFile | null> = {
-        source: null,
-        master: null,
-        logic: null
-      };
+      console.log("[MigrationContext] syncing uploadedFiles from project.files:", currentProject.files);
+      setUploadedFiles((prev) => {
+        const next: Record<string, UploadedFile | null> = {
+          source: null,
+          master: null,
+          logic: null,
+        };
 
-      // DEBUG — remove after confirming source card displays correctly
-      console.log("[MigrationContext] project.files:", currentProject.files);
-
-      currentProject.files.forEach((f) => {
-        if (f.isActive && (f.slot === "source" || f.slot === "master" || f.slot === "logic")) {
-          const uploadedFile = {
-            name: f.fileName,
-            size: f.fileSize,
-            loading: false,
-            progress: 100,
-            completed: true
-          };
-          newFilesState[f.slot] = uploadedFile;
-
-          // DEBUG — remove after confirming source card displays correctly
-          if (f.slot === "source") {
-            console.log("[MigrationContext] active source file found:", f.s3Key);
-            console.log("[MigrationContext] state assigned to source card:", uploadedFile);
+        currentProject.files.forEach((f) => {
+          if (f.isActive && (f.slot === "source" || f.slot === "master" || f.slot === "logic")) {
+            if (prev[f.slot]?.loading) {
+              // An upload is in progress for this slot — keep the optimistic state.
+              console.log(`[MigrationContext] slot=${f.slot} upload in progress, keeping optimistic state`);
+              next[f.slot] = prev[f.slot];
+            } else {
+              console.log(`[MigrationContext] slot=${f.slot} s3Key=${f.s3Key}`);
+              next[f.slot] = {
+                name: f.fileName,
+                size: f.fileSize,
+                loading: false,
+                progress: 100,
+                completed: true,
+              };
+            }
           }
-        }
-      });
+        });
 
-      setUploadedFiles(newFilesState);
-    } else {
-      setUploadedFiles({
-        source: null,
-        master: null,
-        logic: null
+        // Also preserve any slot that is mid-upload but not yet in the DB
+        // (the project record won't have it yet so the loop above skips it).
+        (["source", "master", "logic"] as const).forEach((slot) => {
+          if (prev[slot]?.loading && !next[slot]) {
+            console.log(`[MigrationContext] slot=${slot} upload pending DB registration, keeping optimistic state`);
+            next[slot] = prev[slot];
+          }
+        });
+
+        return next;
       });
+    } else {
+      setUploadedFiles({ source: null, master: null, logic: null });
     }
   }, [currentProject]);
 
@@ -422,16 +430,20 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Refresh active project detail
+  // Refresh active project detail.
+  // Uses a generation counter so that only the most-recently-initiated call
+  // applies its response — older in-flight responses are silently discarded.
   const refreshCurrentProject = async () => {
     if (!currentProject) return;
+    const gen = ++refreshGenRef.current;
     try {
       const res = await fetch(`/api/projects/${currentProject.id}`);
       const data = await res.json();
+      if (gen !== refreshGenRef.current) return; // superseded by a newer call
       if (data.success) {
+        console.log(`[refreshCurrentProject] gen=${gen} applying fresh project state`);
         setCurrentProject(data.project);
         localStorage.setItem("salesforce_migration_project", JSON.stringify(data.project));
-        // Refresh project list to keep UI synchronized
         if (currentUser) {
           loadProjects(currentUser.id);
         }
@@ -567,10 +579,10 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       }
 
       const resData = await response.json();
-      console.log(`Server upload completed for slot [${slot}]:`, resData);
+      const uploadedFile = resData.files.find((f: any) => f.slot === slot);
+      console.log(`[uploadFileToServer] slot=${slot} uploaded s3Key=${uploadedFile?.s3Key ?? "(none)"}`);
 
       // Register S3 file details in database
-      const uploadedFile = resData.files.find((f: any) => f.slot === slot);
       if (uploadedFile) {
         if (slot === "source") {
           setSessionUploadedSourceKey(uploadedFile.s3Key);
@@ -791,14 +803,12 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   };
 
   const runPipeline = async () => {
-    // Capture project/user at call-time to avoid stale-closure bugs across re-renders.
-    const cp = currentProject;
     const cu = currentUser;
+    if (!currentProject) return;
 
-    if (!cp) return;
-
-    sessionStorage.removeItem(`pipeline_state_${cp.id}`);
-
+    // Clear stale results immediately — before any network calls — so the
+    // workspace never briefly renders the previous run's output while waiting
+    // for the project refresh fetch to complete.
     setPipelineRunning(true);
     setStageStatus(IDLE_STAGE_STATUS);
     setSchemaResult(null);
@@ -807,12 +817,29 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     setTransformResult(null);
     setTransformError(null);
 
+    // Fetch a fresh copy of the project before reading file keys.
+    // React state may lag behind the DB when a file was just uploaded.
+    let cp: Project = currentProject;
+    try {
+      const freshRes = await fetch(`/api/projects/${currentProject.id}`);
+      const freshData = await freshRes.json();
+      if (freshData.success) {
+        cp = freshData.project;
+        setCurrentProject(cp);
+        localStorage.setItem("salesforce_migration_project", JSON.stringify(cp));
+        console.log("[runPipeline] refreshed project state before pipeline start");
+      }
+    } catch (e) {
+      console.warn("[runPipeline] could not pre-refresh project, using cached state:", e);
+    }
+
+    sessionStorage.removeItem(`pipeline_state_${cp.id}`);
+
     const activeFiles = cp.files || [];
     const sourceKey = activeFiles.find((f: ProjectFile) => f.slot === "source" && f.isActive)?.s3Key;
     const masterKey = activeFiles.find((f: ProjectFile) => f.slot === "master" && f.isActive)?.s3Key;
     const logicKey = activeFiles.find((f: ProjectFile) => f.slot === "logic" && f.isActive)?.s3Key;
 
-    // TEMP logging — remove after stale-file bug is confirmed fixed
     console.log("[runPipeline] source_key:", sourceKey, "| master_key:", masterKey, "| logic_key:", logicKey);
 
     const persist = (

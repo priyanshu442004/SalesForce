@@ -20,6 +20,27 @@ from dotenv import load_dotenv
 # Load backend environment configurations
 load_dotenv()
 
+
+def _aggregate_issues(issues: list) -> list:
+    """Group raw validation issues by field, deduplicating issue types and summing counts."""
+    agg: dict[str, dict] = {}
+    for issue in issues:
+        field = issue.get("field", "")
+        issue_type = issue.get("issue_type", "")
+        if field not in agg:
+            agg[field] = {"field": field, "_seen_types": [], "count": 0}
+        if issue_type and issue_type not in agg[field]["_seen_types"]:
+            agg[field]["_seen_types"].append(issue_type)
+        agg[field]["count"] += 1
+    return [
+        {
+            "field": v["field"],
+            "issue_types": ", ".join(v["_seen_types"]),
+            "count": v["count"],
+        }
+        for v in agg.values()
+    ]
+
 app = FastAPI(
     title="Data Migration Tool API",
     description="S3-powered scalable API for calculations and Excel processing",
@@ -347,7 +368,7 @@ def validate_data(
             "total_records": out.get("total_records", 0),
             "total_issues": out.get("total_issues", 0),
             "summary": out.get("summary", {}),
-            "issues": out.get("issues", []),
+            "issues": _aggregate_issues(out.get("issues", [])),
             "reportS3Key": s3_report_key
         }
     finally:

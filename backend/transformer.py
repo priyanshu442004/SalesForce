@@ -315,6 +315,92 @@ def transform_datetime_value(value: Any) -> str:
     return parsed.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
+# ---------------------------------------------------------------------------
+# "Add New Field" — derived column expression evaluation
+# ---------------------------------------------------------------------------
+
+def anf_parse_field_names(expression: str, data_type: str) -> list[str]:
+    """Return the source field names referenced in an ANF expression.
+
+    For text type, operands are separated by '+'.
+    For number type, operands are separated by any of + - * /.
+    """
+    if data_type == "number":
+        return [
+            t.strip()
+            for t in re.split(r"([+\-*/])", expression)
+            if t.strip() and t.strip() not in ("+", "-", "*", "/")
+        ]
+    return [p.strip() for p in expression.split("+") if p.strip()]
+
+
+def _anf_col_map(source_df: pd.DataFrame) -> dict[str, str]:
+    """Return a lowercase-key → actual-column-name map for case-insensitive lookup."""
+    return {c.lower(): c for c in source_df.columns}
+
+
+def _anf_text_series(expression: str, source_df: pd.DataFrame) -> pd.Series:
+    """Evaluate a text-concatenation expression (operands joined by '+').
+
+    Field resolution is case-insensitive: 'name' matches the source column 'NAME'.
+    All referenced fields must already have been validated as present.
+    """
+    col_map = _anf_col_map(source_df)
+    parts   = anf_parse_field_names(expression, "text")
+    result  = pd.Series([""] * len(source_df), dtype=object)
+    for col_name in parts:
+        actual = col_map.get(col_name.lower())
+        if actual is not None:
+            result = result + source_df[actual].apply(clean_cell)
+    return result
+
+
+def _anf_number_series(expression: str, source_df: pd.DataFrame) -> pd.Series:
+    """Evaluate a numeric expression (left-to-right; operators: + - * /).
+
+    Field resolution is case-insensitive: 'amount' matches the source column 'Amount'.
+    All referenced fields must already have been validated as present.
+    Division by zero produces an empty string for that row.
+    """
+    col_map = _anf_col_map(source_df)
+    tokens  = [t.strip() for t in re.split(r"([+\-*/])", expression) if t.strip()]
+    result: pd.Series | None = None
+    op: str | None = None
+
+    for token in tokens:
+        if token in ("+", "-", "*", "/"):
+            op = token
+            continue
+        actual = col_map.get(token.lower())
+        if actual is not None:
+            col = pd.to_numeric(source_df[actual], errors="coerce").fillna(0.0)
+        else:
+            col = pd.Series([0.0] * len(source_df))
+
+        if result is None:
+            result = col.copy()
+        elif op == "+":
+            result = result + col
+        elif op == "-":
+            result = result - col
+        elif op == "*":
+            result = result * col
+        elif op == "/":
+            safe_col = col.replace(0.0, float("nan"))
+            result = result / safe_col
+
+    if result is None:
+        return pd.Series([""] * len(source_df), dtype=object)
+
+    def _fmt(v: Any) -> str:
+        if v is None or (isinstance(v, float) and math.isnan(v)):
+            return ""
+        iv = int(v)
+        return str(iv) if v == iv else str(v)
+
+    return result.apply(_fmt)
+
+
 def _load_rules_from_df(logic_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
     """Build a transform-rules dict from an already-loaded mapping DataFrame."""
     logic_df = sanitize_dataframe(logic_df)
@@ -371,6 +457,53 @@ def load_transform_rules_for_sheet(
     return _load_rules_from_df(logic_df)
 
 
+def _extract_anf_rules(logic_df: pd.DataFrame) -> list[dict[str, Any]]:
+    """Return derived-column specs for rows where mandatory/primary = 'Add New Field'.
+
+    Each returned dict has:
+      new_column  – the output column name (from the Source Fields column)
+      data_type   – canonical type string ("text", "number", …)
+      expression  – raw expression string from the Transformation + Cleaning column
+    """
+    logic_df = sanitize_dataframe(logic_df)
+    columns = resolve_mapping_columns(logic_df)
+    mandatory_col = columns.get("mandatory_primary")
+    anf_rules: list[dict[str, Any]] = []
+
+    if not mandatory_col:
+        return anf_rules
+
+    for _, row in logic_df.iterrows():
+        mp_raw = row.get(mandatory_col)
+        if is_blank(mp_raw):
+            continue
+        if str(mp_raw).strip().lower() != "add new field":
+            continue
+
+        new_column = clean_cell(row.get(columns["source_field"]))
+        data_type  = normalize_type(row.get(columns["data_type"]))
+        expression = clean_cell(row.get(columns["format"]))
+
+        if new_column and expression:
+            anf_rules.append({
+                "new_column": new_column,
+                "data_type":  data_type,
+                "expression": expression,
+            })
+            print(f"[ANF] loaded derived column '{new_column}' type={data_type!r} expr={expression!r}")
+
+    return anf_rules
+
+
+def load_anf_rules_for_sheet(
+    logic_excel: pd.ExcelFile,
+    sheet_name: str,
+) -> list[dict[str, Any]]:
+    """Load 'Add New Field' derived-column rules from a named sheet."""
+    logic_df = pd.read_excel(logic_excel, sheet_name=sheet_name)
+    return _extract_anf_rules(logic_df)
+
+
 def load_sheet_source_fields(
     logic_excel: pd.ExcelFile,
     sheet_name: str,
@@ -383,13 +516,23 @@ def load_sheet_source_fields(
     rule (pass-through columns have no rule but still belong in the output).
     """
     logic_df = pd.read_excel(logic_excel, sheet_name=sheet_name)
+    logic_df = sanitize_dataframe(logic_df)
     columns = resolve_mapping_columns(logic_df)
     source_field_col = columns["source_field"]
+    mandatory_col    = columns.get("mandatory_primary")
     header_label = str(source_field_col).strip().lower()
 
     fields: list[str] = []
     seen: set[str] = set()
-    for raw in logic_df[source_field_col].tolist():
+    for _, row in logic_df.iterrows():
+        # Skip "Add New Field" rows — those produce derived output columns,
+        # not source columns that are copied from the input dataframe.
+        if mandatory_col:
+            mp = row.get(mandatory_col)
+            if not is_blank(mp) and str(mp).strip().lower() == "add new field":
+                continue
+
+        raw = row.get(source_field_col)
         vs = str(raw).strip() if raw is not None else ""
         if not vs:
             continue
@@ -483,12 +626,16 @@ def _transform_one_sheet(
     master_excel: pd.ExcelFile,
     output_path: str,
     sheet_name: str,
+    anf_rules: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Apply this sheet's transform_rules to source_df and write to output_path.
 
     Only columns listed in included_fields are written to the output workbook.
     Columns absent from included_fields are completely excluded — this ensures
     each output file contains only the fields defined in its own mapping sheet.
+
+    anf_rules contains "Add New Field" derived-column specs whose values are
+    computed from expressions over other source columns and appended at the end.
 
     Returns per-sheet statistics.
     """
@@ -552,6 +699,53 @@ def _transform_one_sheet(
         output_headers.append(source_column_name)
         transformed_columns.append(source_column_name)
 
+    # ── "Add New Field" derived columns ───────────────────────────────────────
+    col_map = _anf_col_map(source_df)   # lowercase → actual column name
+
+    for anf in (anf_rules or []):
+        new_col = anf["new_column"]
+        dtype   = anf["data_type"]
+        expr    = anf["expression"]
+
+        field_names = anf_parse_field_names(expr, dtype)
+
+        # ── Fail fast: every referenced field must exist in the source ────────
+        missing_fields_in_expr = [fn for fn in field_names if fn.lower() not in col_map]
+        if missing_fields_in_expr:
+            raise ValueError(
+                f"Add New Field '{new_col}': expression {expr!r} references "
+                f"source field(s) not found in source data: "
+                + ", ".join(repr(m) for m in missing_fields_in_expr)
+            )
+        # ─────────────────────────────────────────────────────────────────────
+
+        # Resolve each field name to the actual (potentially differently-cased)
+        # column name in source_df.
+        resolved = [col_map[fn.lower()] for fn in field_names]
+
+        if dtype == "number":
+            derived = _anf_number_series(expr, source_df)
+        else:
+            derived = _anf_text_series(expr, source_df)
+
+        # ── Debug logging ─────────────────────────────────────────────────────
+        print(f"\n[ANF] ── new column: '{new_col}' ─────────────────────────────")
+        print(f"[ANF]   expression         : {expr!r}")
+        print(f"[ANF]   transformation type: {dtype!r}")
+        print(f"[ANF]   parsed field names : {field_names}")
+        print(f"[ANF]   resolved columns   : {resolved}")
+        for fn, actual in zip(field_names, resolved):
+            sample = source_df[actual].head(5).tolist()
+            label  = f"{fn!r} → {actual!r}" if fn != actual else repr(fn)
+            print(f"[ANF]   source[{label}] (first 5): {sample}")
+        print(f"[ANF]   generated values (first 5): {derived.head(5).tolist()}")
+        # ─────────────────────────────────────────────────────────────────────
+
+        output_columns.append(derived)
+        output_headers.append(new_col)
+        transformed_columns.append(new_col)
+    # ──────────────────────────────────────────────────────────────────────────
+
     # Diagnostic logging -------------------------------------------------------
     print(f"[transform]   Target fields generated ({len(transformed_columns)}): "
           f"{transformed_columns}")
@@ -608,9 +802,11 @@ def transform_source_data(
         sheet_names = list(logic_excel.sheet_names)
         rules_per_sheet: dict[str, dict[str, Any]] = {}
         fields_per_sheet: dict[str, set[str]] = {}
+        anf_per_sheet: dict[str, list[dict[str, Any]]] = {}
         for s in sheet_names:
             rules_per_sheet[s] = load_transform_rules_for_sheet(logic_excel, s)
             fields_per_sheet[s] = set(load_sheet_source_fields(logic_excel, s))
+            anf_per_sheet[s]    = load_anf_rules_for_sheet(logic_excel, s)
 
     print(f"\n[transform] Logic workbook has {len(sheet_names)} sheet(s): {sheet_names}")
 
@@ -627,6 +823,7 @@ def transform_source_data(
                 master_excel=master_excel,
                 output_path=output_path,
                 sheet_name=sheet_name,
+                anf_rules=anf_per_sheet[sheet_name],
             )
             outputs.append(result)
 

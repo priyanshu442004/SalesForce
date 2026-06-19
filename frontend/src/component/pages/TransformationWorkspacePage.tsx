@@ -878,21 +878,17 @@ export default function TransformationWorkspacePage() {
                   <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-xs">
                     <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                       <tr>
-                        <th className="px-4 py-3">Row</th>
                         <th className="px-4 py-3">Field</th>
-                        <th className="px-4 py-3">Issue Type</th>
-                        <th className="px-4 py-3">Actual Value</th>
-                        <th className="px-4 py-3">Expected</th>
+                        <th className="px-4 py-3">Issue Types</th>
+                        <th className="px-4 py-3 text-right">Count</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300">
                       {dataValidationResult.issues.map((issue, i) => (
-                        <tr key={`${issue.row}-${issue.field}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                          <td className="whitespace-nowrap px-4 py-3 font-bold tabular-nums text-slate-900 dark:text-slate-100">{issue.row}</td>
-                          <td className="whitespace-nowrap px-4 py-3 font-semibold">{issue.field}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-rose-700 dark:text-rose-400">{issue.issue_type}</td>
-                          <td className="max-w-[260px] truncate px-4 py-3">{issue.value}</td>
-                          <td className="max-w-[360px] truncate px-4 py-3">{issue.expected?.replace(/^one of:\s*/i, "")}</td>
+                        <tr key={`${issue.field}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                          <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{issue.field}</td>
+                          <td className="px-4 py-3 text-rose-700 dark:text-rose-400">{issue.issue_types}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-slate-900 dark:text-slate-100">{issue.count}</td>
                         </tr>
                       ))}
                     </tbody>

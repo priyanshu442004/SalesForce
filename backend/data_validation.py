@@ -441,11 +441,17 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
     # These errors are emitted first so they appear at the top of the report
     # and naturally block transformation (total_issues > 0).
     for _, cfg_row in mapping_df.iterrows():
-        cfg_source_field = cfg_row["source_field"]
-        cfg_data_type    = cfg_row["data_type"]
-        cfg_format       = cfg_row["format"]
+        cfg_source_field   = cfg_row["source_field"]
+        cfg_data_type      = cfg_row["data_type"]
+        cfg_format         = cfg_row["format"]
+        cfg_mandatory      = cfg_row.get("mandatory_primary")
 
         if is_blank(cfg_source_field) or is_blank(cfg_data_type):
+            continue
+
+        # "Add New Field" rows define derived output columns, not source fields.
+        # They have no value to validate and require no format check here.
+        if not is_blank(cfg_mandatory) and str(cfg_mandatory).strip().lower() == "add new field":
             continue
 
         cfg_type = normalize_datatype(cfg_data_type)
@@ -475,6 +481,12 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
         normalized_type = normalize_datatype(data_type)
 
         mp_flag = "" if is_blank(mandatory_primary) else str(mandatory_primary).strip().lower()
+
+        # "Add New Field" rows are derived output columns — they don't exist in
+        # the source data and must not be subjected to any validation checks.
+        if mp_flag == "add new field":
+            continue
+
         is_mandatory = "mandatory" in mp_flag
         is_primary = "primary" in mp_flag
 
@@ -693,17 +705,60 @@ def run_data_validation(source_path: str, logic_path: str, master_path: Optional
 
 
 def write_validation_report(issues: list[ValidationIssue], output_path: str) -> None:
-    report_df = pd.DataFrame(
-        [
-            {
-                "Row": issue.get("row"),
-                "Field": issue.get("field"),
-                "Issue Type": issue.get("issue_type"),
-                "Actual Value": issue.get("value"),
-                "Expected": re.sub(r"(?i)^one of:\s*", "", issue.get("expected") or ""),
-            }
-            for issue in issues
-        ],
-        columns=["Row", "Field", "Issue Type", "Actual Value", "Expected"],
-    )
-    report_df.to_excel(output_path, index=False)
+    # ── Sheet 1: Summary ─────────────────────────────────────────────────────
+    # Aggregate by field: unique issue types (stable order) + total count.
+    agg: dict[str, dict] = {}
+    for issue in issues:
+        field = issue.get("field", "")
+        issue_type = issue.get("issue_type", "")
+        if field not in agg:
+            agg[field] = {"Field": field, "_seen_types": [], "Count": 0}
+        if issue_type and issue_type not in agg[field]["_seen_types"]:
+            agg[field]["_seen_types"].append(issue_type)
+        agg[field]["Count"] += 1
+
+    summary_rows = [
+        {
+            "Field": v["Field"],
+            "Issue Types": ", ".join(v["_seen_types"]),
+            "Count": v["Count"],
+        }
+        for v in agg.values()
+    ]
+    summary_df = pd.DataFrame(summary_rows, columns=["Field", "Issue Types", "Count"])
+
+    # ── Sheet 2: Detailed Errors ──────────────────────────────────────────────
+    # Group raw issues by field (preserving first-occurrence order).
+    field_issues: dict[str, list] = {}
+    for issue in issues:
+        field = issue.get("field", "")
+        if field not in field_issues:
+            field_issues[field] = []
+        field_issues[field].append(issue)
+
+    # Write both sheets into a single workbook.
+    with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
+        summary_df.to_excel(writer, index=False, sheet_name="Summary")
+
+        ws = writer.book.create_sheet("Detailed Errors")
+
+        # Each field block occupies 3 columns; blocks are separated by 1 blank
+        # spacer column, giving a stride of 4.
+        col = 1  # openpyxl uses 1-based column indices
+        for field, errs in field_issues.items():
+            # Row 1 – block headers
+            ws.cell(row=1, column=col).value = field
+            ws.cell(row=1, column=col + 1).value = "Error Details"
+            ws.cell(row=1, column=col + 2).value = "Actual vs Expected"
+
+            # Data rows (starting at row 2)
+            for data_row, err in enumerate(errs, start=2):
+                row_num   = err.get("row", "")
+                iss_type  = err.get("issue_type", "")
+                actual    = err.get("value") or "Blank"
+                expected  = re.sub(r"(?i)^one of:\s*", "", err.get("expected") or "")
+
+                ws.cell(row=data_row, column=col + 1).value = f"Row {row_num} - {iss_type}"
+                ws.cell(row=data_row, column=col + 2).value = f"{actual} - {expected}"
+
+            col += 4  # advance past this block's 3 columns + 1 blank spacer
