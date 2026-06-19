@@ -142,7 +142,13 @@ deactivate
 
 # 5. Configure & Setup Frontend (Next.js)
 echo -e "${YELLOW}>>> [5/7] Setting up Frontend & Prisma...${CLEAR}"
+
+# Remove root lockfile/node_modules so Next.js doesn't incorrectly infer a monorepo workspace root
+rm -f "$PROJECT_DIR/package-lock.json"
+rm -rf "$PROJECT_DIR/node_modules"
+
 cd "$PROJECT_DIR/frontend"
+
 
 # Write Frontend .env
 cat <<EOT > .env
