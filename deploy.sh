@@ -26,18 +26,21 @@ GOOGLE_SECRET="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"
 
 echo -e "${BLUE}>>> starting Automated Salesforce Data Migration deployment...${CLEAR}"
 
-# 1. Setup 2GB Swap Space to prevent Next.js build OOM crashes
-echo -e "${YELLOW}>>> [1/7] Configuring 2GB Swap Space...${CLEAR}"
-if [ -f /swapfile ]; then
-    echo -e "${GREEN}Swap file already exists. Skipping creation.${CLEAR}"
-else
-    sudo fallocate -l 2G /swapfile
-    sudo chmod 600 /swapfile
-    sudo mkswap /swapfile
-    sudo swapon /swapfile
+# 1. Setup 4GB Swap Space to prevent Next.js build OOM crashes
+echo -e "${YELLOW}>>> [1/7] Configuring 4GB Swap Space...${CLEAR}"
+sudo swapoff /swapfile || true
+sudo rm -f /swapfile
+
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+if ! grep -q "/swapfile" /etc/fstab; then
     echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-    echo -e "${GREEN}2GB Swap space successfully enabled.${CLEAR}"
 fi
+echo -e "${GREEN}4GB Swap space successfully enabled and activated.${CLEAR}"
+
 
 # 2. Update System and Install Core Packages
 echo -e "${YELLOW}>>> [2/7] Installing System Dependencies (Node.js 20, Python, Nginx, Certbot)...${CLEAR}"
@@ -149,8 +152,9 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID="$GOOGLE_ID"
 GOOGLE_CLIENT_SECRET="$GOOGLE_SECRET"
 EOT
 
-# Install packages
-npm install
+# Install packages with low-memory footprint
+npm install --no-audit --no-fund --loglevel error
+
 
 # Prisma database sync
 echo -e "${BLUE}Running Prisma generate & db push...${CLEAR}"
