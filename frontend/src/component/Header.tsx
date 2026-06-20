@@ -28,7 +28,7 @@ export default function Header() {
       case "/activity-log":
         return "System Activity Log";
       default:
-        return "AI Migrate Platform";
+        return "Data Migrate Platform";
     }
   };
 
@@ -83,7 +83,7 @@ export default function Header() {
           >
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-[#1e293b]/40 pb-4">
-                <span className="font-extrabold text-white text-[15px] tracking-wider uppercase">AI Migrate</span>
+                <span className="font-extrabold text-white text-[15px] tracking-wider uppercase">Data Migrate</span>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-slate-400 hover:text-white cursor-pointer select-none"

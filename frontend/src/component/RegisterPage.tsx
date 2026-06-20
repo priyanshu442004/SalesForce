@@ -135,7 +135,7 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
             </svg>
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">
-            AI Migrate
+            Data Migrate
           </h1>
           <p className="text-[13.5px] font-bold text-slate-400">
             Salesforce Migration Lifecycle Platform

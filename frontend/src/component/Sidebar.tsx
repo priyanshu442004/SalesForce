@@ -54,7 +54,7 @@ export default function Sidebar() {
                   sidebarCollapsed ? "opacity-0 w-0 max-w-0 ml-0 overflow-hidden pointer-events-none" : "opacity-100 ml-1.5"
                 }`}
               >
-                AI Migrate
+                Data Migrate
               </span>
             </div>
             

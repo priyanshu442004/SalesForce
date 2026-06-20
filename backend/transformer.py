@@ -150,6 +150,9 @@ def resolve_mapping_columns(logic_df: pd.DataFrame) -> dict[str, Any]:
         }:
             columns["search_column"] = column
 
+        elif normalized in {"target fields", "target field", "netsuits"}:
+            columns["target_field"] = column
+
         elif normalized in {
             "lookup value id",
             "copyable column",
@@ -512,13 +515,17 @@ def _extract_anf_rules(logic_df: pd.DataFrame) -> list[dict[str, Any]]:
     """Return derived-column specs for rows where mandatory/primary = 'Add New Field'.
 
     Each returned dict has:
-      new_column  – the output column name (from the Source Fields column)
-      data_type   – canonical type string ("text", "number", …)
-      expression  – raw expression string from the Transformation + Cleaning column
+      new_column      – the output column name (Target Field, falling back to Source Field)
+      data_type       – canonical type string ("text", "number", "lookup", …)
+      expression      – raw expression string from the Transformation + Cleaning column
+      master_sheet    – master sheet name (Lookup only; empty string otherwise)
+      search_column   – column in master sheet to match against (Lookup only)
+      copyable_column – column in master sheet to copy value from (Lookup only)
     """
     logic_df = sanitize_dataframe(logic_df)
     columns = resolve_mapping_columns(logic_df)
     mandatory_col = columns.get("mandatory_primary")
+    target_col    = columns.get("target_field")
     anf_rules: list[dict[str, Any]] = []
 
     if not mandatory_col:
@@ -531,15 +538,23 @@ def _extract_anf_rules(logic_df: pd.DataFrame) -> list[dict[str, Any]]:
         if str(mp_raw).strip().lower() != "add new field":
             continue
 
-        new_column = clean_cell(row.get(columns["source_field"]))
-        data_type  = normalize_type(row.get(columns["data_type"]))
-        expression = clean_cell(row.get(columns["format"]))
+        source_field    = clean_cell(row.get(columns["source_field"]))
+        target_field    = clean_cell(row.get(target_col)) if target_col else ""
+        new_column      = target_field or source_field
+        data_type       = normalize_type(row.get(columns["data_type"]))
+        expression      = clean_cell(row.get(columns["format"]))
+        master_sheet    = clean_cell(row.get(columns.get("master_sheet")))
+        search_column   = clean_cell(row.get(columns.get("search_column")))
+        copyable_column = clean_cell(row.get(columns.get("copyable_column")))
 
         if new_column and expression:
             anf_rules.append({
-                "new_column": new_column,
-                "data_type":  data_type,
-                "expression": expression,
+                "new_column":      new_column,
+                "data_type":       data_type,
+                "expression":      expression,
+                "master_sheet":    master_sheet,
+                "search_column":   search_column,
+                "copyable_column": copyable_column,
             })
             print(f"[ANF] loaded derived column '{new_column}' type={data_type!r} expr={expression!r}")
 
@@ -595,6 +610,35 @@ def load_sheet_source_fields(
             seen.add(vs)
             fields.append(vs)
     return fields
+
+
+def load_target_map_for_sheet(
+    logic_excel: pd.ExcelFile,
+    sheet_name: str,
+) -> dict[str, str]:
+    """Return {lowercase_source_field: target_field_name} for all non-ANF rows.
+
+    Used to rename output headers from source field names to target field names.
+    Falls back to an empty dict when no Target Field column exists in the sheet.
+    """
+    logic_df = pd.read_excel(logic_excel, sheet_name=sheet_name)
+    logic_df = sanitize_dataframe(logic_df)
+    columns = resolve_mapping_columns(logic_df)
+    target_col = columns.get("target_field")
+    if not target_col:
+        return {}
+    mandatory_col = columns.get("mandatory_primary")
+    result: dict[str, str] = {}
+    for _, row in logic_df.iterrows():
+        if mandatory_col:
+            mp = row.get(mandatory_col)
+            if not is_blank(mp) and str(mp).strip().lower() == "add new field":
+                continue
+        source = clean_cell(row.get(columns["source_field"]))
+        target = clean_cell(row.get(target_col))
+        if source and target and source.lower() != "add new field":
+            result[source.lower()] = target
+    return result
 
 
 def apply_transform_rule(series: pd.Series, rule: dict[str, Any]) -> list[str]:
@@ -678,6 +722,7 @@ def _transform_one_sheet(
     output_path: str,
     sheet_name: str,
     anf_rules: list[dict[str, Any]] | None = None,
+    target_map: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Apply this sheet's transform_rules to source_df and write to output_path.
 
@@ -713,8 +758,9 @@ def _transform_one_sheet(
         # ─────────────────────────────────────────────────────────────────────
 
         # Column belongs to this sheet — always include the original values first.
+        target_name = (target_map or {}).get(source_column_name.lower(), source_column_name)
         output_columns.append(source_df[column])
-        output_headers.append(source_column_name)
+        output_headers.append(target_name)
 
         rule = transform_rules.get(source_column_name.lower())
         if rule is None:
@@ -745,10 +791,10 @@ def _transform_one_sheet(
 
         if original_values == transformed_values_clean:
             continue
-        output_headers[-1] = f"__{source_column_name}"
+        output_headers[-1] = f"__{target_name}"
         output_columns.append(pd.Series(transformed_values))
-        output_headers.append(source_column_name)
-        transformed_columns.append(source_column_name)
+        output_headers.append(target_name)
+        transformed_columns.append(target_name)
 
     # ── "Add New Field" derived columns ───────────────────────────────────────
     col_map = _anf_col_map(source_df)   # lowercase → actual column name
@@ -776,6 +822,43 @@ def _transform_one_sheet(
 
         if dtype == "number":
             derived = _anf_number_series(expr, source_df)
+        elif dtype == "lookup":
+            # Step 1: evaluate the expression as text to produce the lookup keys.
+            expr_series = _anf_text_series(expr, source_df)
+
+            # Step 2: build a case-insensitive lookup map from the master sheet.
+            master_sheet    = anf.get("master_sheet", "")
+            search_column   = anf.get("search_column", "")
+            copyable_column = anf.get("copyable_column", "")
+
+            lookup_map: dict[str, str] = {}
+            if master_sheet and search_column and copyable_column:
+                master_df = pd.read_excel(master_excel, sheet_name=master_sheet)
+                master_df = sanitize_dataframe(master_df)
+                for _, mrow in master_df.iterrows():
+                    key = clean_cell(mrow.get(search_column))
+                    val = clean_cell(mrow.get(copyable_column))
+                    if key:
+                        lookup_map[key.lower()] = val
+
+            # Step 3: resolve each expression result through the lookup map.
+            resolved_values: list[str] = []
+            for expr_val in expr_series.tolist():
+                key = clean_cell(expr_val)
+                if not key:
+                    resolved_values.append("")
+                    continue
+                result = lookup_map.get(key.lower(), "")
+                if not result:
+                    print(
+                        f"[ANF][LOOKUP] miss — expr_result={key!r}  "
+                        f"master_sheet={master_sheet!r}  "
+                        f"search_column={search_column!r}  "
+                        f"copyable_column={copyable_column!r}"
+                    )
+                resolved_values.append(result)
+
+            derived = pd.Series(resolved_values, dtype=object)
         else:
             derived = _anf_text_series(expr, source_df)
 
@@ -854,10 +937,12 @@ def transform_source_data(
         rules_per_sheet: dict[str, dict[str, Any]] = {}
         fields_per_sheet: dict[str, set[str]] = {}
         anf_per_sheet: dict[str, list[dict[str, Any]]] = {}
+        target_map_per_sheet: dict[str, dict[str, str]] = {}
         for s in sheet_names:
-            rules_per_sheet[s] = load_transform_rules_for_sheet(logic_excel, s)
-            fields_per_sheet[s] = set(load_sheet_source_fields(logic_excel, s))
-            anf_per_sheet[s]    = load_anf_rules_for_sheet(logic_excel, s)
+            rules_per_sheet[s]      = load_transform_rules_for_sheet(logic_excel, s)
+            fields_per_sheet[s]     = set(load_sheet_source_fields(logic_excel, s))
+            anf_per_sheet[s]        = load_anf_rules_for_sheet(logic_excel, s)
+            target_map_per_sheet[s] = load_target_map_for_sheet(logic_excel, s)
 
     print(f"\n[transform] Logic workbook has {len(sheet_names)} sheet(s): {sheet_names}")
 
@@ -875,6 +960,7 @@ def transform_source_data(
                 output_path=output_path,
                 sheet_name=sheet_name,
                 anf_rules=anf_per_sheet[sheet_name],
+                target_map=target_map_per_sheet[sheet_name],
             )
             outputs.append(result)
 
