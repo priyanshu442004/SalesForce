@@ -67,11 +67,36 @@ function AnimatedCount({ target, duration = 850, suffix = "" }: { target: number
   return <>{count}{suffix}</>;
 }
 
+// Normalise validation issues to the aggregated format regardless of whether
+// they were stored in the old granular shape ({ row, field, issue_type, … })
+// or the current aggregated shape ({ field, issue_types, count }).
+function aggregateValidationIssues(
+  rawIssues: any[]
+): Array<{ field: string; issue_types: string; count: number }> {
+  if (!rawIssues.length) return [];
+  // New aggregated format — already correct.
+  if ("issue_types" in rawIssues[0] && "count" in rawIssues[0]) {
+    return rawIssues as Array<{ field: string; issue_types: string; count: number }>;
+  }
+  // Old granular format — aggregate client-side for backward compatibility.
+  const agg: Record<string, { field: string; seenTypes: string[]; count: number }> = {};
+  for (const issue of rawIssues) {
+    const field = String(issue.field ?? "");
+    const issueType = String(issue.issue_type ?? "");
+    if (!agg[field]) agg[field] = { field, seenTypes: [], count: 0 };
+    if (issueType && !agg[field].seenTypes.includes(issueType)) agg[field].seenTypes.push(issueType);
+    agg[field].count++;
+  }
+  return Object.values(agg).map(v => ({
+    field: v.field,
+    issue_types: v.seenTypes.join(", "),
+    count: v.count,
+  }));
+}
+
 // Reusable detailed modal for granular log analytics and downloads
 function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
   const [issueSearch, setIssueSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
 
   const [cleaningPage, setCleaningPage] = useState(1);
   const cleaningItemsPerPage = 8;
@@ -93,19 +118,13 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
   const isDataValidation = log.category === "Validation" && details && typeof details === "object" && "issues" in details;
   const issues = isDataValidation && Array.isArray(details.issues) ? details.issues : [];
 
-  const filteredIssues = issues.filter((issue: any) => {
-    const term = issueSearch.toLowerCase();
-    return (
-      String(issue.row).includes(term) ||
-      String(issue.field).toLowerCase().includes(term) ||
-      String(issue.issue_type).toLowerCase().includes(term) ||
-      String(issue.value).toLowerCase().includes(term) ||
-      String(issue.expected).toLowerCase().includes(term)
-    );
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filteredIssues.length / itemsPerPage));
-  const paginatedIssues = filteredIssues.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const aggregatedIssues = aggregateValidationIssues(issues);
+  const filteredIssues = issueSearch
+    ? aggregatedIssues.filter(i =>
+        i.field.toLowerCase().includes(issueSearch.toLowerCase()) ||
+        i.issue_types.toLowerCase().includes(issueSearch.toLowerCase())
+      )
+    : aggregatedIssues;
 
   // 2. Parse Schema Validation
   const isSchemaValidation = (log.category === "Validation" || log.category === "System") && details && typeof details === "object" && "schema_valid" in details;
@@ -283,7 +302,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                     <MetricTile label="Total Issues Detected" value={details.total_issues ?? issues.length} icon={AlertTriangle} tone={issues.length > 0 ? "rose" : "emerald"} />
                   </div>
 
-                  {/* Issues search and grid */}
+                  {/* Aggregated issues table — Field | Issue Types | Count */}
                   {issues.length > 0 ? (
                     <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm flex flex-col">
                       <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2 bg-slate-50/30 dark:bg-slate-800/30">
@@ -291,66 +310,36 @@ function LogDetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }
                         <input
                           type="text"
                           value={issueSearch}
-                          onChange={(e) => {
-                            setIssueSearch(e.target.value);
-                            setCurrentPage(1);
-                          }}
-                          placeholder="Filter issues..."
+                          onChange={(e) => setIssueSearch(e.target.value)}
+                          placeholder="Filter by field or issue type…"
                           className="w-full text-xs font-semibold focus:outline-none bg-transparent dark:text-slate-200 dark:placeholder-slate-500"
                         />
                       </div>
-                      <div className="overflow-x-auto">
+                      <div className="overflow-x-auto max-h-64 overflow-y-auto">
                         <table className="w-full border-collapse text-left text-xs">
-                          <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                          <thead className="sticky top-0 bg-slate-50/80 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
                             <tr>
-                              <th className="px-3 py-2.5">Row</th>
                               <th className="px-3 py-2.5">Field</th>
-                              <th className="px-3 py-2.5">Issue Type</th>
-                              <th className="px-3 py-2.5">Value</th>
-                              <th className="px-3 py-2.5">Expected</th>
+                              <th className="px-3 py-2.5">Issue Types</th>
+                              <th className="px-3 py-2.5 text-right">Count</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-300 font-medium">
-                            {paginatedIssues.map((issue: any, index: number) => (
+                            {filteredIssues.map((issue, index) => (
                               <tr key={index} className="hover:bg-slate-50/40 dark:hover:bg-slate-700/30">
-                                <td className="px-3 py-2.5 font-bold text-slate-400 dark:text-slate-500 font-mono">{issue.row}</td>
-                                <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-slate-200">{issue.field}</td>
-                                <td className="px-3 py-2.5">
-                                  <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-[10.5px] font-bold">
-                                    {issue.issue_type}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-2.5 font-mono text-slate-600 truncate max-w-[120px]">{issue.value === null || issue.value === "" ? <span className="italic text-slate-300">empty</span> : String(issue.value)}</td>
-                                <td className="px-3 py-2.5 text-slate-500 truncate max-w-[150px]">{issue.expected}</td>
+                                <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-slate-200 whitespace-nowrap">{issue.field}</td>
+                                <td className="px-3 py-2.5 text-rose-700 dark:text-rose-400">{issue.issue_types}</td>
+                                <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-900 dark:text-slate-100 whitespace-nowrap">{issue.count}</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       </div>
-                      
-                      {/* Pagination Controls */}
-                      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/30 text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                        <span>
-                          Showing {filteredIssues.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredIssues.length)} of {filteredIssues.length} issues
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            disabled={currentPage === 1}
-                            className="p-1 rounded border border-slate-200/50 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 transition-colors"
-                          >
-                            <ChevronLeft size={14} />
-                          </button>
-                          <span className="px-2">{currentPage} / {totalPages}</span>
-                          <button
-                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            disabled={currentPage === totalPages}
-                            className="p-1 rounded border border-slate-200/50 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 transition-colors"
-                          >
-                            <ChevronRight size={14} />
-                          </button>
-                        </div>
-                      </div>
+                      {filteredIssues.length === 0 && issueSearch && (
+                        <p className="px-4 py-3 text-center text-[11px] font-bold text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-700">
+                          No issues match "{issueSearch}"
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="p-8 text-center bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl shadow-sm text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-2">

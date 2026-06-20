@@ -819,28 +819,56 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
 
     // Fetch a fresh copy of the project before reading file keys.
     // React state may lag behind the DB when a file was just uploaded.
-    let cp: Project = currentProject;
+    // If the fetch fails we abort — proceeding with a stale cached project
+    // risks using an S3 key from a previous upload that no longer exists.
+    let cp: Project;
     try {
       const freshRes = await fetch(`/api/projects/${currentProject.id}`);
       const freshData = await freshRes.json();
-      if (freshData.success) {
-        cp = freshData.project;
-        setCurrentProject(cp);
-        localStorage.setItem("salesforce_migration_project", JSON.stringify(cp));
-        console.log("[runPipeline] refreshed project state before pipeline start");
+      if (!freshData.success) {
+        throw new Error(freshData.error || "Failed to fetch fresh project state");
       }
+      cp = freshData.project;
+      setCurrentProject(cp);
+      localStorage.setItem("salesforce_migration_project", JSON.stringify(cp));
+      console.log("[runPipeline] refreshed project state before pipeline start");
     } catch (e) {
-      console.warn("[runPipeline] could not pre-refresh project, using cached state:", e);
+      console.error("[runPipeline] could not fetch fresh project state — aborting to avoid stale S3 keys:", e);
+      const errResult: SchemaResult = {
+        schema_valid: false,
+        source_field_count: 0,
+        mapping_field_count: 0,
+        matched_field_count: 0,
+        missing_fields: [],
+        additional_fields: [],
+        error: "Could not refresh project data before running the pipeline. Please check your connection and try again.",
+      };
+      setSchemaResult(errResult);
+      setStageStatus(s => ({ ...s, schema: "failed" }));
+      setPipelineRunning(false);
+      return;
     }
 
     sessionStorage.removeItem(`pipeline_state_${cp.id}`);
 
+    // Files are returned newest-first (orderBy uploadedAt desc in the API).
+    // find() therefore always picks the most-recently-uploaded active record.
     const activeFiles = cp.files || [];
-    const sourceKey = activeFiles.find((f: ProjectFile) => f.slot === "source" && f.isActive)?.s3Key;
-    const masterKey = activeFiles.find((f: ProjectFile) => f.slot === "master" && f.isActive)?.s3Key;
-    const logicKey = activeFiles.find((f: ProjectFile) => f.slot === "logic" && f.isActive)?.s3Key;
+    const sourceFile  = activeFiles.find((f: ProjectFile) => f.slot === "source" && f.isActive);
+    const masterFile  = activeFiles.find((f: ProjectFile) => f.slot === "master" && f.isActive);
+    const logicFile   = activeFiles.find((f: ProjectFile) => f.slot === "logic"  && f.isActive);
+    const sourceKey   = sourceFile?.s3Key;
+    const masterKey   = masterFile?.s3Key;
+    const logicKey    = logicFile?.s3Key;
 
-    console.log("[runPipeline] source_key:", sourceKey, "| master_key:", masterKey, "| logic_key:", logicKey);
+    console.log("[runPipeline] active file records selected:");
+    console.log("  source →", sourceFile  ? `id=${sourceFile.id}  uploadedAt=${(sourceFile as any).uploadedAt}  s3Key=${sourceKey}` : "(none)");
+    console.log("  master →", masterFile  ? `id=${masterFile.id}  uploadedAt=${(masterFile as any).uploadedAt}  s3Key=${masterKey}` : "(none)");
+    console.log("  logic  →", logicFile   ? `id=${logicFile.id}   uploadedAt=${(logicFile as any).uploadedAt}  s3Key=${logicKey}`  : "(none)");
+    console.log("[runPipeline] all active files in project (newest first):");
+    activeFiles.filter((f: ProjectFile) => f.isActive).forEach((f: ProjectFile) => {
+      console.log(`  slot=${f.slot}  id=${f.id}  s3Key=${f.s3Key}  uploadedAt=${(f as any).uploadedAt}`);
+    });
 
     const persist = (
       status: Record<PipelineStage, StageStatus>,

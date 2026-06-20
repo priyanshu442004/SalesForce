@@ -12,7 +12,10 @@ export async function GET(
     const project = await db.project.findUnique({
       where: { id },
       include: {
-        files: true,
+        // Newest upload first so Array.find() always selects the latest active
+        // record per slot, even if a race condition temporarily left more than
+        // one isActive=true row for the same slot.
+        files: { orderBy: { uploadedAt: "desc" } },
         activities: { orderBy: { timestamp: "desc" } },
         outputs: { orderBy: { generatedAt: "desc" } }
       }

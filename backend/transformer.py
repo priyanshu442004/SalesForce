@@ -319,10 +319,57 @@ def transform_datetime_value(value: Any) -> str:
 # "Add New Field" — derived column expression evaluation
 # ---------------------------------------------------------------------------
 
+def _anf_tokenize_text(expression: str) -> list[tuple[str, str]]:
+    """Tokenize a text ANF expression into (kind, value) pairs.
+
+    Walks the expression character by character so that quoted literals are
+    never split on '+' and field names are never confused with literals.
+
+    kind == 'field'   → source column name (case-insensitive lookup)
+    kind == 'literal' → verbatim string from single- or double-quoted segment
+    """
+    tokens: list[tuple[str, str]] = []
+    i = 0
+    pending: list[str] = []
+
+    while i < len(expression):
+        ch = expression[i]
+        if ch in ('"', "'"):
+            # Flush any accumulated field name before the quote
+            field = "".join(pending).strip()
+            if field:
+                tokens.append(("field", field))
+            pending = []
+            # Capture everything up to the matching closing quote
+            quote = ch
+            i += 1
+            literal: list[str] = []
+            while i < len(expression) and expression[i] != quote:
+                literal.append(expression[i])
+                i += 1
+            tokens.append(("literal", "".join(literal)))
+            i += 1  # skip closing quote
+        elif ch == "+":
+            field = "".join(pending).strip()
+            if field:
+                tokens.append(("field", field))
+            pending = []
+            i += 1
+        else:
+            pending.append(ch)
+            i += 1
+
+    field = "".join(pending).strip()
+    if field:
+        tokens.append(("field", field))
+
+    return tokens
+
+
 def anf_parse_field_names(expression: str, data_type: str) -> list[str]:
     """Return the source field names referenced in an ANF expression.
 
-    For text type, operands are separated by '+'.
+    For text type, tokenizes properly so quoted literals are excluded.
     For number type, operands are separated by any of + - * /.
     """
     if data_type == "number":
@@ -331,7 +378,7 @@ def anf_parse_field_names(expression: str, data_type: str) -> list[str]:
             for t in re.split(r"([+\-*/])", expression)
             if t.strip() and t.strip() not in ("+", "-", "*", "/")
         ]
-    return [p.strip() for p in expression.split("+") if p.strip()]
+    return [value for kind, value in _anf_tokenize_text(expression) if kind == "field"]
 
 
 def _anf_col_map(source_df: pd.DataFrame) -> dict[str, str]:
@@ -342,16 +389,20 @@ def _anf_col_map(source_df: pd.DataFrame) -> dict[str, str]:
 def _anf_text_series(expression: str, source_df: pd.DataFrame) -> pd.Series:
     """Evaluate a text-concatenation expression (operands joined by '+').
 
+    Supports quoted string literals: NAME+"-"+CODE produces "John-2345".
     Field resolution is case-insensitive: 'name' matches the source column 'NAME'.
     All referenced fields must already have been validated as present.
     """
     col_map = _anf_col_map(source_df)
-    parts   = anf_parse_field_names(expression, "text")
+    tokens  = _anf_tokenize_text(expression)
     result  = pd.Series([""] * len(source_df), dtype=object)
-    for col_name in parts:
-        actual = col_map.get(col_name.lower())
-        if actual is not None:
-            result = result + source_df[actual].apply(clean_cell)
+    for kind, value in tokens:
+        if kind == "literal":
+            result = result + value
+        else:
+            actual = col_map.get(value.lower())
+            if actual is not None:
+                result = result + source_df[actual].apply(clean_cell)
     return result
 
 

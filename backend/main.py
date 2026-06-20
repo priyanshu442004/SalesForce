@@ -69,26 +69,47 @@ s3_client = boto3.client(
     region_name=AWS_REGION
 )
 
-# Helper function to download file from S3 to a local temp file
+# Helper function to download file from S3 to a local temp file.
+# NOTE: do NOT call head_object here. s3:HeadObject is a separate IAM action
+# from s3:GetObject, and many bucket policies grant only GetObject. boto3's
+# download_file uses a single GetObject for files < 8 MB (no HeadObject).
+# Diagnostic detail is extracted from the ClientError raised by download_file.
 def temp_download(s3_key: str) -> str:
+    print(f"[temp_download] attempting s3://{AWS_BUCKET_NAME}/{s3_key}")
     suffix = os.path.splitext(s3_key)[1] or ".xlsx"
     temp_fd, temp_path = tempfile.mkstemp(suffix=suffix)
     os.close(temp_fd)
     try:
-        response = s3_client.get_object(Bucket=AWS_BUCKET_NAME, Key=s3_key)
-        with open(temp_path, "wb") as f:
-            f.write(response["Body"].read())
+        s3_client.download_file(AWS_BUCKET_NAME, s3_key, temp_path)
+        print(f"[temp_download] downloaded OK → {temp_path}")
         return temp_path
     except Exception as e:
         if os.path.exists(temp_path):
             os.remove(temp_path)
-        raise HTTPException(status_code=500, detail=f"Failed to download {s3_key} from S3: {str(e)}")
+        err_str = str(e)
+        code = getattr(getattr(e, "response", None), "get", lambda *_: None)("Error", {}).get("Code", "")
+        if "404" in err_str or "NoSuchKey" in err_str or code == "404":
+            raise HTTPException(
+                status_code=404,
+                detail=f"S3 key does not exist: '{s3_key}'. Re-upload the file and try again.",
+            )
+        if "403" in err_str or "Forbidden" in err_str or code == "403":
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"S3 key not found or inaccessible: '{s3_key}'. "
+                    "The file may have been uploaded under a different project or deleted. "
+                    "Re-upload the file and try again."
+                ),
+            )
+        raise HTTPException(status_code=500, detail=f"Failed to download '{s3_key}' from S3: {err_str}")
 
 
 # Helper to upload local file to S3
 def upload_to_s3(local_path: str, s3_key: str):
     try:
         s3_client.upload_file(local_path, AWS_BUCKET_NAME, s3_key)
+        print(f"[upload_to_s3] uploaded OK → s3://{AWS_BUCKET_NAME}/{s3_key}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload output to S3: {str(e)}")
 

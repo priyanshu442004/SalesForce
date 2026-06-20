@@ -7,7 +7,8 @@ import pandas as pd
 
 
 EMAIL_RE = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$")
-PHONE_ALLOWED_RE = re.compile(r"^[+\d\-\s]+$")
+PHONE_ALLOWED_RE = re.compile(r"^[+\d\-\s()]+$")
+_PHONE_LENGTHS_RE = re.compile(r"^phone\((\d+(?:,\d+)*)\)$")
 # Matches scientific notation strings produced by Excel when numeric cells are
 # read back as text (e.g. "9.2006E+11").
 _PHONE_SCI_RE = re.compile(r"^[+-]?\d+\.?\d*[Ee][+-]?\d+$")
@@ -125,19 +126,34 @@ def _normalize_phone_str(value: Any) -> str:
     return s
 
 
-def validate_phone(value: Any, _format: Any = None) -> bool:
+def _parse_phone_allowed_lengths(normalized_type: Any) -> Optional[list]:
+    """Parse allowed digit counts from a normalized Phone type string.
+
+    Returns a list of ints for Phone(10), Phone(10,11,12), etc.
+    Returns None for bare "phone" (no length restriction).
+    """
+    if normalized_type is None:
+        return None
+    m = _PHONE_LENGTHS_RE.fullmatch(str(normalized_type).strip().lower())
+    if not m:
+        return None
+    return [int(x) for x in m.group(1).split(",")]
+
+
+def validate_phone(value: Any, normalized_type: Any = None) -> bool:
     s = _normalize_phone_str(value)
+    # Reject any character that isn't a digit or standard phone formatting char.
     if not PHONE_ALLOWED_RE.fullmatch(s):
         return False
-    # Bare digit-only strings (no +, -, spaces): enforce a 7-10 digit cap so
-    # that scientific-notation-inflated values like 9.2006E+11 → 920060000000
-    # (12 digits) are correctly rejected.
-    if re.fullmatch(r"\d+", s):
-        return 7 <= len(s) <= 10
-    # Formatted strings (contain +, -, or spaces): validate digit count per
-    # E.164 (7-15 digits) to allow country-code prefixes like +91 XXXXXXXXXX.
-    digit_count = sum(c.isdigit() for c in s)
-    return 7 <= digit_count <= 15
+    # Strip all formatting characters; only digits count for length.
+    digits = re.sub(r"\D", "", s)
+    if not digits:
+        return False
+    allowed_lengths = _parse_phone_allowed_lengths(normalized_type)
+    if allowed_lengths is None:
+        # Bare Phone — any non-zero digit count is valid.
+        return True
+    return len(digits) in allowed_lengths
 
 def validate_text(value: Any, format_value: Any = None) -> bool:
     if value is None:
@@ -517,6 +533,9 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
         if normalized_type.startswith("number"):
             lookup_type = "number"
 
+        if normalized_type.startswith("phone"):
+            lookup_type = "phone"
+
         validator_config = VALIDATORS.get(lookup_type)
 
         if validator_config is None or field_name not in source_df.columns:
@@ -535,6 +554,9 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
                 validation_config = data_type
 
             if lookup_type == "number":
+                validation_config = normalized_type
+
+            if lookup_type == "phone":
                 validation_config = normalized_type
 
             if not validator(value, validation_config):
@@ -727,38 +749,49 @@ def write_validation_report(issues: list[ValidationIssue], output_path: str) -> 
     ]
     summary_df = pd.DataFrame(summary_rows, columns=["Field", "Issue Types", "Count"])
 
-    # ── Sheet 2: Detailed Errors ──────────────────────────────────────────────
-    # Group raw issues by field (preserving first-occurrence order).
-    field_issues: dict[str, list] = {}
+    # ── Sheet 2: Error Frequency Summary ─────────────────────────────────────
+    # Group by (field, issue_type, actual_value) and count occurrences.
+    freq: dict[tuple, int] = {}
     for issue in issues:
-        field = issue.get("field", "")
-        if field not in field_issues:
-            field_issues[field] = []
-        field_issues[field].append(issue)
+        field      = issue.get("field", "") or ""
+        issue_type = issue.get("issue_type", "") or ""
+        raw_value  = issue.get("value")
+        value      = "Blank" if (raw_value is None or str(raw_value).strip() == "") else str(raw_value)
+        key = (field, issue_type, value)
+        freq[key] = freq.get(key, 0) + 1
+
+    freq_rows = sorted(
+        [
+            {"Field": k[0], "Count of Errors": cnt, "Issue Type": k[1], "Values Found": k[2]}
+            for k, cnt in freq.items()
+        ],
+        key=lambda r: (r["Field"], -r["Count of Errors"]),
+    )
 
     # Write both sheets into a single workbook.
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
         summary_df.to_excel(writer, index=False, sheet_name="Summary")
 
-        ws = writer.book.create_sheet("Detailed Errors")
+        ws = writer.book.create_sheet("Error Frequency")
+        headers = ["Field", "Count of Errors", "Issue Type", "Values Found"]
 
-        # Each field block occupies 3 columns; blocks are separated by 1 blank
-        # spacer column, giving a stride of 4.
-        col = 1  # openpyxl uses 1-based column indices
-        for field, errs in field_issues.items():
-            # Row 1 – block headers
-            ws.cell(row=1, column=col).value = field
-            ws.cell(row=1, column=col + 1).value = "Error Details"
-            ws.cell(row=1, column=col + 2).value = "Actual vs Expected"
+        # Header row
+        for col_idx, header in enumerate(headers, start=1):
+            ws.cell(row=1, column=col_idx).value = header
 
-            # Data rows (starting at row 2)
-            for data_row, err in enumerate(errs, start=2):
-                row_num   = err.get("row", "")
-                iss_type  = err.get("issue_type", "")
-                actual    = err.get("value") or "Blank"
-                expected  = re.sub(r"(?i)^one of:\s*", "", err.get("expected") or "")
+        # Data rows
+        for row_idx, row_data in enumerate(freq_rows, start=2):
+            ws.cell(row=row_idx, column=1).value = row_data["Field"]
+            ws.cell(row=row_idx, column=2).value = row_data["Count of Errors"]
+            ws.cell(row=row_idx, column=3).value = row_data["Issue Type"]
+            ws.cell(row=row_idx, column=4).value = row_data["Values Found"]
 
-                ws.cell(row=data_row, column=col + 1).value = f"Row {row_num} - {iss_type}"
-                ws.cell(row=data_row, column=col + 2).value = f"{actual} - {expected}"
-
-            col += 4  # advance past this block's 3 columns + 1 blank spacer
+        # Auto-fit column widths based on max content length
+        for col_idx, header in enumerate(headers, start=1):
+            col_letter = ws.cell(row=1, column=col_idx).column_letter
+            max_len = len(header)
+            for row_idx in range(2, ws.max_row + 1):
+                cell_val = ws.cell(row=row_idx, column=col_idx).value
+                if cell_val is not None:
+                    max_len = max(max_len, len(str(cell_val)))
+            ws.column_dimensions[col_letter].width = min(max_len + 4, 60)
