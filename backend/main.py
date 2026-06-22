@@ -6,6 +6,7 @@ import uuid
 import io
 import zipfile
 from datetime import datetime
+from typing import List
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Header, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -460,6 +461,7 @@ def transform_data(
     source_key: str = Query(...),
     logic_key: str = Query(...),
     master_key: str = Query(...),
+    skipped_fields: List[str] = Query(default=[]),
     x_project_id: str = Header(None)
 ):
     """
@@ -491,6 +493,7 @@ def transform_data(
             logic_path=temp_logic,
             master_path=temp_master,
             output_dir=temp_output_dir,
+            skipped_fields=skipped_fields,
         )
 
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")

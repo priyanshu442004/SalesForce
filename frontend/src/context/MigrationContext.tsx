@@ -190,6 +190,7 @@ interface MigrationContextType {
   transformResult: TransformResult | null;
   transformError: string | null;
   runPipeline: () => Promise<void>;
+  proceedWithSkips: (skippedFields: string[]) => Promise<void>;
   resetPipelineState: () => void;
   restorePipelineState: (saved: {
     stageStatus?: Record<PipelineStage, StageStatus>;
@@ -1137,6 +1138,115 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const proceedWithSkips = async (skippedFields: string[]) => {
+    if (!currentProject) return;
+    const cp = currentProject;
+    const activeFiles = cp.files || [];
+    const sourceFile = activeFiles.find((f: ProjectFile) => f.slot === "source" && f.isActive);
+    const masterFile = activeFiles.find((f: ProjectFile) => f.slot === "master" && f.isActive);
+    const logicFile  = activeFiles.find((f: ProjectFile) => f.slot === "logic"  && f.isActive);
+    const sourceKey  = sourceFile?.s3Key;
+    const masterKey  = masterFile?.s3Key;
+    const logicKey   = logicFile?.s3Key;
+    const effectiveSource = cleaningResult?.cleanedS3Key || sourceKey;
+    if (!effectiveSource || !masterKey || !logicKey) return;
+
+    setPipelineRunning(true);
+    setStageStatus(s => ({ ...s, validation: "passed", transformation: "running" }));
+    setTransformError(null);
+
+    const validationTotalRecords = dataValidationResult?.total_records ?? 0;
+    const _schema    = schemaResult;
+    const _cleaning  = cleaningResult;
+    const _validation = dataValidationResult;
+
+    const persistState = (transformationStatus: StageStatus, transformResult: TransformResult | null) => {
+      try {
+        sessionStorage.setItem(`pipeline_state_${cp.id}`, JSON.stringify({
+          stageStatus: { schema: "passed", cleaning: "passed", validation: "passed", transformation: transformationStatus },
+          schemaResult: _schema,
+          cleaningResult: _cleaning,
+          dataValidationResult: _validation,
+          transformResult,
+        }));
+      } catch (_e) {}
+    };
+
+    try {
+      let url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(effectiveSource)}&master_key=${encodeURIComponent(masterKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      for (const field of skippedFields) {
+        url += `&skipped_fields=${encodeURIComponent(field)}`;
+      }
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "x-project-id": cp.id },
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(parseErrorDetail(errorBody?.detail, "Data transformation failed"));
+      }
+      const data = await response.json();
+      const sheetOutputs: SheetOutput[] = (data.outputs ?? []).map((o: any) => ({
+        sheetName: o.sheetName,
+        fileName: o.fileName,
+        transformedS3Key: o.transformedS3Key,
+        totalRows: o.total_rows ?? 0,
+        transformedColumns: o.transformed_columns ?? [],
+        lookupStats: o.lookup_stats ?? [],
+      }));
+
+      for (const out of sheetOutputs) {
+        await fetch(`/api/projects/${cp.id}/outputs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: out.fileName,
+            fileType: "transformed_data",
+            s3Key: out.transformedS3Key,
+            recordsCount: validationTotalRecords,
+          }),
+        });
+      }
+
+      if (data.zipS3Key) {
+        const link = document.createElement("a");
+        link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(data.zipS3Key)}`;
+        link.setAttribute("download", data.zipFileName || "transformed_data.zip");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } else if (sheetOutputs[0]?.transformedS3Key) {
+        const out = sheetOutputs[0];
+        const link = document.createElement("a");
+        link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(out.transformedS3Key)}`;
+        link.setAttribute("download", out.fileName || "transformed_data.xlsx");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+
+      const finalTransformResult: TransformResult = {
+        outputs: sheetOutputs,
+        zipS3Key: data.zipS3Key ?? null,
+        zipFileName: data.zipFileName ?? null,
+        generatedAt: data.generatedAt || new Date().toISOString(),
+        totalRecords: validationTotalRecords,
+      };
+      setTransformResult(finalTransformResult);
+      persistState("passed", finalTransformResult);
+      await updateProjectStage("TRANSFORMED", 100);
+      await logActivity("Transformation", currentUser?.name || "User", `Completed Data Transformation (skipped fields: ${skippedFields.join(", ")})`, "Success", data);
+      setStageStatus(s => ({ ...s, transformation: "passed" }));
+    } catch (error) {
+      setTransformError(error instanceof Error ? error.message : "Data transformation failed");
+      setStageStatus(s => ({ ...s, transformation: "failed" }));
+      persistState("failed", null);
+      await logActivity("Transformation", currentUser?.name || "User", `Data transformation failed: ${error instanceof Error ? error.message : String(error)}`, "Failed", { error: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setPipelineRunning(false);
+    }
+  };
+
   // Base on DB-confirmed file state, not the fake progress animation,
   // so the Continue button only enables once files are truly registered in S3/DB.
   const isContinueEnabled = !!(
@@ -1197,6 +1307,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         transformResult,
         transformError,
         runPipeline,
+        proceedWithSkips,
         resetPipelineState,
         restorePipelineState,
       }}

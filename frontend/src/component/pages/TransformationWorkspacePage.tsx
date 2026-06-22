@@ -443,8 +443,19 @@ export default function TransformationWorkspacePage() {
     transformResult,
     transformError,
     runPipeline,
+    proceedWithSkips,
     restorePipelineState,
   } = useMigration();
+
+  const [checkedRows, setCheckedRows] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (dataValidationResult?.issues) {
+      const initial: Record<string, boolean> = {};
+      dataValidationResult.issues.forEach(issue => { initial[issue.field] = false; });
+      setCheckedRows(initial);
+    }
+  }, [dataValidationResult]);
 
   // True while the auto-run triggered by "Continue to Transformation Workspace" is pending.
   // Used to show "Starting pipeline…" only when an actual auto-run is imminent, not when the
@@ -944,9 +955,28 @@ export default function TransformationWorkspacePage() {
               </div>
             </div>
             {validationHasIssues && (
-              <Button type="button" variant="danger" onClick={downloadValidationReport}>
-                <Download size={14} />Download Report
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="danger" onClick={downloadValidationReport}>
+                  <Download size={14} />Download Report
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={
+                    pipelineRunning ||
+                    dataValidationResult.issues.length === 0 ||
+                    !dataValidationResult.issues.every(issue => checkedRows[issue.field] === true)
+                  }
+                  onClick={() => {
+                    const skippedFields = dataValidationResult.issues
+                      .filter(issue => checkedRows[issue.field])
+                      .map(issue => issue.field);
+                    proceedWithSkips(skippedFields);
+                  }}
+                >
+                  Proceed
+                </Button>
+              </div>
             )}
           </div>
           <div className="p-5 lg:p-6">
@@ -966,6 +996,7 @@ export default function TransformationWorkspacePage() {
                   <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-xs">
                     <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                       <tr>
+                        <th className="px-4 py-3">Skip?</th>
                         <th className="px-4 py-3">Field</th>
                         <th className="px-4 py-3">Issue Types</th>
                         <th className="px-4 py-3 text-right">Count</th>
@@ -974,6 +1005,14 @@ export default function TransformationWorkspacePage() {
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300">
                       {dataValidationResult.issues.map((issue, i) => (
                         <tr key={`${issue.field}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={checkedRows[issue.field] ?? false}
+                              onChange={e => setCheckedRows(prev => ({ ...prev, [issue.field]: e.target.checked }))}
+                              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 accent-blue-600 cursor-pointer"
+                            />
+                          </td>
                           <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{issue.field}</td>
                           <td className="px-4 py-3 text-rose-700 dark:text-rose-400">{issue.issue_types}</td>
                           <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-slate-900 dark:text-slate-100">{issue.count}</td>

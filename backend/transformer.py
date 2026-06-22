@@ -914,6 +914,7 @@ def transform_source_data(
     logic_path: str,
     master_path: str,
     output_dir: str,
+    skipped_fields: list[str] | None = None,
 ) -> dict[str, Any]:
     """Process all mapping sheets independently and return per-sheet results.
 
