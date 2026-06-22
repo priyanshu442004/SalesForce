@@ -560,11 +560,20 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
                 validation_config = normalized_type
 
             if not validator(value, validation_config):
+                if lookup_type in ("text", "number"):
+                    length_match = re.search(r"\((\d+)", str(data_type))
+                    resolved_issue_type = (
+                        f"Length should not be exceeded from {length_match.group(1)}"
+                        if length_match
+                        else issue_type
+                    )
+                else:
+                    resolved_issue_type = issue_type
                 issues.append(
                     {
                         "row": int(row_index) + 2,
                         "field": field_name,
-                        "issue_type": issue_type,
+                        "issue_type": resolved_issue_type,
                         "value": str(value),
                         "expected": expected,
                     }
