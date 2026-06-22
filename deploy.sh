@@ -203,7 +203,12 @@ echo -e "${GREEN}PM2 processes registered and saved successfully.${CLEAR}"
 echo -e "${YELLOW}>>> [7/7] Configuring Nginx Reverse Proxy...${CLEAR}"
 
 NGINX_CONF="/etc/nginx/sites-available/$DOMAIN"
-sudo tee "$NGINX_CONF" > /dev/null <<EOT
+
+if [ -f "$NGINX_CONF" ] && grep -q "managed by Certbot" "$NGINX_CONF"; then
+    echo -e "${GREEN}Nginx config already has SSL/Certbot configuration. Skipping overwrite to preserve SSL certificates.${CLEAR}"
+else
+    echo -e "${BLUE}Writing new Nginx configuration (HTTP only)...${CLEAR}"
+    sudo tee "$NGINX_CONF" > /dev/null <<EOT
 server {
     listen 80;
     listen [::]:80;
@@ -232,8 +237,8 @@ server {
         proxy_cache_bypass \$http_upgrade;
     }
 }
-
 EOT
+fi
 
 # Enable config and restart nginx
 sudo ln -sf "$NGINX_CONF" "/etc/nginx/sites-enabled/"

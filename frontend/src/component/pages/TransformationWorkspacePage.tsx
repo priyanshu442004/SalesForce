@@ -421,9 +421,19 @@ export default function TransformationWorkspacePage() {
   const [previewSheetData, setPreviewSheetData] = useState<Record<string, PreviewSheet>>({});
   const [previewActiveTab, setPreviewActiveTab] = useState<string>("");
 
+  // Staged Files Preview States (Source Data, Salesforce Master, Mapping Logic)
+  const [filePreviewOpen, setFilePreviewOpen] = useState(false);
+  const [filePreviewSlot, setFilePreviewSlot] = useState<"source" | "master" | "logic">("source");
+  const [filePreviewSheet, setFilePreviewSheet] = useState<string>("");
+  const [fileSheetNames, setFileSheetNames] = useState<string[]>([]);
+  const [filePreviewData, setFilePreviewData] = useState<Record<string, PreviewSheet>>({});
+  const [filePreviewLoading, setFilePreviewLoading] = useState(false);
+  const [filePreviewError, setFilePreviewError] = useState<string | null>(null);
+
   const {
     currentUser,
     currentProject,
+    uploadedFiles,
     isContinueEnabled,
     pipelineRunning,
     stageStatus,
@@ -485,6 +495,84 @@ export default function TransformationWorkspacePage() {
     });
     if (latest) setSelectedStep(latest);
   }, [stageStatus]);
+
+  // Clear file preview cache on project change
+  useEffect(() => {
+    setFilePreviewData({});
+    setFilePreviewOpen(false);
+    setFilePreviewError(null);
+  }, [currentProject?.id]);
+
+  const loadFilePreview = async (slot: "source" | "master" | "logic", sheetName?: string) => {
+    const s3Key = currentProject?.files?.find(f => f.slot === slot && f.isActive)?.s3Key;
+    if (!s3Key) {
+      setFilePreviewError("File path not found in project context.");
+      return;
+    }
+
+    setFilePreviewLoading(true);
+    setFilePreviewError(null);
+
+    try {
+      let url = `${NEXT_PUBLIC_API_URL}/api/preview-output?s3_key=${encodeURIComponent(s3Key)}&limit=100`;
+      if (sheetName) {
+        url += `&sheet_name=${encodeURIComponent(sheetName)}`;
+      }
+
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => null);
+        throw new Error(err?.detail || "Failed to load workbook preview.");
+      }
+
+      const data = await resp.json();
+      
+      // Update sheet names and active sheet
+      setFileSheetNames(data.sheet_names || []);
+      const selected = data.selected_sheet || "";
+      setFilePreviewSheet(selected);
+
+      // Cache the loaded sheet data
+      const finalCacheKey = `${slot}_${selected}`;
+      setFilePreviewData(prev => ({
+        ...prev,
+        [finalCacheKey]: {
+          columns: data.columns || [],
+          rows: data.rows || [],
+          rowCount: data.row_count || 0,
+        }
+      }));
+    } catch (err: any) {
+      setFilePreviewError(err.message || "Failed to load preview data.");
+    } finally {
+      setFilePreviewLoading(false);
+    }
+  };
+
+  const handleOpenFilePreview = async (slot: "source" | "master" | "logic") => {
+    setFilePreviewOpen(true);
+    setFilePreviewSlot(slot);
+    setFilePreviewSheet("");
+    setFileSheetNames([]);
+    await loadFilePreview(slot);
+  };
+
+  const handleFileSlotChange = async (slot: "source" | "master" | "logic") => {
+    setFilePreviewSlot(slot);
+    setFilePreviewSheet("");
+    setFileSheetNames([]);
+    await loadFilePreview(slot);
+  };
+
+  const handleFileSheetChange = async (sheetName: string) => {
+    setFilePreviewSheet(sheetName);
+    const cacheKey = `${filePreviewSlot}_${sheetName}`;
+    if (filePreviewData[cacheKey]) {
+      // Use cached data
+      return;
+    }
+    await loadFilePreview(filePreviewSlot, sheetName);
+  };
 
 
 
@@ -1182,19 +1270,83 @@ export default function TransformationWorkspacePage() {
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3">
-            {pipelineRunning && (
-              <span className="inline-flex items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/30 px-4 py-2.5 text-xs font-bold text-blue-700 dark:text-blue-300">
-                <LoaderCircle size={14} className="animate-spin" />
-                Processing…
-              </span>
+          <div className="flex flex-wrap items-center gap-4 shrink-0 lg:justify-end">
+            {/* Staged Files Preview Widget */}
+            {currentProject && uploadedFiles && (
+              <div className="flex items-center gap-2.5 bg-white/40 dark:bg-[#1E293B]/40 backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/80 p-2 rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+                <div className="hidden xl:block px-2 border-r border-slate-250 dark:border-slate-700">
+                  <span className="block text-[8px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Staged Files</span>
+                  <span className="block text-[10px] font-extrabold text-slate-600 dark:text-slate-400">Click to preview</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {(["source", "master", "logic"] as const).map((slot) => {
+                    const fileInfo = uploadedFiles[slot];
+                    const toneColors = {
+                      source: {
+                        bg: "bg-emerald-50 dark:bg-emerald-950/30",
+                        text: "text-emerald-700 dark:text-emerald-400",
+                        border: "border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50/10",
+                      },
+                      master: {
+                        bg: "bg-blue-50 dark:bg-blue-950/30",
+                        text: "text-blue-700 dark:text-blue-400",
+                        border: "border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/10",
+                      },
+                      logic: {
+                        bg: "bg-violet-50 dark:bg-violet-950/30",
+                        text: "text-violet-700 dark:text-violet-400",
+                        border: "border-slate-200 dark:border-slate-700 hover:border-violet-400 dark:hover:border-violet-500 hover:bg-violet-50/10",
+                      },
+                    }[slot];
+
+                    const title = {
+                      source: "Source",
+                      master: "Master",
+                      logic: "Logic",
+                    }[slot];
+
+                    if (!fileInfo) return null;
+
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => handleOpenFilePreview(slot)}
+                        className={cx(
+                          "group flex items-center gap-2 rounded-xl border bg-white dark:bg-slate-800/80 px-2.5 py-1.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-sm cursor-pointer",
+                          toneColors.border
+                        )}
+                      >
+                        <span className={cx("flex h-6 w-6 items-center justify-center rounded-lg transition-transform group-hover:scale-110", toneColors.bg, toneColors.text)}>
+                          <FileSpreadsheet size={13} />
+                        </span>
+                        <div className="max-w-[100px] truncate leading-tight">
+                          <span className="block text-[8px] font-extrabold uppercase tracking-wide text-slate-400 dark:text-slate-500">{title}</span>
+                          <span className="block truncate text-[10px] font-bold text-slate-700 dark:text-slate-300" title={fileInfo.name}>
+                            {fileInfo.name}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
-            {pipelineHasRun && !pipelineRunning && (
-              <Button type="button" variant="secondary" onClick={runPipeline}>
-                <RefreshCw size={14} />
-                Re-run Pipeline
-              </Button>
-            )}
+
+            <div className="flex items-center gap-3">
+              {pipelineRunning && (
+                <span className="inline-flex items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/30 px-4 py-2.5 text-xs font-bold text-blue-700 dark:text-blue-300">
+                  <LoaderCircle size={14} className="animate-spin" />
+                  Processing…
+                </span>
+              )}
+              {pipelineHasRun && !pipelineRunning && (
+                <Button type="button" variant="secondary" onClick={runPipeline}>
+                  <RefreshCw size={14} />
+                  Re-run Pipeline
+                </Button>
+              )}
+            </div>
           </div>
         </header>
 
@@ -1269,6 +1421,205 @@ export default function TransformationWorkspacePage() {
         loadingSheet={previewLoadingSheet}
         error={previewError}
       />
+
+      {/* Staged Files Preview Modal */}
+      {filePreviewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4"
+          onClick={() => setFilePreviewOpen(false)}
+        >
+          <div
+            className="relative flex w-full max-w-[95vw] lg:max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-2xl transition-all duration-300"
+            style={{ maxHeight: "88vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex flex-none items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4 bg-slate-50/50 dark:bg-slate-800/30">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-1 ring-blue-100 dark:ring-blue-800/30">
+                  <FileSpreadsheet size={20} />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-950 dark:text-slate-100">Workbook Inspector</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Preview raw sheets and metadata properties.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFilePreviewOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <XCircle size={20} />
+              </button>
+            </div>
+
+            {/* Level 1: File Switcher Tab Bar */}
+            <div className="flex flex-none border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40 px-6 py-3 gap-2 overflow-x-auto">
+              {(["source", "master", "logic"] as const).map((slot) => {
+                const fileInfo = uploadedFiles?.[slot];
+                const isSelected = filePreviewSlot === slot;
+                
+                if (!fileInfo) return null;
+                
+                const label = {
+                  source: "Source Data",
+                  master: "Master Metadata",
+                  logic: "Mapping Logic",
+                }[slot];
+
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => handleFileSlotChange(slot)}
+                    className={cx(
+                      "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all border shrink-0",
+                      isSelected
+                        ? "bg-blue-600 border-blue-600 text-white shadow-sm"
+                        : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    )}
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>{label}</span>
+                    <span className={cx(
+                      "rounded-full px-1.5 py-0.5 text-[9px] font-semibold tracking-normal",
+                      isSelected ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                    )}>
+                      {fileInfo.size}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Level 2: Sheet Selector Tabs (only shown if multi-sheet) */}
+            {fileSheetNames.length > 1 && (
+              <div className="flex flex-none gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/20 px-6 pt-2.5">
+                {fileSheetNames.map((sheet) => (
+                  <button
+                    key={sheet}
+                    type="button"
+                    onClick={() => handleFileSheetChange(sheet)}
+                    className={cx(
+                      "shrink-0 rounded-t-lg border border-b-0 px-4 py-2 text-[11px] font-extrabold tracking-wide transition-colors focus:outline-none",
+                      filePreviewSheet === sheet
+                        ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-blue-600 dark:text-blue-400"
+                        : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
+                    )}
+                  >
+                    {sheet}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Main Grid View */}
+            <div className="min-h-0 flex-1 overflow-auto bg-slate-50/30 dark:bg-slate-900/10">
+              {filePreviewError && (
+                <div className="m-6 flex items-start gap-3 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-900/20 p-4">
+                  <XCircle size={16} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                  <p className="text-xs text-rose-800 dark:text-rose-300">{filePreviewError}</p>
+                </div>
+              )}
+
+              {filePreviewLoading && (
+                <div className="flex flex-col items-center justify-center py-28 text-center">
+                  <LoaderCircle size={32} className="animate-spin text-blue-600 dark:text-blue-400" />
+                  <p className="mt-3 text-xs font-bold text-slate-500 dark:text-slate-400">Downloading and parsing workbook sheet...</p>
+                </div>
+              )}
+
+              {!filePreviewLoading && !filePreviewError && (() => {
+                const currentData = filePreviewData[`${filePreviewSlot}_${filePreviewSheet}`];
+                if (!currentData) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                      <p className="text-xs text-slate-400 dark:text-slate-500">No sheet selected or available.</p>
+                    </div>
+                  );
+                }
+
+                if (currentData.columns.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                      <p className="text-xs text-slate-400 dark:text-slate-500">No data found in this sheet.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="overflow-auto max-h-full">
+                    <table className="min-w-full border-collapse text-left text-xs">
+                      <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-sm border-b border-slate-200 dark:border-slate-700">
+                        <tr>
+                          <th className="w-12 border-r border-slate-200 dark:border-slate-700 px-3 py-3 text-right text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800">
+                            #
+                          </th>
+                          {currentData.columns.map((col) => (
+                            <th
+                              key={col}
+                              className="whitespace-nowrap border-r border-slate-200 dark:border-slate-700 px-4 py-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300 last:border-r-0 bg-slate-100 dark:bg-slate-800"
+                            >
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
+                        {currentData.rows.map((row, rowIdx) => (
+                          <tr
+                            key={rowIdx}
+                            className={cx(
+                              "transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30",
+                              rowIdx % 2 === 0
+                                ? "bg-white dark:bg-[#1E293B]"
+                                : "bg-slate-50/30 dark:bg-slate-800/10"
+                            )}
+                          >
+                            <td className="border-r border-slate-150 dark:border-slate-700 px-3 py-2 text-right font-mono text-[10px] text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-800/20">
+                              {rowIdx + 1}
+                            </td>
+                            {row.map((cell, colIdx) => (
+                              <td
+                                key={colIdx}
+                                className="max-w-[280px] truncate border-r border-slate-100 dark:border-slate-800 px-4 py-2 text-slate-700 dark:text-slate-300 last:border-r-0 font-medium"
+                              >
+                                {cell === null || cell === undefined ? (
+                                  <span className="italic text-slate-300 dark:text-slate-600">—</span>
+                                ) : (
+                                  String(cell)
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            {!filePreviewLoading && !filePreviewError && (() => {
+              const currentData = filePreviewData[`${filePreviewSlot}_${filePreviewSheet}`];
+              if (!currentData || currentData.columns.length === 0) return null;
+              return (
+                <div className="flex flex-none items-center justify-between border-t border-slate-150 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-850 px-6 py-3 text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+                  <span>
+                    Showing first {currentData.rowCount} row{currentData.rowCount === 1 ? "" : "s"}
+                  </span>
+                  <span className="italic">
+                    Preview limited to first 100 rows for speed and performance
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

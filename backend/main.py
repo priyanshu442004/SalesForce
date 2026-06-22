@@ -545,11 +545,12 @@ def transform_data(
 @app.get("/api/preview-output")
 def preview_output(
     s3_key: str = Query(...),
-    limit: int = Query(100, ge=1, le=500)
+    limit: int = Query(100, ge=1, le=500),
+    sheet_name: str = Query(None)
 ):
     """
-    Reads an already-generated transformed output file from S3 and returns the
-    first `limit` rows as JSON. Reuses the existing artifact — no reprocessing.
+    Reads a file (Excel or CSV) from S3 and returns the first `limit` rows as JSON,
+    along with sheet names if the file is an Excel workbook.
     """
     import math
     import pandas as pd
@@ -569,7 +570,23 @@ def preview_output(
     temp_path = None
     try:
         temp_path = temp_download(s3_key)
-        df = pd.read_excel(temp_path, nrows=limit)
+        ext = os.path.splitext(s3_key)[1].lower()
+        sheet_names = []
+        selected_sheet = None
+
+        if ext in [".xlsx", ".xls"]:
+            with pd.ExcelFile(temp_path) as xl:
+                sheet_names = xl.sheet_names
+                if sheet_name and sheet_name in sheet_names:
+                    selected_sheet = sheet_name
+                else:
+                    selected_sheet = sheet_names[0] if sheet_names else None
+                df = pd.read_excel(xl, sheet_name=selected_sheet, nrows=limit)
+        else:
+            df = pd.read_csv(temp_path, nrows=limit)
+            sheet_names = ["CSV"]
+            selected_sheet = "CSV"
+
         columns = [str(c) for c in df.columns.tolist()]
         rows = [[safe_val(v) for v in row] for row in df.values.tolist()]
         return {
@@ -577,6 +594,8 @@ def preview_output(
             "columns": columns,
             "rows": rows,
             "row_count": len(rows),
+            "sheet_names": sheet_names,
+            "selected_sheet": selected_sheet
         }
     except HTTPException:
         raise
