@@ -955,28 +955,9 @@ export default function TransformationWorkspacePage() {
               </div>
             </div>
             {validationHasIssues && (
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="danger" onClick={downloadValidationReport}>
-                  <Download size={14} />Download Report
-                </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  disabled={
-                    pipelineRunning ||
-                    dataValidationResult.issues.length === 0 ||
-                    !dataValidationResult.issues.every(issue => checkedRows[issue.field] === true)
-                  }
-                  onClick={() => {
-                    const skippedFields = dataValidationResult.issues
-                      .filter(issue => checkedRows[issue.field])
-                      .map(issue => issue.field);
-                    proceedWithSkips(skippedFields);
-                  }}
-                >
-                  Proceed
-                </Button>
-              </div>
+              <Button type="button" variant="danger" onClick={downloadValidationReport}>
+                <Download size={14} />Download Report
+              </Button>
             )}
           </div>
           <div className="p-5 lg:p-6">
@@ -1021,6 +1002,26 @@ export default function TransformationWorkspacePage() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+            {validationHasIssues && dataValidationResult.issues.length > 0 && (
+              <div className="mt-4 flex justify-end">
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={
+                    pipelineRunning ||
+                    !dataValidationResult.issues.every(issue => checkedRows[issue.field] === true)
+                  }
+                  onClick={() => {
+                    const skippedFields = dataValidationResult.issues
+                      .filter(issue => checkedRows[issue.field])
+                      .map(issue => issue.field);
+                    proceedWithSkips(skippedFields);
+                  }}
+                >
+                  Proceed
+                </Button>
               </div>
             )}
           </div>
