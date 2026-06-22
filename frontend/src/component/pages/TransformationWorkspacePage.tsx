@@ -443,8 +443,19 @@ export default function TransformationWorkspacePage() {
     transformResult,
     transformError,
     runPipeline,
+    proceedWithSkips,
     restorePipelineState,
   } = useMigration();
+
+  const [checkedRows, setCheckedRows] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (dataValidationResult?.issues) {
+      const initial: Record<string, boolean> = {};
+      dataValidationResult.issues.forEach(issue => { initial[issue.field] = false; });
+      setCheckedRows(initial);
+    }
+  }, [dataValidationResult]);
 
   // True while the auto-run triggered by "Continue to Transformation Workspace" is pending.
   // Used to show "Starting pipeline…" only when an actual auto-run is imminent, not when the
@@ -966,6 +977,7 @@ export default function TransformationWorkspacePage() {
                   <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-xs">
                     <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                       <tr>
+                        <th className="px-4 py-3">Skip?</th>
                         <th className="px-4 py-3">Field</th>
                         <th className="px-4 py-3">Issue Types</th>
                         <th className="px-4 py-3 text-right">Count</th>
@@ -974,6 +986,14 @@ export default function TransformationWorkspacePage() {
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300">
                       {dataValidationResult.issues.map((issue, i) => (
                         <tr key={`${issue.field}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={checkedRows[issue.field] ?? false}
+                              onChange={e => setCheckedRows(prev => ({ ...prev, [issue.field]: e.target.checked }))}
+                              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 accent-blue-600 cursor-pointer"
+                            />
+                          </td>
                           <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{issue.field}</td>
                           <td className="px-4 py-3 text-rose-700 dark:text-rose-400">{issue.issue_types}</td>
                           <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-slate-900 dark:text-slate-100">{issue.count}</td>
@@ -982,6 +1002,26 @@ export default function TransformationWorkspacePage() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+            {validationHasIssues && dataValidationResult.issues.length > 0 && (
+              <div className="mt-4 flex justify-end">
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={
+                    pipelineRunning ||
+                    !dataValidationResult.issues.every(issue => checkedRows[issue.field] === true)
+                  }
+                  onClick={() => {
+                    const skippedFields = dataValidationResult.issues
+                      .filter(issue => checkedRows[issue.field])
+                      .map(issue => issue.field);
+                    proceedWithSkips(skippedFields);
+                  }}
+                >
+                  Proceed
+                </Button>
               </div>
             )}
           </div>
@@ -1240,34 +1280,28 @@ export default function TransformationWorkspacePage() {
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50/80 dark:bg-[#0F172A]">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-5 py-7 sm:px-7 lg:px-9 lg:py-8">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-5 py-5 sm:px-7 lg:px-9 lg:py-6">
 
         {/* Page header */}
-        <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
+        <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
             <Link
               href="/upload"
-              className="mb-3 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 transition-colors hover:text-blue-700 dark:hover:text-blue-400"
+              className="mb-2 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 transition-colors hover:text-blue-700 dark:hover:text-blue-400"
             >
               <ArrowLeft size={13} />
               Back to file upload
             </Link>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-400">
-              <Sparkles size={14} />
-              Transformation workspace
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-xl font-bold tracking-[-0.025em] text-slate-950 dark:text-slate-100 sm:text-2xl">
+                {pipelineRunning ? "Processing migration…" : transformationSucceeded ? "Migration complete" : "Transformation workspace"}
+              </h2>
+              {currentProject && (
+                <span className="max-w-[180px] truncate rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:text-slate-400 ring-1 ring-slate-200 dark:ring-slate-700">
+                  {currentProject.name}
+                </span>
+              )}
             </div>
-            <h2 className="text-2xl font-bold tracking-[-0.025em] text-slate-950 dark:text-slate-100 sm:text-[28px]">
-              {pipelineRunning ? "Processing migration…" : transformationSucceeded ? "Migration complete" : "Transformation workspace"}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              {transformationSucceeded
-                ? "All stages passed. Click any step in the progress bar to review its metrics."
-                : pipelineHasRun
-                ? "Pipeline stopped. Click any completed step to review results, then re-run after fixing issues."
-                : autoRunPending
-                ? "Starting pipeline automatically — schema validation, cleaning, data validation, and transformation will run in sequence."
-                : "Upload your files and run the pipeline, or use the button below to start now."}
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-4 shrink-0 lg:justify-end">
