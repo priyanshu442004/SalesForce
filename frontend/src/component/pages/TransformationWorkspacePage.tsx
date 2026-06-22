@@ -1280,34 +1280,28 @@ export default function TransformationWorkspacePage() {
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50/80 dark:bg-[#0F172A]">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-5 py-7 sm:px-7 lg:px-9 lg:py-8">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-5 py-5 sm:px-7 lg:px-9 lg:py-6">
 
         {/* Page header */}
-        <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
+        <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
             <Link
               href="/upload"
-              className="mb-3 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 transition-colors hover:text-blue-700 dark:hover:text-blue-400"
+              className="mb-2 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 transition-colors hover:text-blue-700 dark:hover:text-blue-400"
             >
               <ArrowLeft size={13} />
               Back to file upload
             </Link>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-400">
-              <Sparkles size={14} />
-              Transformation workspace
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-xl font-bold tracking-[-0.025em] text-slate-950 dark:text-slate-100 sm:text-2xl">
+                {pipelineRunning ? "Processing migration…" : transformationSucceeded ? "Migration complete" : "Transformation workspace"}
+              </h2>
+              {currentProject && (
+                <span className="max-w-[180px] truncate rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:text-slate-400 ring-1 ring-slate-200 dark:ring-slate-700">
+                  {currentProject.name}
+                </span>
+              )}
             </div>
-            <h2 className="text-2xl font-bold tracking-[-0.025em] text-slate-950 dark:text-slate-100 sm:text-[28px]">
-              {pipelineRunning ? "Processing migration…" : transformationSucceeded ? "Migration complete" : "Transformation workspace"}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              {transformationSucceeded
-                ? "All stages passed. Click any step in the progress bar to review its metrics."
-                : pipelineHasRun
-                ? "Pipeline stopped. Click any completed step to review results, then re-run after fixing issues."
-                : autoRunPending
-                ? "Starting pipeline automatically — schema validation, cleaning, data validation, and transformation will run in sequence."
-                : "Upload your files and run the pipeline, or use the button below to start now."}
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-4 shrink-0 lg:justify-end">
