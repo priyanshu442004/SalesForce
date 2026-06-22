@@ -16,6 +16,7 @@ export default function Sidebar() {
     { name: "Transformation Workspace", path: "/transformation-workspace", icon: "layers" },
     { name: "Projects", path: "/projects", icon: "folder" },
     { name: "Activity Log", path: "/activity-log", icon: "activity" },
+    { name: "History", path: "/history", icon: "clock" },
   ];
 
   return (
