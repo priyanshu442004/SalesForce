@@ -55,7 +55,7 @@ export default function Header() {
             </svg>
           </button>
           <div className="flex items-center gap-2">
-            <h1 className="text-[19px] lg:text-[22px] font-extrabold text-[#000839] dark:text-white tracking-tight">
+            <h1 className="text-[18px] lg:text-[20px] font-semibold text-slate-900 dark:text-white tracking-tight">
               {getPageTitle()}
             </h1>
             {pathname === "/transformation-workspace" && currentProject && (
@@ -92,7 +92,7 @@ export default function Header() {
           >
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-[#1e293b]/40 pb-4">
-                <span className="font-extrabold text-white text-[15px] tracking-wider uppercase">Data Migrate</span>
+                <span className="font-semibold text-white text-[15px] tracking-wider uppercase">Data Migrate</span>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-slate-400 hover:text-white cursor-pointer select-none"
@@ -108,7 +108,7 @@ export default function Header() {
                       key={idx}
                       href={item.path}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-[13px] font-extrabold tracking-wide ${
+                      className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-[13px] font-semibold tracking-wide ${
                         isActive ? "bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white" : "text-slate-400"
                       }`}
                     >

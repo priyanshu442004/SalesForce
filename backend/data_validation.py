@@ -53,6 +53,16 @@ def validate_datetime(value: Any, _format: Any = None) -> bool:
     return not pd.isna(pd.to_datetime(value, errors="coerce"))
 
 
+def _is_parseable_number(value: Any) -> bool:
+    """Return True when value can be interpreted as a finite number (not a bool)."""
+    if isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def _parse_number_format(type_str: Any) -> tuple[Optional[int], Optional[int]]:
     """Parse Number(before) or Number(before,after) from a data-type string.
 
@@ -563,13 +573,21 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
                 validation_config = normalized_type
 
             if not validator(value, validation_config):
-                if lookup_type in ("text", "number"):
+                if lookup_type == "text":
                     length_match = re.search(r"\((\d+)", str(data_type))
                     resolved_issue_type = (
                         f"Length should not be exceeded from {length_match.group(1)}"
                         if length_match
                         else issue_type
                     )
+                elif lookup_type == "number":
+                    length_match = re.search(r"\((\d+)", str(data_type))
+                    # Only report a length violation when the value IS numeric;
+                    # non-numeric values (e.g. "three") must report a type error.
+                    if length_match and _is_parseable_number(value):
+                        resolved_issue_type = f"Length should not be exceeded from {length_match.group(1)}"
+                    else:
+                        resolved_issue_type = issue_type
                 else:
                     resolved_issue_type = issue_type
                 issues.append(

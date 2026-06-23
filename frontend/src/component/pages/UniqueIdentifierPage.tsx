@@ -208,7 +208,7 @@ export default function UniqueIdentifierPage() {
                     </span>
                     <div className="min-w-0">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
                           Source File
                         </span>
                         {activeFile && (
@@ -390,18 +390,18 @@ export default function UniqueIdentifierPage() {
                   {/* Stat blocks */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-xl bg-white dark:bg-slate-800/80 p-4 ring-1 ring-slate-200 dark:ring-slate-700 shadow-sm">
-                      <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
                         Columns
                       </p>
-                      <p className="mt-1.5 text-4xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums">
+                      <p className="mt-1.5 text-4xl font-semibold tracking-tight text-slate-900 dark:text-white tabular-nums">
                         {results!.length}
                       </p>
                     </div>
                     <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/30 p-4 ring-1 ring-indigo-100 dark:ring-indigo-800/30">
-                      <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-400">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-400">
                         Unique Values
                       </p>
-                      <p className="mt-1.5 text-4xl font-black tracking-tight text-indigo-600 dark:text-indigo-300 tabular-nums">
+                      <p className="mt-1.5 text-4xl font-semibold tracking-tight text-indigo-600 dark:text-indigo-300 tabular-nums">
                         {totalUnique.toLocaleString()}
                       </p>
                     </div>

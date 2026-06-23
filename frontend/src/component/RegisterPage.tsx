@@ -107,21 +107,17 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 relative overflow-hidden select-none font-sans">
-      
-      {/* Background Animated Gradient Blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#002BFF]/10 rounded-full blur-[120px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+    <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 select-none font-sans">
 
-      <div className="max-w-md w-full mx-4 relative z-10">
-        
+      <div className="max-w-md w-full mx-4">
+
         {/* Logo and Brand */}
         <div className="text-center mb-8 space-y-2.5">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#002BFF] to-purple-600 shadow-xl shadow-blue-500/25 mb-2">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 shadow-lg mb-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="28"
-              height="28"
+              width="24"
+              height="24"
               viewBox="0 0 24 24"
               fill="none"
               stroke="white"
@@ -134,25 +130,25 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
               <path d="M9 11h6" />
             </svg>
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">
+          <h1 className="text-2xl font-bold text-white tracking-tight">
             Data Migrate
           </h1>
-          <p className="text-[13.5px] font-bold text-slate-400">
+          <p className="text-sm font-medium text-slate-400">
             Salesforce Migration Lifecycle Platform
           </p>
         </div>
 
         {/* Register Card */}
-        <div className="bg-slate-950/40 border border-slate-800/80 backdrop-blur-md rounded-3xl p-8 shadow-2xl space-y-6">
-          <div className="space-y-1.5 text-center sm:text-left">
-            <h2 className="text-xl font-extrabold text-white">Create Account</h2>
-            <p className="text-xs font-bold text-slate-500">
-              Register a new account to enter the workspace.
+        <div className="bg-slate-800/50 border border-slate-700/80 backdrop-blur-sm rounded-xl p-8 shadow-2xl space-y-6">
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-semibold text-white">Create Account</h2>
+            <p className="text-xs text-slate-400">
+              Register a new account to access the workspace.
             </p>
           </div>
 
           {error && (
-            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/25 text-red-400 text-xs font-extrabold flex items-center gap-2.5">
+            <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/25 text-red-400 text-xs font-medium flex items-center gap-2.5">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
@@ -163,8 +159,8 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
                 Full Name
               </label>
               <input
@@ -173,12 +169,12 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Amit Sharma"
-                className="w-full h-12 px-4 rounded-xl bg-slate-900 border border-slate-800 text-white text-[14px] font-bold placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/35 transition-all"
+                className="w-full h-11 px-4 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm font-medium placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
                 Email Address
               </label>
               <input
@@ -187,12 +183,12 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="amit@mail.com"
-                className="w-full h-12 px-4 rounded-xl bg-slate-900 border border-slate-800 text-white text-[14px] font-bold placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/35 transition-all"
+                className="w-full h-11 px-4 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm font-medium placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
                 Password
               </label>
               <input
@@ -201,17 +197,17 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full h-12 px-4 rounded-xl bg-slate-900 border border-slate-800 text-white text-[14px] font-bold placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/35 transition-all"
+                className="w-full h-11 px-4 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm font-medium placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
               />
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-12 rounded-xl bg-[#002BFF] hover:bg-blue-700 text-white text-[14px] font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              className="w-full h-11 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
-                <div className="w-5 h-5 border-2.5 border-white border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 "Sign Up"
               )}
@@ -222,9 +218,9 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
           <div className="space-y-3 pt-2">
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-800"></div>
+                <div className="w-full border-t border-slate-700"></div>
               </div>
-              <span className="relative px-3 bg-[#0d1527] text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              <span className="relative px-3 bg-slate-800/50 text-[10px] font-medium text-slate-500 uppercase tracking-widest">
                 or
               </span>
             </div>
@@ -234,12 +230,12 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
           </div>
 
           <div className="text-center pt-2">
-            <p className="text-xs font-bold text-slate-500">
+            <p className="text-xs text-slate-500">
               Already have an account?{" "}
               <button
                 type="button"
                 onClick={onNavigateToLogin}
-                className="text-blue-500 hover:text-blue-400 transition-colors focus:outline-none font-black cursor-pointer"
+                className="text-blue-400 hover:text-blue-300 transition-colors focus:outline-none font-semibold cursor-pointer"
               >
                 Sign In
               </button>

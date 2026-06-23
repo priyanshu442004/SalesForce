@@ -84,7 +84,7 @@ function UploadCard({ config, file, onUpload, onClear }: {
               </span>
               <div className="min-w-0">
                 <div className="mb-1 flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Step {config.step}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Step {config.step}</span>
                   {isComplete && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-100 dark:ring-emerald-800/30">
                       <Check size={11} strokeWidth={3} />Uploaded
@@ -199,7 +199,7 @@ export default function UploadFilesPage() {
       <div className="flex-1 flex items-center justify-center p-8 bg-slate-50/50 dark:bg-[#0F172A] min-h-[calc(100vh-60px)]">
         <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
           <div className="bg-slate-900 px-6 py-5 text-white">
-            <div className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-widest text-blue-400">
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-blue-400">
               <Sparkles size={14} className="animate-pulse" />Setup Workspace
             </div>
             <h3 className="mt-1.5 text-lg font-bold">Select or Create a Project</h3>
@@ -230,7 +230,7 @@ export default function UploadFilesPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Select Project Workspace</label>
+                    <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Select Project Workspace</label>
                     <select value={selectedProjId} onChange={(e) => setSelectedProjId(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
                       {projectList.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.stage.replace("_", " ")})</option>)}
@@ -244,7 +244,7 @@ export default function UploadFilesPage() {
             ) : (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Project Name</label>
+                  <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Project Name</label>
                   <input type="text" placeholder="e.g. Acme Q3 Salesforce Migration" value={newProjName} onChange={(e) => setNewProjName(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                 </div>
@@ -271,7 +271,7 @@ export default function UploadFilesPage() {
 
         <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <div className="mb-2 flex items-center gap-2.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-400">
+            <div className="mb-2 flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-400">
               <Sparkles size={14} />
               Migration setup
               <span className="text-slate-300 dark:text-slate-600">|</span>

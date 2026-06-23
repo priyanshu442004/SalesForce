@@ -46,31 +46,6 @@ interface AuditLog {
   };
 }
 
-function AnimatedCount({ target, duration = 850, suffix = "" }: { target: number; duration?: number; suffix?: string }) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    let startTimestamp: number | null = null;
-    let timerId: number;
-
-    const step = (timestamp: number) => {
-      if (!startTimestamp) startTimestamp = timestamp;
-      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-      setCount(Math.floor(progress * target));
-      if (progress < 1) {
-        timerId = requestAnimationFrame(step);
-      } else {
-        setCount(target);
-      }
-    };
-
-    timerId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(timerId);
-  }, [target, duration]);
-
-  return <>{count}{suffix}</>;
-}
-
 function aggregateValidationIssues(
   rawIssues: any[]
 ): Array<{ field: string; issue_types: string; count: number }> {
@@ -183,9 +158,9 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
       <div className={`rounded-xl border p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.005)] ${toneStyles}`}>
         <div className="flex items-center gap-2">
           {Icon && <Icon size={14} className="opacity-70" />}
-          <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-85">{label}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider opacity-85">{label}</span>
         </div>
-        <p className="mt-1 text-lg font-black tracking-tight">{value}</p>
+        <p className="mt-1 text-lg font-semibold tracking-tight">{value}</p>
         {helper && <p className="mt-0.5 text-[9px] font-semibold opacity-75">{helper}</p>}
       </div>
     );
@@ -198,7 +173,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-[#1E293B] px-6 py-4.5">
           <div className="space-y-1 min-w-0 flex-1 mr-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider ${
+              <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold uppercase tracking-wider ${
                 log.category === "Transformation" ? "bg-purple-50 text-purple-700 ring-1 ring-purple-100" :
                 log.category === "Mapping" ? "bg-blue-50 text-blue-700 ring-1 ring-blue-100" :
                 log.category === "Validation" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100" :
@@ -207,7 +182,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
               }`}>
                 {log.category}
               </span>
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black ${
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
                 log.status === "Success" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" :
                 log.status === "Warning" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100" :
                 "bg-rose-50 text-rose-700 ring-1 ring-rose-100"
@@ -222,7 +197,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
               {log.project && (
                 <button
                   onClick={() => onSelectProject(log.project!.id)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500 text-white rounded-lg text-[11px] font-black uppercase hover:bg-blue-600 transition-colors shadow-sm cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500 text-white rounded-lg text-[11px] font-semibold uppercase hover:bg-blue-600 transition-colors shadow-sm cursor-pointer"
                   title="Switch to this project workspace"
                 >
                   <FolderOpen size={11} />
@@ -230,7 +205,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                 </button>
               )}
             </div>
-            <h3 className="text-[17px] font-black tracking-tight text-slate-950 dark:text-white truncate">
+            <h3 className="text-[17px] font-semibold tracking-tight text-slate-950 dark:text-white truncate">
               {log.description}
             </h3>
           </div>
@@ -258,7 +233,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
             <div className="flex items-center gap-1.5">
               <FileText size={13} className="text-slate-400" />
               <span>Snapshot Files:</span>
-              <span className="rounded bg-slate-200/70 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-slate-300 font-extrabold">{fileStates.length}</span>
+              <span className="rounded bg-slate-200/70 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-slate-300 font-semibold">{fileStates.length}</span>
             </div>
           )}
         </div>
@@ -270,18 +245,18 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
             {/* Left Section: Reports */}
             <div className="lg:col-span-2 space-y-5">
               <div className="border-b border-slate-200 dark:border-slate-700 pb-2">
-                <h4 className="text-[12px] font-black uppercase tracking-wider text-slate-400">Activity Details</h4>
+                <h4 className="text-[12px] font-semibold uppercase tracking-wider text-slate-400">Activity Details</h4>
               </div>
 
               {/* Data Validation */}
               {isDataValidation && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Validation Execution Metrics</h5>
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Validation Execution Metrics</h5>
                     {details.reportS3Key && (
                       <button
                         onClick={() => downloadFile(details.reportS3Key, "data_validation_report.xlsx")}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all cursor-pointer shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all cursor-pointer shadow-sm"
                       >
                         <Download size={13} />
                         <span>Download Validation Report</span>
@@ -307,7 +282,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                       </div>
                       <div className="overflow-x-auto max-h-64 overflow-y-auto">
                         <table className="w-full border-collapse text-left text-xs">
-                          <thead className="sticky top-0 bg-slate-50/80 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                          <thead className="sticky top-0 bg-slate-50/80 dark:bg-slate-800/50 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
                             <tr>
                               <th className="px-3 py-2.5">Field</th>
                               <th className="px-3 py-2.5">Issue Types</th>
@@ -339,11 +314,11 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
               {isSchemaValidation && schemaResult && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Schema Validation Metrics</h5>
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Schema Validation Metrics</h5>
                     {!schemaResult.schema_valid && (
                       <button
                         onClick={downloadSchemaDiscrepancy}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all cursor-pointer"
                       >
                         <Download size={13} />
                         <span>Download Discrepancy Report</span>
@@ -376,7 +351,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                   {!schemaResult.schema_valid && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl p-4 shadow-sm">
-                        <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
                           Missing from source data ({schemaResult.missing_fields?.length || 0})
                         </h5>
@@ -389,7 +364,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                         </div>
                       </div>
                       <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl p-4 shadow-sm">
-                        <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
                           Missing from mapping logic ({schemaResult.additional_fields?.length || 0})
                         </h5>
@@ -410,11 +385,11 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
               {isDataCleaning && details.summary && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Cleaning Execution Metrics</h5>
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Cleaning Execution Metrics</h5>
                     {cleaningChanges.length > 0 && (
                       <button
                         onClick={downloadCleaningReport}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100 transition-all cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100 transition-all cursor-pointer"
                       >
                         <Download size={13} />
                         <span>Download Cleaning Log</span>
@@ -434,7 +409,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                     <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm flex flex-col">
                       <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-left text-xs">
-                          <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                          <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
                             <tr>
                               <th className="px-3 py-2.5">Row</th>
                               <th className="px-3 py-2.5">Column</th>
@@ -484,11 +459,11 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
               {isDataTransformation && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Transformation Summary</h5>
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Transformation Summary</h5>
                     {details.zipS3Key ? (
                       <button
                         onClick={() => downloadFile(details.zipS3Key, details.zipFileName || "transformed_data.zip")}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer shadow-md shadow-blue-500/10"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer shadow-md shadow-blue-500/10"
                       >
                         <Download size={13} />
                         <span>Download Transformed Files (ZIP)</span>
@@ -496,7 +471,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                     ) : transformOutputs[0]?.transformedS3Key ? (
                       <button
                         onClick={() => downloadFile(transformOutputs[0].transformedS3Key, transformOutputs[0].fileName || "transformed_data.xlsx")}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer shadow-md shadow-blue-500/10"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer shadow-md shadow-blue-500/10"
                       >
                         <Download size={13} />
                         <span>Download Transformed File</span>
@@ -512,7 +487,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                   <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse text-left text-xs">
-                        <thead className="bg-slate-50/50 dark:bg-slate-800/20 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b">
+                        <thead className="bg-slate-50/50 dark:bg-slate-800/20 text-[10px] font-semibold uppercase tracking-wider text-slate-500 border-b">
                           <tr>
                             <th className="px-4 py-3">Sheet Name</th>
                             <th className="px-4 py-3">Output File</th>
@@ -560,7 +535,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
 
               {details && !isDataValidation && !isSchemaValidation && !isDataCleaning && !isDataTransformation && (
                 <div className="space-y-2">
-                  <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Operation Metadata</h5>
+                  <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Operation Metadata</h5>
                   <pre className="p-4 bg-slate-900 text-slate-100 rounded-2xl text-[11px] font-mono overflow-auto max-h-72 leading-5 shadow-inner">
                     {JSON.stringify(details, null, 2)}
                   </pre>
@@ -571,7 +546,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
             {/* Right Section: Snapshots */}
             <div className="space-y-5">
               <div className="border-b border-slate-200 dark:border-slate-700 pb-2">
-                <h4 className="text-[12px] font-black uppercase tracking-wider text-slate-400">File Snapshot</h4>
+                <h4 className="text-[12px] font-semibold uppercase tracking-wider text-slate-400">File Snapshot</h4>
               </div>
 
               <div className="space-y-3">
@@ -599,10 +574,10 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                           </span>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[12.5px] font-black text-slate-900 dark:text-slate-200 truncate" title={file.fileName}>
+                              <span className="text-[12.5px] font-semibold text-slate-900 dark:text-slate-200 truncate" title={file.fileName}>
                                 {file.fileName}
                               </span>
-                              <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-extrabold uppercase tracking-wide shrink-0 ${
+                              <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-semibold uppercase tracking-wide shrink-0 ${
                                 isSource ? "bg-blue-100 text-blue-800" :
                                 isMaster ? "bg-emerald-100 text-emerald-800" :
                                 "bg-purple-100 text-purple-800"
@@ -795,9 +770,9 @@ export default function HistoryPage() {
   if (!currentUser) {
     return (
       <div className="flex flex-col items-center justify-center p-8 min-h-[calc(100vh-80px)] bg-slate-50 dark:bg-[#0F172A]">
-        <div className="max-w-md text-center space-y-4">
-          <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">Access Denied</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Please login to view migration history.</p>
+        <div className="max-w-md text-center space-y-3">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Access Denied</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Please login to view migration history.</p>
         </div>
       </div>
     );
@@ -805,47 +780,15 @@ export default function HistoryPage() {
 
   return (
     <div className="p-5 sm:p-7 lg:p-9 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden select-none bg-[#f8fafc] dark:bg-[#0F172A]">
-      
-      {/* CSS Animations Injection */}
-      <style jsx global>{`
-        @keyframes scaleUp {
-          from { opacity: 0; transform: scale(0.97) translateY(10px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        @keyframes fadeInRow {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes scaleUpModal {
-          from { opacity: 0; transform: scale(0.96) translateY(8px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .animate-scale-up {
-          animation: scaleUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-row {
-          animation: fadeInRow 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-scale-up-modal {
-          animation: scaleUpModal 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
 
       {/* Header bar */}
-      <div className="flex-none flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200/50 dark:border-slate-800 pb-4 opacity-0 animate-scale-up" style={{ animationDelay: "50ms" }}>
+      <div className="flex-none flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200/50 dark:border-slate-800 pb-4">
         <div className="space-y-1">
-          <h3 className="text-[24px] font-black text-[#002BFF] dark:text-blue-500 tracking-tight flex items-center gap-2">
-            <Clock size={24} className="text-[#002BFF] dark:text-blue-500" />
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            <Clock size={20} className="text-slate-500" />
             <span>Migration History & Logs</span>
           </h3>
-          <p className="text-[14.5px] font-bold text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Track all migration activities, view files, and inspect execution logs.
           </p>
         </div>
@@ -853,29 +796,27 @@ export default function HistoryPage() {
         {/* Global actions: Export and Purge */}
         <div className="flex items-center gap-2.5">
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shadow-inner border border-slate-200/40 dark:border-slate-700/40">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200/40 dark:border-slate-700/40">
             <button
               onClick={() => setViewMode("table")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                 viewMode === "table"
-                  ? "bg-white dark:bg-[#1E293B] text-[#002BFF] dark:text-blue-400 shadow-sm"
-                  : "text-slate-500 hover:text-slate-850 dark:hover:text-slate-200"
+                  ? "bg-white dark:bg-[#1E293B] text-blue-600 dark:text-blue-400 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
-              title="Table View"
             >
-              <List size={14} />
+              <List size={13} />
               <span>List</span>
             </button>
             <button
               onClick={() => setViewMode("timeline")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                 viewMode === "timeline"
-                  ? "bg-white dark:bg-[#1E293B] text-[#002BFF] dark:text-blue-400 shadow-sm"
-                  : "text-slate-500 hover:text-slate-850 dark:hover:text-slate-200"
+                  ? "bg-white dark:bg-[#1E293B] text-blue-600 dark:text-blue-400 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
-              title="Project Timeline View"
             >
-              <LayoutGrid size={14} />
+              <LayoutGrid size={13} />
               <span>Timeline</span>
             </button>
           </div>
@@ -883,76 +824,72 @@ export default function HistoryPage() {
           <button
             onClick={handleExportHistory}
             disabled={filteredLogs.length === 0}
-            className="px-4.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300 text-xs font-black flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors disabled:opacity-40 cursor-pointer shadow-sm"
+            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors disabled:opacity-40 cursor-pointer shadow-sm"
           >
-            <Download size={14} />
-            <span>Export to Excel</span>
+            <Download size={13} />
+            <span>Export</span>
           </button>
-          
+
           <button
             onClick={() => {
               setPurgeTarget(selectedProjectFilter === "All" ? "all" : "project");
               setShowPurgeConfirm(true);
             }}
-            className="px-4.5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-black flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-rose-500/10"
+            className="px-4 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
           >
-            <Trash2 size={14} />
+            <Trash2 size={13} />
             <span>Clear History</span>
           </button>
         </div>
       </div>
 
-      {/* Analytics Dashboard Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 flex-none opacity-0 animate-scale-up" style={{ animationDelay: "100ms" }}>
-        
-        {/* Total Actions */}
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-800 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
-          <div className="w-11 h-11 bg-blue-50 dark:bg-blue-900/30 text-[#002BFF] dark:text-blue-400 border border-blue-100 dark:border-blue-800/30 rounded-xl flex items-center justify-center">
-            <Database width="20" height="20" />
+      {/* Analytics Overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 flex-none">
+
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+          <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/30 rounded-lg flex items-center justify-center shrink-0">
+            <Database size={18} />
           </div>
-          <div className="space-y-0.5">
-            <span className="block text-[12.5px] font-bold text-slate-400">Total Activities</span>
-            <span className="block text-[23px] font-black text-slate-900 dark:text-white">
-              {isLoading ? "..." : <AnimatedCount target={totalCount} />}
+          <div>
+            <span className="block text-xs font-medium text-slate-400">Total Activities</span>
+            <span className="block text-2xl font-bold text-slate-900 dark:text-white mt-0.5">
+              {isLoading ? "—" : totalCount}
             </span>
           </div>
         </div>
 
-        {/* Success Rate */}
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-800 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
-          <div className="w-11 h-11 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/30 rounded-xl flex items-center justify-center">
-            <CheckCircle2 width="20" height="20" />
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+          <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/30 rounded-lg flex items-center justify-center shrink-0">
+            <CheckCircle2 size={18} />
           </div>
-          <div className="space-y-0.5">
-            <span className="block text-[12.5px] font-bold text-slate-400">Success Rate</span>
-            <span className="block text-[23px] font-black text-emerald-600">
-              {isLoading ? "..." : <AnimatedCount target={successRate} suffix="%" />}
+          <div>
+            <span className="block text-xs font-medium text-slate-400">Success Rate</span>
+            <span className="block text-2xl font-bold text-emerald-600 mt-0.5">
+              {isLoading ? "—" : `${successRate}%`}
             </span>
           </div>
         </div>
 
-        {/* Warnings Count */}
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-800 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
-          <div className="w-11 h-11 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/30 rounded-xl flex items-center justify-center">
-            <AlertTriangle width="20" height="20" />
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+          <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/30 rounded-lg flex items-center justify-center shrink-0">
+            <AlertTriangle size={18} />
           </div>
-          <div className="space-y-0.5">
-            <span className="block text-[12.5px] font-bold text-slate-400">Warnings</span>
-            <span className="block text-[23px] font-black text-amber-600">
-              {isLoading ? "..." : <AnimatedCount target={warningCount} />}
+          <div>
+            <span className="block text-xs font-medium text-slate-400">Warnings</span>
+            <span className="block text-2xl font-bold text-amber-600 mt-0.5">
+              {isLoading ? "—" : warningCount}
             </span>
           </div>
         </div>
 
-        {/* Errors Count */}
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-800 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
-          <div className="w-11 h-11 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800/30 rounded-xl flex items-center justify-center">
-            <XCircle width="20" height="20" />
+        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+          <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800/30 rounded-lg flex items-center justify-center shrink-0">
+            <XCircle size={18} />
           </div>
-          <div className="space-y-0.5">
-            <span className="block text-[12.5px] font-bold text-slate-400">Errors</span>
-            <span className="block text-[23px] font-black text-rose-600">
-              {isLoading ? "..." : <AnimatedCount target={errorCount} />}
+          <div>
+            <span className="block text-xs font-medium text-slate-400">Errors</span>
+            <span className="block text-2xl font-bold text-rose-600 mt-0.5">
+              {isLoading ? "—" : errorCount}
             </span>
           </div>
         </div>
@@ -960,8 +897,8 @@ export default function HistoryPage() {
       </div>
 
       {/* Quick Status pills & Filters Area */}
-      <div className="flex-none flex flex-col lg:flex-row gap-4 items-center justify-between opacity-0 animate-scale-up" style={{ animationDelay: "150ms" }}>
-        
+      <div className="flex-none flex flex-col lg:flex-row gap-3 items-center justify-between">
+
         {/* Quick status filter pills */}
         <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0">
           {[
@@ -975,10 +912,10 @@ export default function HistoryPage() {
               <button
                 key={item.value}
                 onClick={() => setSelectedStatus(item.value)}
-                className={`px-4 py-2 rounded-xl text-xs font-black border transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   isSelected
-                    ? "bg-[#002BFF] border-transparent text-white shadow-md shadow-blue-500/10"
-                    : "bg-white dark:bg-[#1E293B] border-slate-200/60 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    ? "bg-blue-600 border-transparent text-white shadow-sm"
+                    : "bg-white dark:bg-[#1E293B] border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
                 }`}
               >
                 {item.label}
@@ -990,13 +927,13 @@ export default function HistoryPage() {
         {/* Dropdown Filters & Search */}
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           {/* Search */}
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full sm:w-60">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search history..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-[13.5px] font-bold placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15 bg-white dark:bg-[#1E293B]"
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm font-medium placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white dark:bg-[#1E293B]"
             />
             <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
               <Search size={15} />
@@ -1004,12 +941,12 @@ export default function HistoryPage() {
           </div>
 
           {/* Project Filter */}
-          <div className="flex items-center gap-2 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-500">
+          <div className="flex items-center gap-2 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-500">
             <span>Project:</span>
             <select
               value={selectedProjectFilter}
               onChange={(e) => setSelectedProjectFilter(e.target.value)}
-              className="bg-transparent text-slate-800 dark:text-slate-200 focus:outline-none font-bold cursor-pointer"
+              className="bg-transparent text-slate-700 dark:text-slate-200 focus:outline-none font-medium cursor-pointer"
             >
               <option value="All">All Projects</option>
               {projectList.map((p) => (
@@ -1019,12 +956,12 @@ export default function HistoryPage() {
           </div>
 
           {/* Category Filter */}
-          <div className="flex items-center gap-2 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-500">
+          <div className="flex items-center gap-2 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-500">
             <span>Category:</span>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-transparent text-slate-800 dark:text-slate-200 focus:outline-none font-bold cursor-pointer"
+              className="bg-transparent text-slate-700 dark:text-slate-200 focus:outline-none font-medium cursor-pointer"
             >
               <option value="All">All Categories</option>
               <option value="Upload">Upload</option>
@@ -1039,7 +976,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Main logs display - List or Timeline */}
-      <div className="flex-1 bg-white dark:bg-[#1E293B] border border-slate-200/90 dark:border-slate-700 rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.005)] min-h-[350px] overflow-hidden flex flex-col opacity-0 animate-scale-up" style={{ animationDelay: "200ms" }}>
+      <div className="flex-1 bg-white dark:bg-[#1E293B] border border-slate-200/90 dark:border-slate-700 rounded-xl p-5 shadow-sm min-h-[350px] overflow-hidden flex flex-col">
         {isLoading ? (
           <div className="flex-1 flex justify-center items-center">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -1049,7 +986,7 @@ export default function HistoryPage() {
           <div className="overflow-x-auto flex-1 min-h-0">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-700 text-[13px] font-black text-slate-400 uppercase tracking-tight">
+                <tr className="border-b border-slate-100 dark:border-slate-700 text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   <th className="pb-4 pl-3">Timestamp</th>
                   <th className="pb-4">Project</th>
                   <th className="pb-4">Category</th>
@@ -1059,34 +996,33 @@ export default function HistoryPage() {
                   <th className="pb-4 text-right pr-4">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50 text-[14.5px] font-semibold text-slate-700 dark:text-slate-200">
+              <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50 text-sm font-medium text-slate-700 dark:text-slate-200">
                 {filteredLogs.length > 0 ? (
-                  filteredLogs.map((log, idx) => (
+                  filteredLogs.map((log) => (
                     <tr
                       key={log.id}
                       onClick={() => setSelectedLog(log)}
-                      className="hover:bg-slate-50/50 dark:hover:bg-slate-700/20 hover:border-l-[#002BFF] border-l-4 border-l-transparent cursor-pointer transition-all opacity-0 animate-row"
-                      style={{ animationDelay: `${250 + idx * 30}ms` }}
+                      className="hover:bg-slate-50/50 dark:hover:bg-slate-700/20 border-l-2 border-l-transparent hover:border-l-blue-500 cursor-pointer transition-colors"
                     >
-                      <td className="py-4 pl-3 font-mono text-[12.5px] text-slate-400">{log.timestamp}</td>
-                      <td className="py-4">
+                      <td className="py-3.5 pl-3 font-mono text-xs text-slate-400">{log.timestamp}</td>
+                      <td className="py-3.5">
                         {log.project ? (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSelectProject(log.project!.id);
                             }}
-                            className="text-[#002BFF] dark:text-blue-400 hover:underline font-extrabold flex items-center gap-1 text-left bg-transparent border-none cursor-pointer"
+                            className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm flex items-center gap-1 text-left bg-transparent border-none cursor-pointer"
                             title="Click to switch workspace to this project"
                           >
                             <span>{log.project.name}</span>
                           </button>
                         ) : (
-                          <span className="text-slate-400">N/A</span>
+                          <span className="text-slate-400 text-sm">N/A</span>
                         )}
                       </td>
-                      <td className="py-4">
-                        <span className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase ${
+                      <td className="py-3.5">
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-semibold uppercase ${
                           log.category === "Transformation" ? "bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400" :
                           log.category === "Mapping" ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" :
                           log.category === "Validation" ? "bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" :
@@ -1096,10 +1032,10 @@ export default function HistoryPage() {
                           {log.category}
                         </span>
                       </td>
-                      <td className="py-4 text-slate-900 dark:text-slate-300 font-extrabold">{log.actor}</td>
-                      <td className="py-4 text-slate-500 dark:text-slate-400 font-medium max-w-[300px] truncate" title={log.description}>{log.description}</td>
-                      <td className="py-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px] font-black ${
+                      <td className="py-3.5 text-slate-700 dark:text-slate-300 font-medium">{log.actor}</td>
+                      <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium max-w-[300px] truncate text-sm" title={log.description}>{log.description}</td>
+                      <td className="py-3.5">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                           log.status === "Success" ? "bg-emerald-50 text-emerald-700" :
                           log.status === "Warning" ? "bg-amber-50 text-amber-700" :
                           "bg-rose-50 text-rose-700"
@@ -1112,14 +1048,14 @@ export default function HistoryPage() {
                           <span>{log.status}</span>
                         </span>
                       </td>
-                      <td className="py-4 text-right pr-4">
+                      <td className="py-3.5 text-right pr-4">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedLog(log);
                             }}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                             title="Inspect log details"
                           >
                             <Eye size={14} />
@@ -1137,7 +1073,7 @@ export default function HistoryPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 font-black">
+                    <td colSpan={7} className="py-12 text-center text-slate-400 font-semibold">
                       No activities found matching your filters.
                     </td>
                   </tr>
@@ -1155,8 +1091,8 @@ export default function HistoryPage() {
                   {/* Timeline Project Header */}
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/35 dark:border-slate-800 pb-3">
                     <div className="flex items-center gap-2">
-                      <FolderOpen size={18} className="text-[#002BFF] dark:text-blue-400" />
-                      <h4 className="text-[16px] font-black text-slate-900 dark:text-white">{projectName}</h4>
+                      <FolderOpen size={16} className="text-blue-600 dark:text-blue-400" />
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{projectName}</h4>
                       <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10.5px] font-bold text-slate-500">
                         {group.logs.length} {group.logs.length === 1 ? "activity" : "activities"}
                       </span>
@@ -1196,7 +1132,7 @@ export default function HistoryPage() {
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 flex-wrap text-xs">
                               <span className="font-mono text-slate-400">{log.timestamp}</span>
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
                                 log.category === "Transformation" ? "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" :
                                 log.category === "Mapping" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
                                 log.category === "Validation" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
@@ -1209,7 +1145,7 @@ export default function HistoryPage() {
                                 <User size={11} /> {log.actor}
                               </span>
                             </div>
-                            <p className="text-[13.5px] font-semibold text-slate-700 dark:text-slate-200 group-hover:text-[#002BFF] dark:group-hover:text-blue-400 transition-colors">
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                               {log.description}
                             </p>
                           </div>
@@ -1241,7 +1177,7 @@ export default function HistoryPage() {
                 </div>
               ))
             ) : (
-              <div className="py-12 text-center text-slate-400 font-black">
+              <div className="py-12 text-center text-slate-400 font-semibold">
                 No activities found matching your filters.
               </div>
             )}
@@ -1261,11 +1197,11 @@ export default function HistoryPage() {
       {/* Purge Confirmation Modal */}
       {showPurgeConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-[#1E293B] rounded-2xl border border-slate-100 dark:border-slate-700 shadow-2xl p-6 space-y-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-6 space-y-4">
             <div className="flex items-start gap-3">
-              <span className="p-2 bg-rose-50 text-rose-600 rounded-lg"><AlertTriangle size={20} /></span>
+              <span className="p-2 bg-rose-50 text-rose-600 rounded-lg"><AlertTriangle size={18} /></span>
               <div>
-                <h4 className="text-lg font-black text-slate-950 dark:text-white">Clear History</h4>
+                <h4 className="text-base font-semibold text-slate-900 dark:text-white">Clear History</h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-4">
                   Are you sure you want to delete these history records? This action cannot be undone.
                 </p>
@@ -1273,7 +1209,7 @@ export default function HistoryPage() {
             </div>
 
             <div className="pt-2 flex flex-col gap-2.5">
-              <label className="flex items-center gap-2.5 text-xs font-black text-slate-700 dark:text-slate-300 cursor-pointer">
+              <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                 <input
                   type="radio"
                   name="purgeScope"
@@ -1285,7 +1221,7 @@ export default function HistoryPage() {
               </label>
 
               {selectedProjectFilter !== "All" && (
-                <label className="flex items-center gap-2.5 text-xs font-black text-slate-700 dark:text-slate-300 cursor-pointer">
+                <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                   <input
                     type="radio"
                     name="purgeScope"
@@ -1301,14 +1237,14 @@ export default function HistoryPage() {
             <div className="flex items-center justify-end gap-2.5 pt-3">
               <button
                 onClick={() => setShowPurgeConfirm(false)}
-                className="px-4 py-2 text-xs font-black border rounded-xl hover:bg-slate-50 text-slate-500 dark:text-slate-300 transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-medium border rounded-lg hover:bg-slate-50 text-slate-500 dark:text-slate-300 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePurgeHistory}
                 disabled={isPurging}
-                className="px-5 py-2 text-xs font-black bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-md transition-all active:scale-97 cursor-pointer"
+                className="px-5 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-60"
               >
                 {isPurging ? "Deleting..." : "Clear Logs"}
               </button>

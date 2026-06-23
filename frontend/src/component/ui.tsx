@@ -100,14 +100,14 @@ export function PageHeader({
         {backHref && (
           <Link
             href={backHref}
-            className="mb-3 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-blue-700"
+            className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-blue-700"
           >
             <ArrowLeft size={13} />
             Back to workspace
           </Link>
         )}
         {eyebrow && (
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-blue-700">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700">
             <IconComponent size={14} />
             {eyebrow}
           </div>
@@ -179,7 +179,7 @@ export function MetricCard({
     <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
           <div className={cx("mt-2 text-2xl font-bold tracking-tight tabular-nums", toneClasses[tone].value)}>{value}</div>
           {helper && <div className="mt-1 text-xs font-semibold text-slate-500">{helper}</div>}
         </div>

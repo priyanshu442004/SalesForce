@@ -95,7 +95,7 @@ function MetricTile({
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
           <div className="mt-2 text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-100 tabular-nums">{value}</div>
           <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{helper}</p>
         </div>
@@ -344,13 +344,13 @@ function PreviewModal({
             <table className="min-w-full border-collapse text-left text-xs">
               <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-sm">
                 <tr>
-                  <th className="w-10 border-b border-r border-slate-200 dark:border-slate-700 px-3 py-3 text-right text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
+                  <th className="w-10 border-b border-r border-slate-200 dark:border-slate-700 px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
                     #
                   </th>
                   {activeData.columns.map(col => (
                     <th
                       key={col}
-                      className="whitespace-nowrap border-b border-r border-slate-200 dark:border-slate-700 px-3 py-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 last:border-r-0"
+                      className="whitespace-nowrap border-b border-r border-slate-200 dark:border-slate-700 px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 last:border-r-0"
                     >
                       {col}
                     </th>
@@ -897,13 +897,13 @@ export default function TransformationWorkspacePage() {
             {cleaningResult.changes.length > 0 && (
               <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
                 <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
-                  <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                     Cleaning Log — {cleaningResult.changes.length} modification{cleaningResult.changes.length === 1 ? "" : "s"}
                   </span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-xs">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                       <tr>
                         <th className="px-4 py-3">Row</th>
                         <th className="px-4 py-3">Column</th>
@@ -975,7 +975,7 @@ export default function TransformationWorkspacePage() {
               <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-xs">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                       <tr>
                         <th className="px-4 py-3">Skip?</th>
                         <th className="px-4 py-3">Field</th>
@@ -1073,13 +1073,13 @@ export default function TransformationWorkspacePage() {
                 {/* Per-sheet breakdown */}
                 <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
                   <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
-                    <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                       Per-sheet Output Statistics
                     </span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-xs">
-                      <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                      <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                         <tr>
                           <th className="px-4 py-3">Mapping Sheet</th>
                           <th className="px-4 py-3">Output File</th>
@@ -1113,13 +1113,13 @@ export default function TransformationWorkspacePage() {
                 {allStats.length > 0 && (
                   <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
                     <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
-                      <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                         Per-column Lookup Statistics
                       </span>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-xs">
-                        <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                        <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                           <tr>
                             {sheetCount > 1 && <th className="px-4 py-3">Sheet</th>}
                             <th className="px-4 py-3">Column</th>
@@ -1211,13 +1211,13 @@ export default function TransformationWorkspacePage() {
             {/* Per-sheet output files table */}
             <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
               <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                   Output Files
                 </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-xs">
-                  <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                  <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                     <tr>
                       <th className="px-4 py-3">Mapping Sheet</th>
                       <th className="px-4 py-3">Output Filename</th>
@@ -1286,7 +1286,7 @@ export default function TransformationWorkspacePage() {
         <header className="flex flex-col gap-2">
           <Link
             href="/upload"
-            className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 transition-colors hover:text-blue-700 dark:hover:text-blue-400"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 transition-colors hover:text-blue-700 dark:hover:text-blue-400"
           >
             <ArrowLeft size={13} />
             Back to file upload
@@ -1316,8 +1316,8 @@ export default function TransformationWorkspacePage() {
               <div className="shrink-0">
                 <div className="flex items-center gap-2.5 bg-white/40 dark:bg-[#1E293B]/40 backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/80 p-2 rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
                   <div className="hidden xl:block px-2 border-r border-slate-250 dark:border-slate-700">
-                    <span className="block text-[8px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Staged Files</span>
-                    <span className="block text-[10px] font-extrabold text-slate-600 dark:text-slate-400">Click to preview</span>
+                    <span className="block text-[8px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Staged Files</span>
+                    <span className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400">Click to preview</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {(["source", "master", "logic"] as const).map((slot) => {
@@ -1362,7 +1362,7 @@ export default function TransformationWorkspacePage() {
                             <FileSpreadsheet size={13} />
                           </span>
                           <div className="max-w-[100px] truncate leading-tight">
-                            <span className="block text-[8px] font-extrabold uppercase tracking-wide text-slate-400 dark:text-slate-500">{title}</span>
+                            <span className="block text-[8px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{title}</span>
                             <span className="block truncate text-[10px] font-bold text-slate-700 dark:text-slate-300" title={fileInfo.name}>
                               {fileInfo.name}
                             </span>
@@ -1530,7 +1530,7 @@ export default function TransformationWorkspacePage() {
                     type="button"
                     onClick={() => handleFileSheetChange(sheet)}
                     className={cx(
-                      "shrink-0 rounded-t-lg border border-b-0 px-4 py-2 text-[11px] font-extrabold tracking-wide transition-colors focus:outline-none",
+                      "shrink-0 rounded-t-lg border border-b-0 px-4 py-2 text-[11px] font-semibold tracking-wide transition-colors focus:outline-none",
                       filePreviewSheet === sheet
                         ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-blue-600 dark:text-blue-400"
                         : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
@@ -1581,13 +1581,13 @@ export default function TransformationWorkspacePage() {
                     <table className="min-w-full border-collapse text-left text-xs">
                       <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-sm border-b border-slate-200 dark:border-slate-700">
                         <tr>
-                          <th className="w-12 border-r border-slate-200 dark:border-slate-700 px-3 py-3 text-right text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800">
+                          <th className="w-12 border-r border-slate-200 dark:border-slate-700 px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800">
                             #
                           </th>
                           {currentData.columns.map((col) => (
                             <th
                               key={col}
-                              className="whitespace-nowrap border-r border-slate-200 dark:border-slate-700 px-4 py-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300 last:border-r-0 bg-slate-100 dark:bg-slate-800"
+                              className="whitespace-nowrap border-r border-slate-200 dark:border-slate-700 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 last:border-r-0 bg-slate-100 dark:bg-slate-800"
                             >
                               {col}
                             </th>
