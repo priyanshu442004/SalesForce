@@ -240,7 +240,19 @@ def run_data_cleaning(source_path: str, logic_path: str) -> dict[str, Any]:
       error           str            (only when success=False)
     """
     try:
-        source_df = pd.read_excel(source_path)
+        src_ext = os.path.splitext(source_path)[1].lower()
+        print(f"Loading source file: {source_path}")
+        print(f"Detected extension: {src_ext}")
+        if src_ext == ".sql":
+            print("Using loader: SQL")
+            from processor import _load_sql_as_sheets
+            source_df = next(iter(_load_sql_as_sheets(source_path).values()))
+        elif src_ext == ".csv":
+            print("Using loader: CSV")
+            source_df = pd.read_csv(source_path)
+        else:
+            print("Using loader: Excel")
+            source_df = pd.read_excel(source_path)
         mandatory_fields = _get_mandatory_fields(logic_path)
 
         # ---- Diagnostic header ------------------------------------------------

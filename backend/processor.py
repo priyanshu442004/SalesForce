@@ -1,9 +1,27 @@
 import os
+import sqlite3
 import pandas as pd
 import numpy as np
 import datetime
 import traceback
 from transformer import resolve_mapping_columns, sanitize_dataframe, anf_parse_field_names, normalize_type
+
+
+def _load_sql_as_sheets(sql_path):
+    with open(sql_path, "r", encoding="utf-8", errors="replace") as f:
+        sql_script = f.read()
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(sql_script)
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    table_names = [row[0] for row in cursor.fetchall()]
+    sheets = {name.strip().lower(): pd.read_sql_query(f'SELECT * FROM "{name}"', conn) for name in table_names}
+    conn.close()
+    return sheets
+
+
+def _load_csv_as_sheets(csv_path):
+    stem = os.path.splitext(os.path.basename(csv_path))[0].strip().lower()
+    return {stem: pd.read_csv(csv_path)}
 
 def is_column_all_empty_or_null(series):
     """
@@ -72,7 +90,18 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
             raise FileNotFoundError(f"Mapping Logic file not found at {logic_path}")
             
         print("Loading Source Data and Mapping Logic sheets...")
-        source_df = pd.read_excel(source_path)
+        _src_ext = os.path.splitext(source_path)[1].lower()
+        print(f"Loading source file: {source_path}")
+        print(f"Detected extension: {_src_ext}")
+        if _src_ext == ".sql":
+            print("Using loader: SQL")
+            source_df = next(iter(_load_sql_as_sheets(source_path).values()))
+        elif _src_ext == ".csv":
+            print("Using loader: CSV")
+            source_df = pd.read_csv(source_path)
+        else:
+            print("Using loader: Excel")
+            source_df = pd.read_excel(source_path)
         source_df = sanitize_dataframe(source_df)
         
         # Read Mapping Logic
@@ -166,13 +195,30 @@ def process_preview(source_path: str, master_path: str, logic_path: str, output_
         print(f"Optimized Master sheets to load: {required_sheets}")
         
         master_sheets = {}
-        with pd.ExcelFile(master_path) as master_excel:
-            for s_name in master_excel.sheet_names:
-                s_name_clean = s_name.strip().lower()
-                if s_name_clean in required_sheets:
-                    print(f"Loading required master sheet: '{s_name}'")
-                    master_sheets[s_name_clean] = pd.read_excel(master_excel, sheet_name=s_name)
-                    master_sheets[s_name_clean] = sanitize_dataframe(master_sheets[s_name_clean])
+        _mst_ext = os.path.splitext(master_path)[1].lower()
+        print(f"Loading master file: {master_path}")
+        print(f"Detected extension: {_mst_ext}")
+        if _mst_ext == ".sql":
+            print("Using loader: SQL")
+            for tbl_name, tbl_df in _load_sql_as_sheets(master_path).items():
+                if tbl_name in required_sheets:
+                    print(f"Loading required master table: '{tbl_name}'")
+                    master_sheets[tbl_name] = sanitize_dataframe(tbl_df)
+        elif _mst_ext == ".csv":
+            print("Using loader: CSV")
+            stem = os.path.splitext(os.path.basename(master_path))[0].strip().lower()
+            if stem in required_sheets:
+                print(f"Loading required master table: '{stem}'")
+                master_sheets[stem] = sanitize_dataframe(pd.read_csv(master_path))
+        else:
+            print("Using loader: Excel")
+            with pd.ExcelFile(master_path) as master_excel:
+                for s_name in master_excel.sheet_names:
+                    s_name_clean = s_name.strip().lower()
+                    if s_name_clean in required_sheets:
+                        print(f"Loading required master sheet: '{s_name}'")
+                        master_sheets[s_name_clean] = pd.read_excel(master_excel, sheet_name=s_name)
+                        master_sheets[s_name_clean] = sanitize_dataframe(master_sheets[s_name_clean])
 
         # 4. Keep all columns from source file (no filtering of columns whose values are all blank or null)
         columns_list = []
@@ -772,8 +818,18 @@ def validate_schema(source_path: str, logic_path: str) -> dict:
         if not os.path.exists(logic_path):
             raise FileNotFoundError(f"Mapping Logic file not found at {logic_path}")
 
-        # Read source headers (first sheet of source file)
-        src_df = pd.read_excel(source_path, nrows=0)
+        src_ext = os.path.splitext(source_path)[1].lower()
+        print(f"Loading source file: {source_path}")
+        print(f"Detected extension: {src_ext}")
+        if src_ext == ".sql":
+            print("Using loader: SQL")
+            src_df = next(iter(_load_sql_as_sheets(source_path).values())).head(0)
+        elif src_ext == ".csv":
+            print("Using loader: CSV")
+            src_df = pd.read_csv(source_path, nrows=0)
+        else:
+            print("Using loader: Excel")
+            src_df = pd.read_excel(source_path, nrows=0)
         source_columns = [str(c) for c in src_df.columns]
 
         def _norm(s: str) -> str:

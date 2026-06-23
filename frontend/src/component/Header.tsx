@@ -27,6 +27,8 @@ export default function Header() {
         return "Active Projects Workspace";
       case "/activity-log":
         return "System Activity Log";
+      case "/unique-identifier":
+        return "Unique Identifier";
       default:
         return "Data Migrate Platform";
     }

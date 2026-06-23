@@ -667,7 +667,7 @@ def apply_transform_rule(series: pd.Series, rule: dict[str, Any]) -> list[str]:
 def apply_lookup_rule(
     series: pd.Series,
     rule: dict[str, Any],
-    master_excel: pd.ExcelFile,
+    master_sheets: dict[str, pd.DataFrame],
 ) -> tuple[list[str], int, int]:
     """Returns (results, matched_count, missed_count).
 
@@ -679,11 +679,12 @@ def apply_lookup_rule(
     search_column = rule["search_column"]
     copyable_column = rule["copyable_column"]
 
-
     if not master_sheet:
         return [""] * len(series), 0, 0
 
-    master_df = pd.read_excel(master_excel, sheet_name=master_sheet)
+    master_df = master_sheets.get(master_sheet.strip().lower())
+    if master_df is None:
+        return [""] * len(series), 0, 0
     master_df = sanitize_dataframe(master_df)
 
     lookup_map = {}
@@ -718,7 +719,7 @@ def _transform_one_sheet(
     source_df: pd.DataFrame,
     transform_rules: dict[str, dict[str, Any]],
     included_fields: set[str],
-    master_excel: pd.ExcelFile,
+    master_sheets: dict[str, pd.DataFrame],
     output_path: str,
     sheet_name: str,
     anf_rules: list[dict[str, Any]] | None = None,
@@ -769,7 +770,7 @@ def _transform_one_sheet(
             continue
 
         if rule["data_type"] == "lookup":
-            transformed_values, lk_matched, lk_missed = apply_lookup_rule(source_df[column], rule, master_excel)
+            transformed_values, lk_matched, lk_missed = apply_lookup_rule(source_df[column], rule, master_sheets)
             lookup_stats.append({
                 "column": source_column_name,
                 "matched": lk_matched,
@@ -833,13 +834,14 @@ def _transform_one_sheet(
 
             lookup_map: dict[str, str] = {}
             if master_sheet and search_column and copyable_column:
-                master_df = pd.read_excel(master_excel, sheet_name=master_sheet)
-                master_df = sanitize_dataframe(master_df)
-                for _, mrow in master_df.iterrows():
-                    key = clean_cell(mrow.get(search_column))
-                    val = clean_cell(mrow.get(copyable_column))
-                    if key:
-                        lookup_map[key.lower()] = val
+                master_df = master_sheets.get(master_sheet.strip().lower())
+                if master_df is not None:
+                    master_df = sanitize_dataframe(master_df)
+                    for _, mrow in master_df.iterrows():
+                        key = clean_cell(mrow.get(search_column))
+                        val = clean_cell(mrow.get(copyable_column))
+                        if key:
+                            lookup_map[key.lower()] = val
 
             # Step 3: resolve each expression result through the lookup map.
             resolved_values: list[str] = []
@@ -930,7 +932,19 @@ def transform_source_data(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
+    src_ext = os.path.splitext(source_path)[1].lower()
+    print(f"Transformation: loading source file: {source_path}")
+    print(f"Transformation: detected extension: {src_ext}")
+    if src_ext == ".sql":
+        print("Transformation: using SQL loader")
+        from processor import _load_sql_as_sheets
+        source_df = next(iter(_load_sql_as_sheets(source_path).values()))
+    elif src_ext == ".csv":
+        print("Transformation: using CSV loader")
+        source_df = pd.read_csv(source_path, keep_default_na=False, na_values=[""])
+    else:
+        print("Transformation: using Excel loader")
+        source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
     source_df = sanitize_dataframe(source_df)
 
     with pd.ExcelFile(logic_path) as logic_excel:
@@ -947,23 +961,56 @@ def transform_source_data(
 
     print(f"\n[transform] Logic workbook has {len(sheet_names)} sheet(s): {sheet_names}")
 
+    needed_master_sheets: set[str] = set()
+    for s in sheet_names:
+        for rule in rules_per_sheet[s].values():
+            if rule.get("data_type") == "lookup" and rule.get("master_sheet"):
+                needed_master_sheets.add(rule["master_sheet"].strip().lower())
+        for anf in anf_per_sheet[s]:
+            if anf.get("data_type") == "lookup" and anf.get("master_sheet"):
+                needed_master_sheets.add(anf["master_sheet"].strip().lower())
+
+    mst_ext = os.path.splitext(master_path)[1].lower()
+    print(f"Transformation: loading master file: {master_path}")
+    print(f"Transformation: detected extension: {mst_ext}")
+    master_sheets: dict[str, pd.DataFrame] = {}
+    if mst_ext == ".sql":
+        print("Transformation: using SQL loader")
+        from processor import _load_sql_as_sheets as _load_master_sql
+        for tbl_name, tbl_df in _load_master_sql(master_path).items():
+            master_sheets[tbl_name] = tbl_df
+            print(f"Transformation: loaded master sheet {tbl_name}")
+    elif mst_ext == ".csv":
+        print("Transformation: using CSV loader")
+        from processor import _load_csv_as_sheets
+        for key, df in _load_csv_as_sheets(master_path).items():
+            master_sheets[key] = df
+            print(f"Transformation: loaded master sheet {key}")
+    else:
+        print("Transformation: using Excel loader")
+        with pd.ExcelFile(master_path) as master_excel:
+            for s in master_excel.sheet_names:
+                key = s.strip().lower()
+                if key in needed_master_sheets:
+                    master_sheets[key] = pd.read_excel(master_excel, sheet_name=s)
+                    print(f"Transformation: loaded master sheet {s}")
+
     outputs: list[dict[str, Any]] = []
 
-    with pd.ExcelFile(master_path) as master_excel:
-        for sheet_name in sheet_names:
-            safe_name = _safe_filename(sheet_name)
-            output_path = os.path.join(output_dir, f"{safe_name}_transformed.xlsx")
-            result = _transform_one_sheet(
-                source_df=source_df,
-                transform_rules=rules_per_sheet[sheet_name],
-                included_fields=fields_per_sheet[sheet_name],
-                master_excel=master_excel,
-                output_path=output_path,
-                sheet_name=sheet_name,
-                anf_rules=anf_per_sheet[sheet_name],
-                target_map=target_map_per_sheet[sheet_name],
-            )
-            outputs.append(result)
+    for sheet_name in sheet_names:
+        safe_name = _safe_filename(sheet_name)
+        output_path = os.path.join(output_dir, f"{safe_name}_transformed.xlsx")
+        result = _transform_one_sheet(
+            source_df=source_df,
+            transform_rules=rules_per_sheet[sheet_name],
+            included_fields=fields_per_sheet[sheet_name],
+            master_sheets=master_sheets,
+            output_path=output_path,
+            sheet_name=sheet_name,
+            anf_rules=anf_per_sheet[sheet_name],
+            target_map=target_map_per_sheet[sheet_name],
+        )
+        outputs.append(result)
 
     return {
         "success": True,

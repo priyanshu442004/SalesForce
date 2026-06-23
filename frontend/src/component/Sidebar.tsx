@@ -19,6 +19,7 @@ export default function Sidebar() {
     { name: "Projects", path: "/projects", icon: "folder" },
     { name: "Activity Log", path: "/activity-log", icon: "activity" },
     { name: "History", path: "/history", icon: "clock" },
+    { name: "Unique Identifier", path: "/unique-identifier", icon: "hash" },
   ];
 
   return (

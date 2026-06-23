@@ -13,11 +13,11 @@ type FileSlot = "source" | "master" | "logic";
 
 const FILE_SLOTS: Array<{
   slot: FileSlot; step: string; title: string; description: string; helper: string;
-  tone: "emerald" | "blue" | "violet";
+  tone: "emerald" | "blue" | "violet"; accept: string;
 }> = [
-  { slot: "source", step: "01", title: "Source Data", description: "Raw records exported from the source system.", helper: "Required source workbook", tone: "emerald" },
-  { slot: "master", step: "02", title: "Salesforce Master Metadata", description: "Reference sheets for Salesforce targets and IDs.", helper: "Required metadata workbook", tone: "blue" },
-  { slot: "logic", step: "03", title: "Mapping Logic", description: "Field mapping, data types, defaults, and rules.", helper: "Required mapping workbook", tone: "violet" },
+  { slot: "source", step: "01", title: "Source Data", description: "Raw records exported from the source system.", helper: "Required source workbook", tone: "emerald", accept: ".xlsx, .xls, .sql, .csv" },
+  { slot: "master", step: "02", title: "Salesforce Master Metadata", description: "Reference sheets for Salesforce targets and IDs.", helper: "Required metadata workbook", tone: "blue", accept: ".xlsx, .xls, .sql, .csv" },
+  { slot: "logic", step: "03", title: "Mapping Logic", description: "Field mapping, data types, defaults, and rules.", helper: "Required mapping workbook", tone: "violet", accept: ".xlsx, .xls" },
 ];
 
 const toneStyles = {
@@ -265,7 +265,7 @@ export default function UploadFilesPage() {
     <div className="flex-1 overflow-y-auto bg-slate-50/80 dark:bg-[#0F172A]">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-5 py-7 sm:px-7 lg:px-9 lg:py-8">
         {FILE_SLOTS.map((config) => (
-          <input key={config.slot} ref={inputRefs[config.slot]} type="file" accept=".xlsx, .xls, .csv" className="hidden"
+          <input key={config.slot} ref={inputRefs[config.slot]} type="file" accept={config.accept} className="hidden"
             onChange={(event) => handleFileUpload(event.target.files, config.slot)} />
         ))}
 

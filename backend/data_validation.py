@@ -1,5 +1,6 @@
 import datetime as dt
 import math
+import os
 import re
 from typing import Any, Callable, Optional
 from transformer import resolve_mapping_columns, sanitize_dataframe, normalize_datatype
@@ -385,12 +386,14 @@ def validate_lookup_field(
     master_sheet: str,
     search_column: str,
     copyable_column: str,
-    master_excel: "pd.ExcelFile",
+    master_sheets: dict,
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
 
     try:
-        master_df = pd.read_excel(master_excel, sheet_name=master_sheet)
+        master_df = master_sheets.get(master_sheet.strip().lower())
+        if master_df is None:
+            return issues
         master_df = sanitize_dataframe(master_df)
     except Exception:
         return issues
@@ -598,38 +601,62 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
 
     # Lookup validation (only when a master workbook is available).
     if master_path:
-        with pd.ExcelFile(master_path) as master_excel:
-            for _, mapping_row in mapping_df.iterrows():
-                source_field = mapping_row["source_field"]
-                data_type = mapping_row["data_type"]
+        mst_ext = os.path.splitext(master_path)[1].lower()
+        print(f"Loading file: {master_path}")
+        print(f"Extension: {mst_ext}")
+        if mst_ext == ".sql":
+            print("Loader selected: SQL")
+            from processor import _load_sql_as_sheets
+            master_cache = _load_sql_as_sheets(master_path)
+        elif mst_ext == ".csv":
+            print("Loader selected: CSV")
+            from processor import _load_csv_as_sheets
+            master_cache = _load_csv_as_sheets(master_path)
+        else:
+            print("Loader selected: Excel")
+            needed = {
+                str(r.get("master_sheet", "")).strip().lower()
+                for _, r in mapping_df.iterrows()
+                if str(r.get("data_type", "")).strip().lower() == "lookup"
+                and not is_blank(r.get("master_sheet"))
+            }
+            master_cache: dict = {}
+            with pd.ExcelFile(master_path) as master_excel:
+                for s in master_excel.sheet_names:
+                    if s.strip().lower() in needed:
+                        master_cache[s.strip().lower()] = pd.read_excel(master_excel, sheet_name=s)
 
-                if is_blank(source_field) or is_blank(data_type):
-                    continue
+        for _, mapping_row in mapping_df.iterrows():
+            source_field = mapping_row["source_field"]
+            data_type = mapping_row["data_type"]
 
-                if str(data_type).strip().lower() != "lookup":
-                    continue
+            if is_blank(source_field) or is_blank(data_type):
+                continue
 
-                field_name = str(source_field).strip()
-                if field_name not in source_df.columns:
-                    continue
+            if str(data_type).strip().lower() != "lookup":
+                continue
 
-                master_sheet = "" if is_blank(mapping_row.get("master_sheet")) else str(mapping_row.get("master_sheet")).strip()
-                search_column = "" if is_blank(mapping_row.get("search_column")) else str(mapping_row.get("search_column")).strip()
-                copyable_column = "" if is_blank(mapping_row.get("copyable_column")) else str(mapping_row.get("copyable_column")).strip()
+            field_name = str(source_field).strip()
+            if field_name not in source_df.columns:
+                continue
 
-                if not master_sheet or not search_column:
-                    continue
+            master_sheet = "" if is_blank(mapping_row.get("master_sheet")) else str(mapping_row.get("master_sheet")).strip()
+            search_column = "" if is_blank(mapping_row.get("search_column")) else str(mapping_row.get("search_column")).strip()
+            copyable_column = "" if is_blank(mapping_row.get("copyable_column")) else str(mapping_row.get("copyable_column")).strip()
 
-                issues.extend(
-                    validate_lookup_field(
-                        source_df[field_name],
-                        field_name,
-                        master_sheet,
-                        search_column,
-                        copyable_column,
-                        master_excel,
-                    )
+            if not master_sheet or not search_column:
+                continue
+
+            issues.extend(
+                validate_lookup_field(
+                    source_df[field_name],
+                    field_name,
+                    master_sheet,
+                    search_column,
+                    copyable_column,
+                    master_cache,
                 )
+            )
 
                     # Duplicate email validation
     email_columns = [
@@ -714,16 +741,29 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
     return deduped
 
 
+def _load_source_df(source_path: str) -> pd.DataFrame:
+    src_ext = os.path.splitext(source_path)[1].lower()
+    print(f"Loading file: {source_path}")
+    print(f"Extension: {src_ext}")
+    if src_ext == ".sql":
+        print("Loader selected: SQL")
+        from processor import _load_sql_as_sheets
+        return next(iter(_load_sql_as_sheets(source_path).values()))
+    if src_ext == ".csv":
+        print("Loader selected: CSV")
+        return pd.read_csv(source_path, keep_default_na=False, na_values=[""])
+    print("Loader selected: Excel")
+    return pd.read_excel(source_path, keep_default_na=False, na_values=[""])
+
+
 def validate_source_data(source_path: str, logic_path: str, master_path: Optional[str] = None) -> list[ValidationIssue]:
-    source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
-    source_df = sanitize_dataframe(source_df)
+    source_df = sanitize_dataframe(_load_source_df(source_path))
     return validate_source_dataframe(source_df, logic_path, master_path=master_path)
 
 
 def run_data_validation(source_path: str, logic_path: str, master_path: Optional[str] = None) -> dict[str, Any]:
     try:
-        source_df = pd.read_excel(source_path, keep_default_na=False, na_values=[""])
-        source_df = sanitize_dataframe(source_df)
+        source_df = sanitize_dataframe(_load_source_df(source_path))
         issues = validate_source_dataframe(source_df, logic_path, master_path=master_path)
         return {
             "success": True,

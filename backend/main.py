@@ -5,8 +5,10 @@ import tempfile
 import uuid
 import io
 import zipfile
+import sqlite3
 from datetime import datetime
 from typing import List
+import math
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Header, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -585,6 +587,22 @@ def preview_output(
                 else:
                     selected_sheet = sheet_names[0] if sheet_names else None
                 df = pd.read_excel(xl, sheet_name=selected_sheet, nrows=limit)
+        elif ext == ".sql":
+            with open(temp_path, "r", encoding="utf-8", errors="replace") as f:
+                sql_script = f.read()
+            conn = sqlite3.connect(":memory:")
+            conn.executescript(sql_script)
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            sheet_names = [row[0] for row in cursor.fetchall()]
+            if sheet_name and sheet_name in sheet_names:
+                selected_sheet = sheet_name
+            else:
+                selected_sheet = sheet_names[0] if sheet_names else None
+            if selected_sheet:
+                df = pd.read_sql_query(f'SELECT * FROM "{selected_sheet}" LIMIT {limit}', conn)
+            else:
+                df = pd.DataFrame()
+            conn.close()
         else:
             df = pd.read_csv(temp_path, nrows=limit)
             sheet_names = ["CSV"]
@@ -674,3 +692,116 @@ def log_change_s3(
         return {"success": True, "message": "Logged change to S3 successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save change log to S3: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Unique Identifier Module
+# ---------------------------------------------------------------------------
+
+def _load_df_from_path(path: str):
+    import pandas as pd
+    ext = os.path.splitext(path)[1].lower()
+    if ext == ".sql":
+        from processor import _load_sql_as_sheets
+        sheets = _load_sql_as_sheets(path)
+        return next(iter(sheets.values()))
+    if ext == ".csv":
+        return pd.read_csv(path, keep_default_na=False, na_values=[""])
+    return pd.read_excel(path, keep_default_na=False, na_values=[""])
+
+
+def _compute_unique_stats(df) -> list:
+    import re
+    _BLANK = {"", "nan", "null", "none", "na", "n/a", "<na>"}
+    _DELIM = re.compile(r"[;/,]")
+    results = []
+    for col in df.columns:
+        seen: list = []
+        seen_set: set = set()
+        for v in df[col]:
+            if v is None:
+                continue
+            if isinstance(v, float) and math.isnan(v):
+                continue
+            raw = str(v).strip()
+            if raw.lower() in _BLANK:
+                continue
+            for token in _DELIM.split(raw):
+                token = token.strip()
+                if not token or token.lower() in _BLANK:
+                    continue
+                if token not in seen_set:
+                    seen_set.add(token)
+                    seen.append(token)
+        results.append({
+            "field": str(col),
+            "unique_count": len(seen),
+            "unique_values": seen,
+        })
+    return results
+
+
+@app.post("/api/unique-identifier/upload")
+async def unique_identifier_upload(
+    file: UploadFile = File(...),
+    x_project_id: str = Header(None),
+):
+    project_id = x_project_id or str(uuid.uuid4())
+    file_bytes = await file.read()
+    size_mb = f"{(len(file_bytes) / (1024 * 1024)):.2f} MB"
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    s3_key = f"projects/{project_id}/unique-identifier/{timestamp}_{file.filename}"
+    s3_client.put_object(Bucket=AWS_BUCKET_NAME, Key=s3_key, Body=file_bytes)
+    return {"success": True, "s3Key": s3_key, "fileName": file.filename, "fileSize": size_mb}
+
+
+@app.get("/api/unique-identifier/analyze")
+def unique_identifier_analyze(source_key: str = Query(...)):
+    import pandas as pd
+    temp_path = None
+    try:
+        temp_path = temp_download(source_key)
+        df = _load_df_from_path(temp_path)
+        return {"success": True, "columns": _compute_unique_stats(df)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
+@app.get("/api/unique-identifier/download")
+def unique_identifier_download(source_key: str = Query(...)):
+    import pandas as pd
+    temp_path = None
+    try:
+        temp_path = temp_download(source_key)
+        df = _load_df_from_path(temp_path)
+        stats = _compute_unique_stats(df)
+
+        max_len = max((len(s["unique_values"]) for s in stats), default=0)
+        out_data = {
+            s["field"]: s["unique_values"] + [""] * (max_len - len(s["unique_values"]))
+            for s in stats
+        }
+        out_df = pd.DataFrame(out_data)
+
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            out_df.to_excel(writer, index=False, sheet_name="Unique Values")
+        buf.seek(0)
+
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=unique_identifier.xlsx"},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
