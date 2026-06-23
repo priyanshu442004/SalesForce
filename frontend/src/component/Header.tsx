@@ -10,7 +10,7 @@ import { useTheme } from "../context/ThemeContext";
 export default function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { currentUser } = useMigration();
+  const { currentUser, currentProject } = useMigration();
   const { theme, toggleTheme } = useTheme();
 
   if (!currentUser) return null;
@@ -52,9 +52,16 @@ export default function Header() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
             </svg>
           </button>
-          <h1 className="text-[19px] lg:text-[22px] font-extrabold text-[#000839] dark:text-white tracking-tight">
-            {getPageTitle()}
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-[19px] lg:text-[22px] font-extrabold text-[#000839] dark:text-white tracking-tight">
+              {getPageTitle()}
+            </h1>
+            {pathname === "/transformation-workspace" && currentProject && (
+              <span className="max-w-[180px] truncate rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:text-slate-400 ring-1 ring-slate-200 dark:ring-slate-700">
+                {currentProject.name}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
