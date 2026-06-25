@@ -9,6 +9,7 @@ import {
   ArrowRight,
   AtSign,
   CheckCircle2,
+  Cloud,
   Database,
   Download,
   Eye,
@@ -49,19 +50,19 @@ function Button({
 }) {
   const variants = {
     primary:
-      "bg-blue-600 text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none",
+      "bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none",
     secondary:
       "border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400",
     danger:
       "border border-rose-200 dark:border-rose-800/50 bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-400 shadow-sm hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400",
     dark:
-      "bg-slate-950 dark:bg-slate-700 text-white shadow-sm shadow-slate-950/10 hover:bg-slate-800 dark:hover:bg-slate-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none",
+      "bg-slate-950 dark:bg-slate-700 text-white shadow-sm hover:bg-slate-800 dark:hover:bg-slate-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none",
   };
   return (
     <button
       {...props}
       className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100",
+        "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100",
         variants[variant],
         className
       )}
@@ -92,11 +93,11 @@ function MetricTile({
     rose: "bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-rose-100 dark:ring-rose-800/30",
   };
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-100 tabular-nums">{value}</div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-slate-100 tabular-nums">{value}</div>
           <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{helper}</p>
         </div>
         <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", tones[tone])}>
@@ -114,7 +115,7 @@ function DiscrepancyPanel({ title, description, fields }: { title: string; descr
       <div className="flex items-start gap-2.5">
         <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
         <div>
-          <h5 className="text-xs font-bold text-slate-800 dark:text-slate-200">{title}</h5>
+          <h5 className="text-xs font-semibold text-slate-800 dark:text-slate-200">{title}</h5>
           <p className="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-400">{description}</p>
         </div>
       </div>
@@ -155,7 +156,7 @@ function PipelineStepper({
   ];
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] px-5 py-5 shadow-sm lg:px-6">
+    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-5 py-5 shadow-sm lg:px-6">
       <div className="flex items-start">
         {steps.map((step, index) => {
           const isLast = index === steps.length - 1;
@@ -176,7 +177,7 @@ function PipelineStepper({
           );
 
           const labelCx = cx(
-            "mt-2 text-center text-[10px] font-bold whitespace-nowrap leading-tight",
+            "mt-2 text-center text-[10px] font-semibold whitespace-nowrap leading-tight",
             step.status === "idle"    && "text-slate-400 dark:text-slate-500",
             step.status === "running" && "text-blue-700 dark:text-blue-400",
             step.status === "passed"  && "text-emerald-700 dark:text-emerald-400",
@@ -277,18 +278,18 @@ function PreviewModal({
       onClick={onClose}
     >
       <div
-        className="relative flex w-full max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-2xl"
+        className="relative flex w-full max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl"
         style={{ maxHeight: "90vh" }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex flex-none items-center justify-between border-b border-slate-200 dark:border-slate-700 px-5 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 ring-1 ring-teal-100 dark:ring-teal-800/30">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-700/30">
               <Table2 size={18} />
             </span>
             <div>
-              <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">Output Preview</h3>
+              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">Output Preview</h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 {activeData ? `${activeData.rowCount} row${activeData.rowCount === 1 ? "" : "s"} · ${activeData.columns.length} column${activeData.columns.length === 1 ? "" : "s"}` : "Loading…"}
               </p>
@@ -312,9 +313,9 @@ function PreviewModal({
                 type="button"
                 onClick={() => onTabChange(out.sheetName, out.transformedS3Key)}
                 className={cx(
-                  "shrink-0 rounded-t-lg border border-b-0 px-3.5 py-2 text-[11px] font-bold transition-colors focus:outline-none",
+                  "shrink-0 rounded-t-lg border border-b-0 px-3.5 py-2 text-[11px] font-semibold transition-colors focus:outline-none",
                   activeTab === out.sheetName
-                    ? "border-slate-200 dark:border-slate-600 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-slate-100"
+                    ? "border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
                 )}
               >
@@ -335,7 +336,7 @@ function PreviewModal({
 
           {isLoading && !error && (
             <div className="flex flex-col items-center justify-center py-24 text-center">
-              <LoaderCircle size={28} className="animate-spin text-teal-600 dark:text-teal-400" />
+              <LoaderCircle size={28} className="animate-spin text-slate-600 dark:text-slate-400" />
               <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Loading preview data…</p>
             </div>
           )}
@@ -364,7 +365,7 @@ function PreviewModal({
                     className={cx(
                       "transition-colors",
                       rowIdx % 2 === 0
-                        ? "bg-white dark:bg-[#1E293B]"
+                        ? "bg-white dark:bg-slate-800"
                         : "bg-slate-50/60 dark:bg-slate-800/30"
                     )}
                   >
@@ -445,9 +446,36 @@ export default function TransformationWorkspacePage() {
     runPipeline,
     proceedWithSkips,
     restorePipelineState,
+    sfAccessToken,
+    sfInstanceUrl,
+    sfRefreshToken,
+    sfSelectedObject,
+    setSfSelectedObject,
+    sfUserInfo,
+    clearSalesforceSession,
   } = useMigration();
 
+  console.log("[TransformationWorkspace]", {
+    sfAccessToken,
+    sfInstanceUrl,
+    sfRefreshToken,
+  });
+
   const [checkedRows, setCheckedRows] = useState<Record<string, boolean>>({});
+
+  // Salesforce object picker state
+  const [sfObjects, setSfObjects] = useState<{ label: string; api_name: string }[]>([]);
+  const [sfObjectsLoading, setSfObjectsLoading] = useState(false);
+  const [sfObjectPickerOpen, setSfObjectPickerOpen] = useState(false);
+  const [sfObjectPickerError, setSfObjectPickerError] = useState<string | null>(null);
+
+  const [sfObjectSearch, setSfObjectSearch] = useState("");
+
+  // Salesforce upload state
+  const [sfUploading, setSfUploading] = useState(false);
+  const [sfUploadResult, setSfUploadResult] = useState<{ total: number; success: number; failed: number; errors: { row: number; message: string }[] } | null>(null);
+  const [sfUploadError, setSfUploadError] = useState<string | null>(null);
+  const [sfResultOpen, setSfResultOpen] = useState(false);
 
   useEffect(() => {
     if (dataValidationResult?.issues) {
@@ -655,6 +683,102 @@ export default function TransformationWorkspacePage() {
     }
   };
 
+  const handleSwitchSalesforceAccount = async () => {
+    clearSalesforceSession();
+    try {
+      const res = await fetch(`${NEXT_PUBLIC_API_URL}/salesforce/login`);
+      if (!res.ok) throw new Error("Failed to get Salesforce login URL");
+      const { auth_url } = await res.json();
+      window.location.href = auth_url;
+    } catch (err) {
+      console.error("[Switch Salesforce Account] OAuth initiation failed:", err);
+    }
+  };
+
+  const handlePushToSalesforce = async () => {
+    if (!sfAccessToken || !sfInstanceUrl) {
+      // Not authenticated — start OAuth flow
+      try {
+        const res = await fetch(`${NEXT_PUBLIC_API_URL}/salesforce/login`);
+        if (!res.ok) throw new Error("Failed to get Salesforce login URL");
+        const { auth_url } = await res.json();
+        window.location.href = auth_url;
+      } catch (err) {
+        console.error("[Push to Salesforce] OAuth initiation failed:", err);
+      }
+      return;
+    }
+
+    // Already authenticated — fetch available objects and open picker
+    setSfObjectsLoading(true);
+    setSfObjectPickerError(null);
+    setSfObjectSearch("");
+    setSfObjectPickerOpen(true);
+    try {
+      const res = await fetch(
+        `${NEXT_PUBLIC_API_URL}/salesforce/objects?access_token=${encodeURIComponent(sfAccessToken)}&instance_url=${encodeURIComponent(sfInstanceUrl)}`
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail?.message ?? body?.detail ?? "Failed to fetch Salesforce objects");
+      }
+      const objects = await res.json();
+      setSfObjects(objects);
+    } catch (err) {
+      setSfObjectPickerError(err instanceof Error ? err.message : "Failed to load Salesforce objects");
+    } finally {
+      setSfObjectsLoading(false);
+    }
+  };
+
+  const handleSfUpload = async (objectName: string) => {
+    if (!sfAccessToken || !sfInstanceUrl || !transformResult) return;
+
+    const s3Key = transformResult.zipS3Key ?? transformResult.outputs[0]?.transformedS3Key;
+    if (!s3Key) return;
+
+    setSfObjectPickerOpen(false);
+    setSfUploading(true);
+    setSfUploadError(null);
+    setSfUploadResult(null);
+
+    try {
+      await fetch(`${NEXT_PUBLIC_API_URL}/salesforce/validate-mapping`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          access_token: sfAccessToken,
+          instance_url: sfInstanceUrl,
+          object_name: objectName,
+          s3_key: s3Key,
+        }),
+      });
+      const res = await fetch(`${NEXT_PUBLIC_API_URL}/salesforce/upload-records`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          access_token: sfAccessToken,
+          instance_url: sfInstanceUrl,
+          object_name: objectName,
+          s3_key: s3Key,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail?.message ?? body?.detail ?? `Upload failed (${res.status})`);
+      }
+
+      const result = await res.json();
+      setSfUploadResult(result);
+      setSfResultOpen(true);
+    } catch (err) {
+      setSfUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+    } finally {
+      setSfUploading(false);
+    }
+  };
+
   const downloadSheetFile = (out: SheetOutput) => {
     const link = document.createElement("a");
     link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(out.transformedS3Key)}`;
@@ -731,8 +855,8 @@ export default function TransformationWorkspacePage() {
     schema: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-blue-100 dark:ring-blue-800/30",
     cleaning: "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-amber-100 dark:ring-amber-800/30",
     validation: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 ring-emerald-100 dark:ring-emerald-800/30",
-    transformation: "bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 ring-violet-100 dark:ring-violet-800/30",
-    export: "bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 ring-teal-100 dark:ring-teal-800/30",
+    transformation: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-blue-100 dark:ring-blue-700/30",
+    export: "bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 ring-slate-200 dark:ring-slate-700/30",
   };
 
   const RUNNING_MESSAGE: Record<PipelineStage, string> = {
@@ -746,7 +870,7 @@ export default function TransformationWorkspacePage() {
     schema: "bg-blue-600",
     cleaning: "bg-amber-500",
     validation: "bg-emerald-600",
-    transformation: "bg-violet-600",
+    transformation: "bg-blue-600",
   };
 
   const getStepStatus = (step: StepKey): StageStatus => {
@@ -762,21 +886,21 @@ export default function TransformationWorkspacePage() {
 
     // ── status badge ──────────────────────────────────────────────────────────
     const statusBadge = (
-      status === "running" ? <span className="rounded-full bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 ring-1 ring-blue-100 dark:ring-blue-800/30">Running</span>
-      : status === "passed" ? <span className="rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-100 dark:ring-emerald-800/30">Passed</span>
-      : status === "failed" ? <span className="rounded-full bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300 ring-1 ring-rose-100 dark:ring-rose-800/30">Failed</span>
-      : <span className="rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Pending</span>
+      status === "running" ? <span className="rounded-full bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300 ring-1 ring-blue-100 dark:ring-blue-800/30">Running</span>
+      : status === "passed" ? <span className="rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-100 dark:ring-emerald-800/30">Passed</span>
+      : status === "failed" ? <span className="rounded-full bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-300 ring-1 ring-rose-100 dark:ring-rose-800/30">Failed</span>
+      : <span className="rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Pending</span>
     );
 
     // ── running skeleton ──────────────────────────────────────────────────────
     if (status === "running" && step !== "export") {
       const progressColor = RUNNING_PROGRESS_COLOR[step as PipelineStage];
       return (
-        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
+        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex items-start gap-3.5 border-b border-slate-200 dark:border-slate-700 px-5 py-5 lg:px-6">
             <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}><Icon size={20} /></span>
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{label}</h3>
+              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
               {statusBadge}
             </div>
           </div>
@@ -794,11 +918,11 @@ export default function TransformationWorkspacePage() {
     // ── idle / pending ────────────────────────────────────────────────────────
     if (status === "idle") {
       return (
-        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-sm">
+        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
           <div className="flex items-start gap-3.5 border-b border-slate-200 dark:border-slate-700 px-5 py-5 lg:px-6">
             <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}><Icon size={20} /></span>
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{label}</h3>
+              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
               {statusBadge}
             </div>
           </div>
@@ -814,12 +938,12 @@ export default function TransformationWorkspacePage() {
     if (step === "schema" && schemaResult) {
       const passed = schemaResult.schema_valid && schemaResult.missing_fields.length === 0 && schemaResult.additional_fields.length === 0;
       return (
-        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
+        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex flex-col gap-3 border-b border-slate-200 dark:border-slate-700 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
             <div className="flex items-start gap-3.5">
               <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}><Icon size={20} /></span>
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{label}</h3>
+                <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
                 {statusBadge}
               </div>
             </div>
@@ -857,17 +981,17 @@ export default function TransformationWorkspacePage() {
     // ── Data Cleaning ─────────────────────────────────────────────────────────
     if (step === "cleaning" && cleaningResult) {
       return (
-        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
+        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex flex-col gap-3 border-b border-slate-200 dark:border-slate-700 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
             <div className="flex items-start gap-3.5">
               <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}><Icon size={20} /></span>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{label}</h3>
+                  <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
                   {cleaningResult.success
                     ? cleaningResult.total_changes === 0
-                      ? <span className="rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-100 dark:ring-emerald-800/30">No Changes</span>
-                      : <span className="rounded-full bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 ring-1 ring-amber-100 dark:ring-amber-800/30">Completed</span>
+                      ? <span className="rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-100 dark:ring-emerald-800/30">No Changes</span>
+                      : <span className="rounded-full bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300 ring-1 ring-amber-100 dark:ring-amber-800/30">Completed</span>
                     : statusBadge}
                 </div>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{cleaningResult.total_changes} modification{cleaningResult.total_changes === 1 ? "" : "s"} applied.</p>
@@ -895,7 +1019,7 @@ export default function TransformationWorkspacePage() {
               <MetricTile label="Null Conversions" value={cleaningResult.summary.null_conversions}     helper="Empty → NULL"               icon={XCircle}  tone={cleaningResult.summary.null_conversions > 0 ? "amber" : "slate"} />
             </div>
             {cleaningResult.changes.length > 0 && (
-              <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
+              <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
                 <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                     Cleaning Log — {cleaningResult.changes.length} modification{cleaningResult.changes.length === 1 ? "" : "s"}
@@ -912,15 +1036,15 @@ export default function TransformationWorkspacePage() {
                         <th className="px-4 py-3">Rule</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                       {cleaningResult.changes.map((c, i) => (
                         <tr key={`${c.row}-${c.column}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                          <td className="whitespace-nowrap px-4 py-3 font-bold tabular-nums text-slate-900 dark:text-slate-100">{c.row}</td>
+                          <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums text-slate-900 dark:text-slate-100">{c.row}</td>
                           <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">{c.column}</td>
                           <td className="max-w-[220px] truncate px-4 py-3 font-mono text-[11px] text-rose-700 dark:text-rose-400">{c.original_value}</td>
                           <td className="max-w-[220px] truncate px-4 py-3 font-mono text-[11px] text-emerald-700 dark:text-emerald-400">{c.cleaned_value}</td>
                           <td className="whitespace-nowrap px-4 py-3">
-                            <span className="rounded-md bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 ring-1 ring-amber-100 dark:ring-amber-800/30">{c.rule}</span>
+                            <span className="rounded-md bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 ring-1 ring-amber-100 dark:ring-amber-800/30">{c.rule}</span>
                           </td>
                         </tr>
                       ))}
@@ -938,16 +1062,16 @@ export default function TransformationWorkspacePage() {
     if (step === "validation" && dataValidationResult) {
       const passed = dataValidationResult.success === true && dataValidationResult.total_issues === 0;
       return (
-        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
+        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex flex-col gap-3 border-b border-slate-200 dark:border-slate-700 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
             <div className="flex items-start gap-3.5">
               <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}><Icon size={20} /></span>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{label}</h3>
+                  <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
                   {passed
-                    ? <span className="rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-100 dark:ring-emerald-800/30">Passed</span>
-                    : <span className="rounded-full bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300 ring-1 ring-rose-100 dark:ring-rose-800/30">Issues Found</span>}
+                    ? <span className="rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-100 dark:ring-emerald-800/30">Passed</span>
+                    : <span className="rounded-full bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-300 ring-1 ring-rose-100 dark:ring-rose-800/30">Issues Found</span>}
                 </div>
                 {!passed && dataValidationResult.total_issues > 0 && (
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{dataValidationResult.total_issues} issue{dataValidationResult.total_issues === 1 ? "" : "s"} found. Fix source data and re-run.</p>
@@ -972,7 +1096,7 @@ export default function TransformationWorkspacePage() {
               <MetricTile label="Issues Found"  value={dataValidationResult.total_issues}  helper="Data quality issues"    icon={AlertTriangle} tone={dataValidationResult.total_issues === 0 ? "emerald" : "rose"} />
             </div>
             {validationHasIssues && dataValidationResult.issues.length > 0 && (
-              <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
+              <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-xs">
                     <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
@@ -983,7 +1107,7 @@ export default function TransformationWorkspacePage() {
                         <th className="px-4 py-3 text-right">Count</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                       {dataValidationResult.issues.map((issue, i) => (
                         <tr key={`${issue.field}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                           <td className="px-4 py-3">
@@ -996,7 +1120,7 @@ export default function TransformationWorkspacePage() {
                           </td>
                           <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{issue.field}</td>
                           <td className="px-4 py-3 text-rose-700 dark:text-rose-400">{issue.issue_types}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-slate-900 dark:text-slate-100">{issue.count}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-900 dark:text-slate-100">{issue.count}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1039,14 +1163,14 @@ export default function TransformationWorkspacePage() {
       const sheetCount   = transformResult?.outputs.length ?? 0;
 
       return (
-        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
+        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex items-start gap-3.5 border-b border-slate-200 dark:border-slate-700 px-5 py-5 lg:px-6">
             <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}><Icon size={20} /></span>
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{label}</h3>
+              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
               {statusBadge}
               {sheetCount > 1 && (
-                <span className="rounded-full bg-violet-50 dark:bg-violet-900/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300 ring-1 ring-violet-100 dark:ring-violet-800/30">
+                <span className="rounded-full bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300 ring-1 ring-blue-100 dark:ring-blue-700/30">
                   {sheetCount} sheets
                 </span>
               )}
@@ -1057,7 +1181,7 @@ export default function TransformationWorkspacePage() {
               <div className="flex items-start gap-3 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-900/20 p-4">
                 <XCircle size={16} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
                 <div>
-                  <p className="text-xs font-bold text-rose-900 dark:text-rose-200">Transformation failed</p>
+                  <p className="text-xs font-semibold text-rose-900 dark:text-rose-200">Transformation failed</p>
                   {transformError && <p className="mt-1 text-xs text-rose-700 dark:text-rose-300">{transformError}</p>}
                 </div>
               </div>
@@ -1071,7 +1195,7 @@ export default function TransformationWorkspacePage() {
                 </div>
 
                 {/* Per-sheet breakdown */}
-                <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
+                <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
                   <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
                     <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                       Per-sheet Output Statistics
@@ -1089,7 +1213,7 @@ export default function TransformationWorkspacePage() {
                           <th className="px-4 py-3 text-right">Lookups Missed</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                         {transformResult.outputs.map(out => {
                           const sm = out.lookupStats.reduce((a, l) => a + l.matched, 0);
                           const sx = out.lookupStats.reduce((a, l) => a + l.missed,  0);
@@ -1111,7 +1235,7 @@ export default function TransformationWorkspacePage() {
 
                 {/* Per-column lookup stats (only when any sheet has lookup columns) */}
                 {allStats.length > 0 && (
-                  <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
+                  <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
                     <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
                       <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                         Per-column Lookup Statistics
@@ -1129,7 +1253,7 @@ export default function TransformationWorkspacePage() {
                             <th className="px-4 py-3 text-right">Match Rate</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                           {transformResult.outputs.flatMap(out =>
                             out.lookupStats.map(stat => {
                               const rate = stat.total > 0 ? Math.round((stat.matched / stat.total) * 100) : 100;
@@ -1144,7 +1268,7 @@ export default function TransformationWorkspacePage() {
                                   <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-rose-700 dark:text-rose-400">{stat.missed}</td>
                                   <td className="whitespace-nowrap px-4 py-3 text-right">
                                     <span className={cx(
-                                      "rounded-md px-2 py-0.5 text-[10px] font-bold ring-1",
+                                      "rounded-md px-2 py-0.5 text-[10px] font-semibold ring-1",
                                       rate === 100 ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 ring-emerald-100 dark:ring-emerald-800/30" :
                                       rate >= 80   ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-amber-100 dark:ring-amber-800/30" :
                                                      "bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-rose-100 dark:ring-rose-800/30"
@@ -1176,30 +1300,101 @@ export default function TransformationWorkspacePage() {
       const hasZip = !!transformResult?.zipS3Key;
 
       return (
-        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
+        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex flex-col gap-3 border-b border-slate-200 dark:border-slate-700 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
             <div className="flex items-start gap-3.5">
               <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}><Icon size={20} /></span>
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{label}</h3>
+                <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
                 {statusBadge}
                 {sheetCount > 1 && (
-                  <span className="rounded-full bg-teal-50 dark:bg-teal-900/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300 ring-1 ring-teal-100 dark:ring-teal-800/30">
+                  <span className="rounded-full bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-700/30">
                     {sheetCount} files
                   </span>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="secondary" onClick={openPreview} className="shrink-0">
-                <Eye size={14} />
-                Preview Output
-              </Button>
-              <Button type="button" variant={hasZip ? "dark" : "secondary"} onClick={downloadTransformedFile} className="shrink-0">
-                <Download size={14} />
-                {hasZip ? "Download ZIP" : "Re-download"}
-              </Button>
-            </div>
+            {sfAccessToken ? (
+              <div className="flex flex-col items-end gap-2">
+                {/* File actions */}
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="secondary" onClick={openPreview} className="shrink-0">
+                    <Eye size={14} />
+                    Preview Output
+                  </Button>
+                  <Button type="button" variant={hasZip ? "dark" : "secondary"} onClick={downloadTransformedFile} className="shrink-0">
+                    <Download size={14} />
+                    {hasZip ? "Download ZIP" : "Re-download"}
+                  </Button>
+                </div>
+                {/* Salesforce connection card */}
+                <div className="flex items-stretch overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                  {/* Identity */}
+                  <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white">
+                      <Cloud size={13} />
+                    </span>
+                    <div className="leading-[1.3]">
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Connected</p>
+                      <p className="max-w-[180px] truncate text-[11.5px] font-semibold text-slate-700 dark:text-slate-200">
+                        {sfUserInfo?.email ?? sfUserInfo?.username ?? "Salesforce"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-px bg-slate-200 dark:bg-slate-700" />
+                  {/* Switch Account */}
+                  <button
+                    type="button"
+                    onClick={handleSwitchSalesforceAccount}
+                    className="whitespace-nowrap bg-white dark:bg-slate-800 px-3.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Switch Account
+                  </button>
+                  <div className="w-px bg-slate-200 dark:bg-slate-700" />
+                  {/* Push */}
+                  <button
+                    type="button"
+                    onClick={handlePushToSalesforce}
+                    disabled={sfUploading}
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap bg-blue-600 px-4 text-[11px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed"
+                  >
+                    {sfUploading ? (
+                      <>
+                        <svg className="animate-spin w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                        </svg>
+                        Uploading…
+                      </>
+                    ) : (
+                      "Push to Salesforce Object"
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="secondary" onClick={openPreview} className="shrink-0">
+                  <Eye size={14} />
+                  Preview Output
+                </Button>
+                <Button type="button" variant={hasZip ? "dark" : "secondary"} onClick={downloadTransformedFile} className="shrink-0">
+                  <Download size={14} />
+                  {hasZip ? "Download ZIP" : "Re-download"}
+                </Button>
+                <Button type="button" variant="primary" onClick={handlePushToSalesforce} disabled={sfUploading} className="shrink-0">
+                  {sfUploading ? (
+                    <>
+                      <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                      </svg>
+                      Uploading…
+                    </>
+                  ) : (
+                    "Push to Salesforce Object"
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
           <div className="p-5 lg:p-6">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1209,7 +1404,7 @@ export default function TransformationWorkspacePage() {
             </div>
 
             {/* Per-sheet output files table */}
-            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B]">
+            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
               <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                   Output Files
@@ -1226,7 +1421,7 @@ export default function TransformationWorkspacePage() {
                       <th className="px-4 py-3"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                     {(transformResult?.outputs ?? []).map(out => (
                       <tr key={out.sheetName} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                         <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">{out.sheetName}</td>
@@ -1237,7 +1432,7 @@ export default function TransformationWorkspacePage() {
                           <button
                             type="button"
                             onClick={() => downloadSheetFile(out)}
-                            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100"
+                            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100"
                           >
                             <Download size={11} />
                             Download
@@ -1279,7 +1474,7 @@ export default function TransformationWorkspacePage() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50/80 dark:bg-[#0F172A]">
+    <div className="flex-1 overflow-y-auto bg-slate-50/80 dark:bg-slate-900">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-5 py-5 sm:px-7 lg:px-9 lg:py-6">
 
         {/* Page header */}
@@ -1295,11 +1490,11 @@ export default function TransformationWorkspacePage() {
           {/* Single row: Title + Re-run Pipeline (left) | Staged Files (right) */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <h2 className="text-xl font-bold tracking-[-0.025em] text-slate-950 dark:text-slate-100 sm:text-2xl">
+              <h2 className="text-xl font-semibold tracking-[-0.025em] text-slate-950 dark:text-slate-100 sm:text-2xl">
                 {pipelineRunning ? "Processing migration…" : transformationSucceeded ? "Migration complete" : "Transformation workspace"}
               </h2>
               {pipelineRunning && (
-                <span className="inline-flex items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/30 px-4 py-2.5 text-xs font-bold text-blue-700 dark:text-blue-300">
+                <span className="inline-flex items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/30 px-4 py-2.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
                   <LoaderCircle size={14} className="animate-spin" />
                   Processing…
                 </span>
@@ -1314,7 +1509,7 @@ export default function TransformationWorkspacePage() {
 
             {currentProject && uploadedFiles && (
               <div className="shrink-0">
-                <div className="flex items-center gap-2.5 bg-white/40 dark:bg-[#1E293B]/40 backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/80 p-2 rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+                <div className="flex items-center gap-2.5 bg-white/40 dark:bg-slate-800/40 backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/80 p-2 rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
                   <div className="hidden xl:block px-2 border-r border-slate-250 dark:border-slate-700">
                     <span className="block text-[8px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Staged Files</span>
                     <span className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400">Click to preview</span>
@@ -1334,9 +1529,9 @@ export default function TransformationWorkspacePage() {
                           border: "border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/10",
                         },
                         logic: {
-                          bg: "bg-violet-50 dark:bg-violet-950/30",
-                          text: "text-violet-700 dark:text-violet-400",
-                          border: "border-slate-200 dark:border-slate-700 hover:border-violet-400 dark:hover:border-violet-500 hover:bg-violet-50/10",
+                          bg: "bg-blue-50 dark:bg-blue-900/30",
+                          text: "text-blue-700 dark:text-blue-400",
+                          border: "border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/10",
                         },
                       }[slot];
 
@@ -1363,7 +1558,7 @@ export default function TransformationWorkspacePage() {
                           </span>
                           <div className="max-w-[100px] truncate leading-tight">
                             <span className="block text-[8px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{title}</span>
-                            <span className="block truncate text-[10px] font-bold text-slate-700 dark:text-slate-300" title={fileInfo.name}>
+                            <span className="block truncate text-[10px] font-semibold text-slate-700 dark:text-slate-300" title={fileInfo.name}>
                               {fileInfo.name}
                             </span>
                           </div>
@@ -1382,7 +1577,7 @@ export default function TransformationWorkspacePage() {
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/70 dark:bg-amber-900/20 p-4">
             <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <div>
-              <p className="text-xs font-bold text-amber-900 dark:text-amber-200">Files not ready</p>
+              <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Files not ready</p>
               <p className="mt-1 text-[11px] leading-5 text-amber-700 dark:text-amber-300">
                 Upload all three files (source data, master, and mapping logic) before running the pipeline.
               </p>
@@ -1404,11 +1599,11 @@ export default function TransformationWorkspacePage() {
 
         {/* Auto-run is imminent — waiting for project context to finish loading */}
         {!pipelineHasRun && !pipelineRunning && isContinueEnabled && autoRunPending && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1E293B] py-20 text-center">
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 py-20 text-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
               <LoaderCircle size={28} className="animate-spin" />
             </span>
-            <h3 className="mt-4 text-base font-bold text-slate-900 dark:text-slate-100">Starting pipeline…</h3>
+            <h3 className="mt-4 text-base font-semibold text-slate-900 dark:text-slate-100">Starting pipeline…</h3>
             <p className="mt-2 max-w-sm text-xs leading-6 text-slate-500 dark:text-slate-400">
               Loading project data, then running schema validation, cleaning, data validation, and transformation.
             </p>
@@ -1417,18 +1612,18 @@ export default function TransformationWorkspacePage() {
 
         {/* Idle — files are ready but no run is pending (e.g. opened from sidebar) */}
         {!pipelineHasRun && !pipelineRunning && isContinueEnabled && !autoRunPending && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1E293B] py-20 text-center">
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 py-20 text-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
               <Wand2 size={28} />
             </span>
-            <h3 className="mt-4 text-base font-bold text-slate-900 dark:text-slate-100">Ready to run</h3>
+            <h3 className="mt-4 text-base font-semibold text-slate-900 dark:text-slate-100">Ready to run</h3>
             <p className="mt-2 max-w-sm text-xs leading-6 text-slate-500 dark:text-slate-400">
               All files are uploaded. Click below to run the full pipeline — schema validation, cleaning, data validation, and transformation.
             </p>
             <button
               type="button"
               onClick={runPipeline}
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition-colors"
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
             >
               <Sparkles size={14} />
               Run Pipeline
@@ -1456,7 +1651,7 @@ export default function TransformationWorkspacePage() {
           onClick={() => setFilePreviewOpen(false)}
         >
           <div
-            className="relative flex w-full max-w-[95vw] lg:max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-2xl transition-all duration-300"
+            className="relative flex w-full max-w-[95vw] lg:max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl transition-all duration-300"
             style={{ maxHeight: "88vh" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1467,7 +1662,7 @@ export default function TransformationWorkspacePage() {
                   <FileSpreadsheet size={20} />
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-slate-950 dark:text-slate-100">Workbook Inspector</h3>
+                  <h3 className="text-base font-semibold text-slate-950 dark:text-slate-100">Workbook Inspector</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Preview raw sheets and metadata properties.
                   </p>
@@ -1502,7 +1697,7 @@ export default function TransformationWorkspacePage() {
                     type="button"
                     onClick={() => handleFileSlotChange(slot)}
                     className={cx(
-                      "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all border shrink-0",
+                      "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all border shrink-0",
                       isSelected
                         ? "bg-blue-600 border-blue-600 text-white shadow-sm"
                         : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
@@ -1532,7 +1727,7 @@ export default function TransformationWorkspacePage() {
                     className={cx(
                       "shrink-0 rounded-t-lg border border-b-0 px-4 py-2 text-[11px] font-semibold tracking-wide transition-colors focus:outline-none",
                       filePreviewSheet === sheet
-                        ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-blue-600 dark:text-blue-400"
+                        ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400"
                         : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
                     )}
                   >
@@ -1554,7 +1749,7 @@ export default function TransformationWorkspacePage() {
               {filePreviewLoading && (
                 <div className="flex flex-col items-center justify-center py-28 text-center">
                   <LoaderCircle size={32} className="animate-spin text-blue-600 dark:text-blue-400" />
-                  <p className="mt-3 text-xs font-bold text-slate-500 dark:text-slate-400">Downloading and parsing workbook sheet...</p>
+                  <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">Downloading and parsing workbook sheet...</p>
                 </div>
               )}
 
@@ -1601,7 +1796,7 @@ export default function TransformationWorkspacePage() {
                             className={cx(
                               "transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30",
                               rowIdx % 2 === 0
-                                ? "bg-white dark:bg-[#1E293B]"
+                                ? "bg-white dark:bg-slate-800"
                                 : "bg-slate-50/30 dark:bg-slate-800/10"
                             )}
                           >
@@ -1644,6 +1839,203 @@ export default function TransformationWorkspacePage() {
                 </div>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* Salesforce upload error banner */}
+      {sfUploadError && !sfResultOpen && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-start gap-3 rounded-xl border border-rose-200 bg-white dark:bg-slate-900 dark:border-rose-800 px-5 py-4 shadow-xl max-w-md w-full">
+          <svg className="mt-0.5 shrink-0 text-rose-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-rose-600 dark:text-rose-400">Upload failed</p>
+            <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">{sfUploadError}</p>
+          </div>
+          <button onClick={() => setSfUploadError(null)} className="shrink-0 text-slate-400 hover:text-slate-600 cursor-pointer">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Salesforce upload result modal */}
+      {sfResultOpen && sfUploadResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
+            {/* Header */}
+            <div className={`flex items-center gap-3 px-6 py-5 border-b border-slate-200 dark:border-slate-700 ${sfUploadResult.failed === 0 ? "bg-emerald-50 dark:bg-emerald-900/20" : "bg-amber-50 dark:bg-amber-900/20"}`}>
+              {sfUploadResult.failed === 0 ? (
+                <svg className="text-emerald-600 shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              ) : (
+                <svg className="text-amber-600 shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              )}
+              <div>
+                <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                  {sfUploadResult.failed === 0 ? "Upload complete" : "Upload finished with errors"}
+                </h3>
+                <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  {sfSelectedObject && `Target object: ${sfSelectedObject}`}
+                </p>
+              </div>
+            </div>
+
+            {/* Summary tiles */}
+            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700 border-b border-slate-200 dark:border-slate-700">
+              {[
+                { label: "Total", value: sfUploadResult.total, color: "text-slate-900 dark:text-white" },
+                { label: "Uploaded", value: sfUploadResult.success, color: "text-emerald-600 dark:text-emerald-400" },
+                { label: "Failed", value: sfUploadResult.failed, color: sfUploadResult.failed > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-400" },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="flex flex-col items-center py-5 gap-1">
+                  <span className={`text-2xl font-semibold ${color}`}>{value.toLocaleString()}</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Error table */}
+            {sfUploadResult.errors.length > 0 && (
+              <div className="max-h-[220px] overflow-y-auto">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 sticky top-0">
+                    <tr>
+                      <th className="px-5 py-2.5 font-semibold uppercase tracking-widest text-[10px] text-slate-500 dark:text-slate-400 w-20">Row</th>
+                      <th className="px-5 py-2.5 font-semibold uppercase tracking-widest text-[10px] text-slate-500 dark:text-slate-400">Salesforce Error</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {sfUploadResult.errors.map((e, i) => (
+                      <tr key={i} className="bg-white dark:bg-slate-900">
+                        <td className="px-5 py-2.5 font-mono text-rose-600 dark:text-rose-400 font-semibold">{e.row}</td>
+                        <td className="px-5 py-2.5 text-slate-600 dark:text-slate-300">{e.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="flex justify-end px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => setSfResultOpen(false)}
+                className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Salesforce Object Picker Modal */}
+      {sfObjectPickerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
+          onClick={() => setSfObjectPickerOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4">
+              <div>
+                <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white tracking-tight">Select Salesforce Object</h3>
+                <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">Choose the target object to push records into</p>
+              </div>
+              <button
+                onClick={() => setSfObjectPickerOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Search */}
+            {!sfObjectsLoading && !sfObjectPickerError && (
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search objects…"
+                    value={sfObjectSearch}
+                    onChange={e => setSfObjectSearch(e.target.value)}
+                    autoFocus
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-8 pr-3 py-2 text-[13px] text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Body */}
+            <div className="px-2 py-2 max-h-[320px] overflow-y-auto">
+              {sfObjectsLoading ? (
+                <div className="flex items-center justify-center py-12 gap-3 text-slate-400">
+                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                  </svg>
+                  <span className="text-[13px] font-medium">Loading objects…</span>
+                </div>
+              ) : sfObjectPickerError ? (
+                <div className="py-8 text-center">
+                  <p className="text-[13px] font-semibold text-rose-600">Failed to load objects</p>
+                  <p className="text-[12px] text-slate-500 mt-1">{sfObjectPickerError}</p>
+                </div>
+              ) : (() => {
+                const q = sfObjectSearch.toLowerCase();
+                const filtered = sfObjects.filter(
+                  obj => obj.label.toLowerCase().includes(q) || obj.api_name.toLowerCase().includes(q)
+                );
+                if (filtered.length === 0) {
+                  return (
+                    <p className="py-10 text-center text-[13px] text-slate-400 dark:text-slate-500">
+                      No matching objects found
+                    </p>
+                  );
+                }
+                return (
+                  <ul className="space-y-0.5">
+                    {filtered.map(obj => (
+                      <li key={obj.api_name}>
+                        <button
+                          onClick={() => {
+                            setSfSelectedObject(obj.api_name);
+                            handleSfUpload(obj.api_name);
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer group"
+                        >
+                          <span className="text-[13.5px] font-medium text-slate-800 dark:text-slate-200">{obj.label}</span>
+                          <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400">{obj.api_name}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 dark:border-slate-700 px-6 py-4">
+              <button
+                onClick={() => setSfObjectPickerOpen(false)}
+                className="px-4 py-2 rounded-lg text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

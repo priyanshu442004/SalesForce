@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function ValidationPage() {
   return (
-    <div className="flex-1 flex flex-col space-y-6 lg:space-y-7 p-7 lg:p-9 min-h-0 bg-[#f8fafc] dark:bg-[#0F172A] overflow-y-auto">
+    <div className="flex-1 flex flex-col space-y-6 lg:space-y-7 p-7 lg:p-9 min-h-0 bg-[#f8fafc] dark:bg-slate-900 overflow-y-auto">
 
       {/* Back to workspace link */}
       <div className="flex-none">
@@ -31,7 +31,7 @@ export default function ValidationPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5 flex-none">
 
         {/* Card 1: Total Records */}
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/50 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
           <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/>
@@ -47,7 +47,7 @@ export default function ValidationPage() {
         </div>
 
         {/* Card 2: Valid Records */}
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/50 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
           <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12"/>
@@ -62,7 +62,7 @@ export default function ValidationPage() {
         </div>
 
         {/* Card 3: Invalid Records */}
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/50 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
           <div className="w-10 h-10 rounded-full bg-rose-600 flex items-center justify-center text-white shadow-sm shrink-0">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="8" x2="12" y2="12"/>
@@ -105,7 +105,7 @@ export default function ValidationPage() {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch pb-2">
 
         {/* Column 1: Validation Summary Donut */}
-        <div className="col-span-1 md:col-span-4 bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between items-stretch shadow-sm min-h-[390px]">
+        <div className="col-span-1 md:col-span-4 bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between items-stretch shadow-sm min-h-[390px]">
           <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 pb-2.5">
             Validation Summary
           </h4>
@@ -147,7 +147,7 @@ export default function ValidationPage() {
         </div>
 
         {/* Column 2: Validation Checks */}
-        <div className="col-span-1 md:col-span-4 bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-sm min-h-[390px]">
+        <div className="col-span-1 md:col-span-4 bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-sm min-h-[390px]">
           <div className="space-y-4 flex-1 flex flex-col">
             <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2">
               Validation Checks
@@ -199,7 +199,7 @@ export default function ValidationPage() {
 
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center shrink-0">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
                       <circle cx="18" cy="18" r="3" />
                       <circle cx="6" cy="6" r="3" />
@@ -230,7 +230,7 @@ export default function ValidationPage() {
         </div>
 
         {/* Column 3: Recent Errors */}
-        <div className="col-span-1 md:col-span-4 bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-sm min-h-[390px]">
+        <div className="col-span-1 md:col-span-4 bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-sm min-h-[390px]">
           <div className="space-y-4 flex-1 flex flex-col">
             <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2">
               Recent Errors

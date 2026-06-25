@@ -244,7 +244,7 @@ export default function ComparisonPage() {
                   </div>
                   <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-100"
+                      className="h-full bg-blue-500 transition-all duration-100"
                       style={{ width: `${baseFile.progress}%` }}
                     />
                   </div>
@@ -305,7 +305,7 @@ export default function ComparisonPage() {
           <div className="space-y-4.5">
             {/* Badge and Heading */}
             <div className="flex items-center gap-4">
-              <span className="w-11 h-11 rounded-full bg-purple-50 text-purple-600 font-semibold text-[17px] flex items-center justify-center shrink-0">
+              <span className="w-11 h-11 rounded-full bg-emerald-50 text-emerald-600 font-semibold text-[17px] flex items-center justify-center shrink-0">
                 2
               </span>
               <div>
@@ -326,7 +326,7 @@ export default function ComparisonPage() {
                   </div>
                   <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-purple-400 to-purple-500 transition-all duration-100"
+                      className="h-full bg-emerald-500 transition-all duration-100"
                       style={{ width: `${newFile.progress}%` }}
                     />
                   </div>
@@ -336,7 +336,7 @@ export default function ComparisonPage() {
                   onClick={() => newInputRef.current?.click()}
                   className="relative hover:scale-105 transition-transform duration-200 cursor-pointer"
                 >
-                  <div className="w-15 h-19 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shadow-md border border-purple-200/30">
+                  <div className="w-15 h-19 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shadow-md border border-emerald-100/30">
                     <DocumentSvg size={38} />
                   </div>
                 </div>
@@ -349,7 +349,7 @@ export default function ComparisonPage() {
             {newFile.file && !newFile.loading ? (
               <div className="flex items-center justify-between w-full bg-slate-50 border border-slate-150 p-3 rounded-xl">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                  <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                     <DocumentSvg size={15} />
                   </span>
                   <span className="text-[13px] font-semibold text-slate-900 truncate flex-1 min-w-0">
@@ -393,7 +393,7 @@ export default function ComparisonPage() {
           value={keyColumn}
           onChange={(e) => setKeyColumn(e.target.value)}
           placeholder="Example: ID"
-          className="w-full px-4 py-3 border border-slate-200/60 rounded-xl bg-white text-[13px] font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+          className="w-full px-4 py-3 border border-slate-200/60 rounded-xl bg-white text-[13px] font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
         />
         <p className="text-[12px] text-slate-400 font-medium mt-2">
           Enter a column name to match records by key value. Leaves blank to match by row position.
@@ -413,7 +413,7 @@ export default function ComparisonPage() {
           onClick={handleCompare}
           disabled={!baseFile.file || !newFile.file || isComparing}
           className={`w-full py-4 px-6 rounded-xl text-[15px] font-semibold tracking-wide flex items-center justify-center gap-2.5 shadow-sm transition-all duration-300 ${baseFile.file && newFile.file && !isComparing
-              ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer active:scale-[0.98] shadow-md shadow-blue-500/10"
+              ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer active:scale-[0.98] shadow-md"
               : "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
             }`}
         >
@@ -443,27 +443,27 @@ export default function ComparisonPage() {
               <h3 className="text-[18px] font-semibold text-slate-900 mb-4">Summary</h3>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="bg-blue-50 p-4 rounded-xl">
-                  <p className="text-[11px] text-slate-500 font-bold uppercase">Base Rows</p>
+                  <p className="text-[11px] text-slate-500 font-semibold uppercase">Base Rows</p>
                   <p className="text-[20px] font-semibold text-blue-600">{comparisonResult.summary.base_file_rows}</p>
                 </div>
-                <div className="bg-purple-50 p-4 rounded-xl">
-                  <p className="text-[11px] text-slate-500 font-bold uppercase">New Rows</p>
-                  <p className="text-[20px] font-semibold text-purple-600">{comparisonResult.summary.new_file_rows}</p>
+                <div className="bg-emerald-50 p-4 rounded-xl">
+                  <p className="text-[11px] text-slate-500 font-semibold uppercase">New Rows</p>
+                  <p className="text-[20px] font-semibold text-emerald-600">{comparisonResult.summary.new_file_rows}</p>
                 </div>
                 <div className="bg-emerald-50 p-4 rounded-xl">
-                  <p className="text-[11px] text-slate-500 font-bold uppercase">Added</p>
+                  <p className="text-[11px] text-slate-500 font-semibold uppercase">Added</p>
                   <p className="text-[20px] font-semibold text-emerald-600">
                     {comparisonResult.summary.added_record_count}
                   </p>
                 </div>
                 <div className="bg-rose-50 p-4 rounded-xl">
-                  <p className="text-[11px] text-slate-500 font-bold uppercase">Deleted</p>
+                  <p className="text-[11px] text-slate-500 font-semibold uppercase">Deleted</p>
                   <p className="text-[20px] font-semibold text-rose-600">
                     {comparisonResult.summary.deleted_record_count}
                   </p>
                 </div>
                 <div className="bg-amber-50 p-4 rounded-xl">
-                  <p className="text-[11px] text-slate-500 font-bold uppercase">Modified</p>
+                  <p className="text-[11px] text-slate-500 font-semibold uppercase">Modified</p>
                   <p className="text-[20px] font-semibold text-amber-600">
                     {comparisonResult.summary.modified_record_count}
                   </p>
@@ -482,7 +482,7 @@ export default function ComparisonPage() {
                     <span className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[11px] font-semibold text-slate-600">
                       -
                     </span>
-                    <span className="text-[13px] font-bold text-slate-700">{col}</span>
+                    <span className="text-[13px] font-semibold text-slate-700">{col}</span>
                   </div>
                 ))}
               </div>
@@ -499,7 +499,7 @@ export default function ComparisonPage() {
                     <span className="w-6 h-6 rounded-full bg-emerald-200 flex items-center justify-center text-[11px] font-semibold text-emerald-600">
                       +
                     </span>
-                    <span className="text-[13px] font-bold text-slate-700">{col}</span>
+                    <span className="text-[13px] font-semibold text-slate-700">{col}</span>
                   </div>
                 ))}
               </div>
@@ -515,9 +515,9 @@ export default function ComparisonPage() {
                   {comparisonResult.possible_renamed_columns.map((rename, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
                       <div className="flex items-center gap-3 flex-1">
-                        <span className="text-[13px] font-bold text-slate-700">{rename.base_column}</span>
+                        <span className="text-[13px] font-semibold text-slate-700">{rename.base_column}</span>
                         <span className="text-[11px] text-slate-400">→</span>
-                        <span className="text-[13px] font-bold text-slate-700">{rename.possible_new_column}</span>
+                        <span className="text-[13px] font-semibold text-slate-700">{rename.possible_new_column}</span>
                       </div>
                       <span className="text-[12px] font-semibold text-amber-600 bg-amber-100 px-2.5 py-1 rounded-lg">
                         {(rename.similarity_score * 100).toFixed(0)}%
@@ -542,12 +542,12 @@ export default function ComparisonPage() {
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <p className="text-[10px] text-slate-500 font-bold">Base (Row {diff.base_row})</p>
-                        <p className="text-[12px] font-bold text-rose-600">{String(diff.base_value)}</p>
+                        <p className="text-[10px] text-slate-500 font-semibold">Base (Row {diff.base_row})</p>
+                        <p className="text-[12px] font-semibold text-rose-600">{String(diff.base_value)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-500 font-bold">New (Row {diff.new_row})</p>
-                        <p className="text-[12px] font-bold text-emerald-600">{String(diff.new_value)}</p>
+                        <p className="text-[10px] text-slate-500 font-semibold">New (Row {diff.new_row})</p>
+                        <p className="text-[12px] font-semibold text-emerald-600">{String(diff.new_value)}</p>
                       </div>
                     </div>
                   </div>
@@ -571,12 +571,12 @@ export default function ComparisonPage() {
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <p className="text-[10px] text-slate-500 font-bold">Base (Row {diff.base_row})</p>
-                          <p className="text-[12px] font-bold text-blue-600">{String(diff.base_value)}</p>
+                          <p className="text-[10px] text-slate-500 font-semibold">Base (Row {diff.base_row})</p>
+                          <p className="text-[12px] font-semibold text-blue-600">{String(diff.base_value)}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-slate-500 font-bold">New (Row {diff.new_row})</p>
-                          <p className="text-[12px] font-bold text-blue-600">{String(diff.new_value)}</p>
+                          <p className="text-[10px] text-slate-500 font-semibold">New (Row {diff.new_row})</p>
+                          <p className="text-[12px] font-semibold text-blue-600">{String(diff.new_value)}</p>
                         </div>
                       </div>
                       <p className="text-[10px] text-slate-400 font-medium mt-2">Normalized: {String(diff.normalized_value)}</p>
@@ -599,8 +599,8 @@ export default function ComparisonPage() {
                       +
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-bold text-emerald-700">Key: {item.record_key}</p>
-                      <p className="text-[11px] text-slate-600 font-bold truncate">
+                      <p className="text-[12px] font-semibold text-emerald-700">Key: {item.record_key}</p>
+                      <p className="text-[11px] text-slate-600 font-semibold truncate">
                         {JSON.stringify(item.record).substring(0, 100)}...
                       </p>
                     </div>
@@ -624,7 +624,7 @@ export default function ComparisonPage() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] font-medium text-rose-700">Key: {item.record_key}</p>
-                      <p className="text-[11px] text-slate-600 font-bold truncate">
+                      <p className="text-[11px] text-slate-600 font-semibold truncate">
                         {JSON.stringify(item.record).substring(0, 100)}...
                       </p>
                     </div>
@@ -642,11 +642,11 @@ export default function ComparisonPage() {
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {Object.entries(comparisonResult.duplicate_keys).map(([key, counts], idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                      <span className="text-[13px] font-bold text-slate-700">{key}</span>
+                      <span className="text-[13px] font-semibold text-slate-700">{key}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-[12px] font-bold text-blue-600">Base: {counts.base}</span>
+                        <span className="text-[12px] font-semibold text-blue-600">Base: {counts.base}</span>
                         <span className="text-slate-300">|</span>
-                        <span className="text-[12px] font-bold text-purple-600">New: {counts.new}</span>
+                        <span className="text-[12px] font-semibold text-emerald-600">New: {counts.new}</span>
                       </div>
                     </div>
                   ))}

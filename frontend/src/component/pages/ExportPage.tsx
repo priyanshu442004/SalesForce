@@ -40,12 +40,12 @@ export default function ExportPage() {
   const reportsGenerated = [
     { name: "Validation Report.xlsx", size: "1.23 MB", color: "green" },
     { name: "Error Report.xlsx", size: "900 KB", color: "green" },
-    { name: "Transformation Log.xlsx", size: "1.15 MB", color: "purple" },
-    { name: "Mapping Report.xlsx", size: "827 KB", color: "purple" }
+    { name: "Transformation Log.xlsx", size: "1.15 MB", color: "slate" },
+    { name: "Mapping Report.xlsx", size: "827 KB", color: "slate" }
   ];
 
   return (
-    <div className="p-6 sm:p-8 lg:p-10 space-y-7 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white dark:bg-[#0F172A]">
+    <div className="p-6 sm:p-8 lg:p-10 space-y-7 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white dark:bg-slate-900">
 
       {/* Header bar */}
       <div className="flex-none flex items-center justify-between">
@@ -92,7 +92,7 @@ export default function ExportPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-7 items-start">
 
         {/* Column 1: Files Generated */}
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-sm min-h-[460px]">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-sm min-h-[460px]">
           <div className="space-y-6">
             <h3 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight border-b border-slate-100 dark:border-slate-700 pb-2.5">
               Files Generated
@@ -129,7 +129,7 @@ export default function ExportPage() {
         </div>
 
         {/* Column 2: Reports */}
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-sm min-h-[460px]">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-sm min-h-[460px]">
           <div className="space-y-6">
             <h3 className="text-base font-semibold text-blue-600 tracking-tight border-b border-slate-100 dark:border-slate-700 pb-2.5">
               Reports
@@ -142,7 +142,7 @@ export default function ExportPage() {
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       report.color === "green"
                         ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
-                        : "bg-purple-50 dark:bg-purple-900/20 text-violet-600 dark:text-purple-400"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                     }`}>
                       <DocumentSvg size={18} />
                     </div>
@@ -156,7 +156,7 @@ export default function ExportPage() {
         </div>
 
         {/* Column 3: Export Summary */}
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-sm min-h-[460px]">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-sm min-h-[460px]">
           <div className="space-y-6">
             <h3 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight border-b border-slate-100 dark:border-slate-700 pb-2.5">
               Export Summary

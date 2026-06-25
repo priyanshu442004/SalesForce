@@ -90,7 +90,7 @@ export default function Header() {
                       href={item.path}
                       onClick={() => setMobileMenuOpen(false)}
                       className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-[13px] font-extrabold tracking-wide ${
-                        isActive ? "bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white" : "text-slate-400"
+                        isActive ? "bg-slate-800 text-white" : "text-slate-400"
                       }`}
                     >
                       <Icon name={item.icon} size={16} />

@@ -272,7 +272,7 @@ export default function TransformationsPage() {
       title: "Picklist Mapping",
       description: "Map values to picklist",
       category: "Lookups & Join",
-      colorClass: "text-violet-600",
+      colorClass: "text-blue-600",
       bgIconClass: "bg-[#faf5ff] border-[#faf5ff]/50",
       iconSvg: (
         <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
@@ -377,12 +377,12 @@ export default function TransformationsPage() {
   });
 
   return (
-    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white dark:bg-[#0F172A]">
+    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-white dark:bg-slate-900">
       
       {/* Persistent success Overlay */}
       {showSuccessOverlay && (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-[3px] z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-[#1E293B] border border-slate-100 dark:border-slate-700 rounded-xl p-7 shadow-2xl flex flex-col items-center gap-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-7 shadow-2xl flex flex-col items-center gap-4">
             <div className="w-14 h-14 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
                 <polyline points="20 6 9 17 4 12" />
@@ -394,7 +394,7 @@ export default function TransformationsPage() {
       )}
 
       {/* Top Page Sub-navigation tabs (Mockup exact layout and larger sizes) */}
-      <div className="flex items-center gap-3 overflow-x-auto pb-2 border-b border-slate-100/50 dark:border-slate-700/50 flex-none">
+      <div className="flex items-center gap-3 overflow-x-auto pb-2 border-b border-slate-100/50 dark:border-slate-700 flex-none">
         {tabs.map((tab, idx) => {
           const isActive = transformationsTab === tab.name;
           return (
@@ -404,7 +404,7 @@ export default function TransformationsPage() {
               className={`px-5 py-3 rounded-xl text-[14.5px] lg:text-[15px] font-semibold flex items-center gap-2.5 border transition-all shrink-0 cursor-pointer ${
                 isActive
                   ? "bg-blue-50/10 dark:bg-blue-900/20 border-blue-500/40 text-blue-600 shadow-none"
-                  : "bg-white dark:bg-[#1E293B] border-slate-200/60 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50/45 dark:hover:bg-slate-700"
+                  : "bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50/45 dark:hover:bg-slate-700"
               }`}
             >
               <Icon name={tab.icon as any} size={15.5} className={isActive ? "text-blue-600" : "text-slate-400"} />
@@ -436,7 +436,7 @@ export default function TransformationsPage() {
                 
                 {/* Panel 1: Source Information */}
                 <div 
-                  className="col-span-1 md:col-span-3 bg-white dark:bg-[#1E293B] border border-slate-100/90 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.01)]"
+                  className="col-span-1 md:col-span-3 bg-white dark:bg-slate-800 border border-slate-100/90 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.01)]"
                  
                 >
                   <div className="space-y-6">
@@ -458,12 +458,12 @@ export default function TransformationsPage() {
                         Sample Values
                       </span>
                       <div className="space-y-3">
-                        <div className="text-[16.5px] font-bold text-slate-500">25/05/2024</div>
-                        <div className="text-[16.5px] font-bold text-slate-500">31/01/2024</div>
-                        <div className="text-[16.5px] font-bold text-slate-500">05/03/2024</div>
-                        <div className="text-[16.5px] font-bold text-slate-500">12/12/2023</div>
-                        <div className="text-[16.5px] font-bold text-slate-500">12/12/2023</div>
-                        <div className="text-[16.5px] font-bold text-slate-400/80 tracking-widest pt-1">...</div>
+                        <div className="text-[16.5px] font-semibold text-slate-500">25/05/2024</div>
+                        <div className="text-[16.5px] font-semibold text-slate-500">31/01/2024</div>
+                        <div className="text-[16.5px] font-semibold text-slate-500">05/03/2024</div>
+                        <div className="text-[16.5px] font-semibold text-slate-500">12/12/2023</div>
+                        <div className="text-[16.5px] font-semibold text-slate-500">12/12/2023</div>
+                        <div className="text-[16.5px] font-semibold text-slate-400/80 tracking-widest pt-1">...</div>
                       </div>
                     </div>
                   </div>
@@ -471,7 +471,7 @@ export default function TransformationsPage() {
 
                 {/* Panel 2: Transformation Configuration */}
                 <div 
-                  className="col-span-1 md:col-span-6 bg-white dark:bg-[#1E293B] border border-slate-100/90 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.01)]"
+                  className="col-span-1 md:col-span-6 bg-white dark:bg-slate-800 border border-slate-100/90 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.01)]"
                  
                 >
                   <div className="space-y-6">
@@ -488,7 +488,7 @@ export default function TransformationsPage() {
                           <select
                             value={transType}
                             onChange={(e) => setTransType(e.target.value)}
-                            className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white text-[15.5px] font-semibold bg-white dark:bg-[#0F172A] hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500/20 cursor-pointer appearance-none"
+                            className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white text-[15.5px] font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500/20 cursor-pointer appearance-none"
                           >
                             <option value="Date Conversion">Date Conversion</option>
                             <option value="Trim, Title Case">Trim, Title Case</option>
@@ -512,7 +512,7 @@ export default function TransformationsPage() {
                             <select
                               value={inputFormat}
                               onChange={(e) => setInputFormat(e.target.value)}
-                              className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white text-[15.5px] font-semibold bg-white dark:bg-[#0F172A] hover:bg-slate-50 dark:hover:bg-slate-800 appearance-none"
+                              className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white text-[15.5px] font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 appearance-none"
                             >
                               <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                               <option value="MM/DD/YYYY">MM/DD/YYYY</option>
@@ -534,7 +534,7 @@ export default function TransformationsPage() {
                             <select
                               value={outputFormat}
                               onChange={(e) => setOutputFormat(e.target.value)}
-                              className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white text-[15.5px] font-semibold bg-white dark:bg-[#0F172A] hover:bg-slate-50 dark:hover:bg-slate-800 appearance-none"
+                              className="w-full pl-4.5 pr-10 py-4 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white text-[15.5px] font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 appearance-none"
                             >
                               <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                               <option value="DD-MM-YYYY">DD-MM-YYYY</option>
@@ -554,7 +554,7 @@ export default function TransformationsPage() {
                           <span className="block text-[15.5px] font-semibold text-slate-900 dark:text-white">
                             Handle Null Values
                           </span>
-                          <span className="block text-[13px] font-bold text-slate-400">
+                          <span className="block text-[13px] font-semibold text-slate-400">
                             Set as Null <span className="ml-1 text-blue-600 font-semibold">-</span>
                           </span>
                         </div>
@@ -619,7 +619,7 @@ export default function TransformationsPage() {
                       className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-semibold flex items-center gap-1.5 transition-all duration-200 select-none cursor-pointer shadow-sm"
                     >
                       <span>Save Transformation</span>
-                      <span className="text-[15px] font-bold">&rarr;</span>
+                      <span className="text-[15px] font-semibold">&rarr;</span>
                     </button>
                   </div>
 
@@ -627,10 +627,10 @@ export default function TransformationsPage() {
 
                 {/* Panel 3: AI Suggestion & Impact */}
                 <div className="col-span-1 md:col-span-3 flex flex-col justify-between gap-5 lg:gap-6">
-                  <div className="bg-white dark:bg-[#1E293B] border border-slate-100/90 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex-1 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.01)]">
+                  <div className="bg-white dark:bg-slate-800 border border-slate-100/90 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex-1 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.01)]">
                     <div className="space-y-4">
                       <h3 className="text-[19px] font-semibold text-slate-900 tracking-tight">AI Suggestion</h3>
-                      <p className="text-[15.5px] text-slate-500 font-bold leading-relaxed">Convert &ldquo;Start Date&rdquo; values from {inputFormat} to {outputFormat}</p>
+                      <p className="text-[15.5px] text-slate-500 font-semibold leading-relaxed">Convert &ldquo;Start Date&rdquo; values from {inputFormat} to {outputFormat}</p>
                     </div>
                     <div className="space-y-4 pt-4 border-t border-slate-50 mt-4">
                       <span className="block text-[12px] font-semibold text-slate-400 uppercase tracking-wider">Confidence Score</span>
@@ -643,7 +643,7 @@ export default function TransformationsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-[#1E293B] border border-slate-100/90 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex-1 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.01)]">
+                  <div className="bg-white dark:bg-slate-800 border border-slate-100/90 dark:border-slate-700 rounded-xl p-6 lg:p-7 flex-1 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.01)]">
                     <div className="space-y-4.5">
                       <div className="flex items-center gap-2 border-b border-slate-50 pb-3.5">
                         <div className="w-9 h-9 bg-emerald-50 text-emerald-700 rounded-lg flex items-center justify-center border border-[#e6f4ea]/45">
@@ -657,7 +657,7 @@ export default function TransformationsPage() {
                         <span className="text-[18px] font-semibold text-emerald-700">Impact</span>
                       </div>
                       <div className="space-y-2">
-                        <p className="text-[15.5px] font-bold text-slate-500">The transformation will affect</p>
+                        <p className="text-[15.5px] font-semibold text-slate-500">The transformation will affect</p>
                         <div className="text-[30px] font-semibold text-emerald-700">1,256 records</div>
                       </div>
                     </div>
@@ -678,7 +678,7 @@ export default function TransformationsPage() {
                       <select
                         value={selectedObject}
                         onChange={(e) => setSelectedObject(e.target.value)}
-                        className="pl-4 pr-10 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white text-[14.5px] font-semibold bg-white dark:bg-[#1E293B] hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer appearance-none min-w-[140px]"
+                        className="pl-4 pr-10 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white text-[14.5px] font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer appearance-none min-w-[140px]"
                       >
                         <option value="Account">Account</option>
                         <option value="Contact">Contact</option>
@@ -702,7 +702,7 @@ export default function TransformationsPage() {
                     <span className="px-4.5 py-3 rounded-xl bg-rose-50/65 border border-rose-100/45 text-[14px] lg:text-[14.5px] font-semibold text-rose-600">
                       Unmapped: <span className="font-semibold ml-0.5">{activeData.unmapped}</span>
                     </span>
-                    <span className="px-4.5 py-3 rounded-xl bg-[#faf5ff]/70 border border-purple-100/40 text-[14px] lg:text-[14.5px] font-semibold text-violet-600">
+                    <span className="px-4.5 py-3 rounded-xl bg-blue-50/60 border border-slate-200/40 text-[14px] lg:text-[14.5px] font-semibold text-blue-600">
                       Transformations: <span className="font-semibold ml-0.5">{activeData.transformations}</span>
                     </span>
                   </div>
@@ -710,7 +710,7 @@ export default function TransformationsPage() {
 
                 <button
                   onClick={() => setTransformationsView("create")}
-                  className="px-6 py-3 rounded-xl bg-blue-600 text-white text-[14.5px] font-semibold hover:bg-blue-700 active:scale-[0.97] transition-all flex items-center gap-2 cursor-pointer shadow-sm shadow-blue-500/10"
+                  className="px-6 py-3 rounded-xl bg-blue-600 text-white text-[14.5px] font-semibold hover:bg-blue-700 active:scale-[0.97] transition-all flex items-center gap-2 cursor-pointer shadow-sm"
                 >
                   <span className="text-[18px] font-semibold leading-none">+</span>
                   <span>Add Transformation</span>
@@ -739,9 +739,9 @@ export default function TransformationsPage() {
                           style={{ animationDelay: `${200 + idx * 40}ms` }}
                         >
                           <td className="py-5 px-5 font-semibold text-slate-900 dark:text-white">{rule.sourceColumn}</td>
-                          <td className="py-5 px-5 font-bold text-slate-500 dark:text-slate-400">{rule.targetField}</td>
+                          <td className="py-5 px-5 font-semibold text-slate-500 dark:text-slate-400">{rule.targetField}</td>
                           <td className="py-5 px-5 font-semibold text-slate-900/85 dark:text-slate-300">{rule.transformation}</td>
-                          <td className="py-5 px-5 font-bold text-slate-600 dark:text-slate-400">{rule.preview}</td>
+                          <td className="py-5 px-5 font-semibold text-slate-600 dark:text-slate-400">{rule.preview}</td>
                           <td className="py-5 px-5">
                             <span className={`px-4 py-2 rounded-lg text-[13px] font-semibold inline-block leading-none ${
                               rule.status === "Executed" ? "bg-emerald-50 text-emerald-700" : "bg-[#fff7ed] text-[#c2410c]"
@@ -771,7 +771,7 @@ export default function TransformationsPage() {
                   </table>
                 </div>
 
-                <div className="pt-5 pb-8 flex items-center justify-between text-[14px] text-slate-400 font-bold border-t border-slate-100/55 dark:border-slate-700 flex-none mt-1">
+                <div className="pt-5 pb-8 flex items-center justify-between text-[14px] text-slate-400 font-semibold border-t border-slate-100/55 dark:border-slate-700 flex-none mt-1">
                   <span>Showing {activeData.rules.length} transformation records</span>
                   <span>Object: {selectedObject} Schema</span>
                 </div>
@@ -798,7 +798,7 @@ export default function TransformationsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search transformations..."
-                className="w-full py-4.5 pl-13 pr-6 rounded-xl border border-slate-200/80 dark:border-slate-600 bg-white dark:bg-[#1E293B] text-slate-900 dark:text-white text-[16px] font-semibold placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 shadow-[0_2px_10px_rgba(0,0,0,0.005)]"
+                className="w-full py-4.5 pl-13 pr-6 rounded-xl border border-slate-200/80 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-[16px] font-semibold placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 shadow-[0_2px_10px_rgba(0,0,0,0.005)]"
               />
             </div>
           </div>
@@ -813,7 +813,7 @@ export default function TransformationsPage() {
                   className={`px-5 py-3 rounded-xl text-[14.5px] font-semibold border transition-all shrink-0 cursor-pointer ${
                     isCatActive
                       ? "bg-slate-100/90 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white"
-                      : "bg-white dark:bg-[#1E293B] border-slate-150 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50/50 dark:hover:bg-slate-700"
+                      : "bg-white dark:bg-slate-800 border-slate-150 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50/50 dark:hover:bg-slate-700"
                   }`}
                 >
                   {cat}
@@ -828,7 +828,7 @@ export default function TransformationsPage() {
               {filteredCards.map((card, idx) => (
                 <div
                   key={idx}
-                  className="bg-white dark:bg-[#1E293B] border border-slate-100/90 dark:border-slate-700 hover:border-slate-200/85 dark:hover:border-slate-600 hover:shadow-[0_4px_20px_rgba(0,43,255,0.035)] transition-all duration-200 rounded-xl p-6.5 lg:p-7 flex items-center gap-5.5 group cursor-pointer min-h-[105px]"
+                  className="bg-white dark:bg-slate-800 border border-slate-100/90 dark:border-slate-700 hover:border-slate-200/85 dark:hover:border-slate-600 hover:shadow-[0_4px_20px_rgba(0,43,255,0.035)] transition-all duration-200 rounded-xl p-6.5 lg:p-7 flex items-center gap-5.5 group cursor-pointer min-h-[105px]"
                   style={{ animationDelay: `${150 + idx * 30}ms` }}
                 >
                   <div className={`w-14 h-14 ${card.bgIconClass} border rounded-xl flex items-center justify-center ${card.colorClass} group-hover:scale-[1.04] transition-transform flex-shrink-0`}>
@@ -839,7 +839,7 @@ export default function TransformationsPage() {
                     <h4 className={`text-[17.5px] lg:text-[18px] font-semibold ${card.colorClass} truncate`}>
                       {card.title}
                     </h4>
-                    <p className="text-[14px] text-slate-400 font-bold leading-normal truncate">
+                    <p className="text-[14px] text-slate-400 font-semibold leading-normal truncate">
                       {card.description}
                     </p>
                   </div>
@@ -882,7 +882,7 @@ export default function TransformationsPage() {
               <h3 className="text-[20px] font-semibold text-slate-900 dark:text-white">
                 Preview Transformation
               </h3>
-              <div className="text-[14px] font-bold text-slate-500 flex items-center gap-1.5">
+              <div className="text-[14px] font-semibold text-slate-500 flex items-center gap-1.5">
                 <span>Object:</span>
                 <span className="text-slate-900 font-semibold">Account</span>
                 <span className="text-slate-300">&gt;</span>
@@ -903,7 +903,7 @@ export default function TransformationsPage() {
                 </svg>
               </div>
               <div className="space-y-0.5">
-                <span className="block text-[13.5px] font-bold text-slate-400">Total Records</span>
+                <span className="block text-[13.5px] font-semibold text-slate-400">Total Records</span>
                 <span className="block text-[25px] font-semibold text-slate-900">
                   1,256
                 </span>
@@ -918,7 +918,7 @@ export default function TransformationsPage() {
                 </svg>
               </div>
               <div className="space-y-0.5">
-                <span className="block text-[13.5px] font-bold text-slate-400">Preview Records</span>
+                <span className="block text-[13.5px] font-semibold text-slate-400">Preview Records</span>
                 <span className="block text-[25px] font-semibold text-slate-900">
                   20
                 </span>
@@ -933,7 +933,7 @@ export default function TransformationsPage() {
                 </svg>
               </div>
               <div className="space-y-0.5">
-                <span className="block text-[13.5px] font-bold text-slate-400">Errors Found</span>
+                <span className="block text-[13.5px] font-semibold text-slate-400">Errors Found</span>
                 <span className="block text-[25px] font-semibold text-slate-900">
                   0
                 </span>
@@ -948,7 +948,7 @@ export default function TransformationsPage() {
                 </svg>
               </div>
               <div className="space-y-0.5">
-                <span className="block text-[13.5px] font-bold text-slate-400">Success Rate</span>
+                <span className="block text-[13.5px] font-semibold text-slate-400">Success Rate</span>
                 <span className="block text-[25px] font-semibold text-emerald-700">
                   100%
                 </span>
@@ -967,13 +967,13 @@ export default function TransformationsPage() {
               </span>
               <div className="bg-white border border-slate-200/90 rounded-xl overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.008)] flex-1 flex flex-col justify-between">
                 <div className="flex-1 flex flex-col">
-                  <div className="bg-gradient-to-b from-[#eef2ff]/70 via-[#f8fafc]/40 to-white border-b border-slate-200/80 py-4 px-6 flex-none">
+                  <div className="bg-white border-b border-slate-200/80 py-4 px-6 flex-none">
                     <span className="block text-[16px] font-semibold text-blue-600">
                       Start Date
                     </span>
                   </div>
                   
-                  <div className="flex-1 flex flex-col text-[15.5px] font-bold text-slate-900">
+                  <div className="flex-1 flex flex-col text-[15.5px] font-semibold text-slate-900">
                     <div className="border-b border-slate-100 py-4 px-6">25/05/2024</div>
                     <div className="border-b border-slate-100 py-4 px-6">31/01/2024</div>
                     <div className="border-b border-slate-100 py-4 px-6">15/08/2024</div>
@@ -1002,13 +1002,13 @@ export default function TransformationsPage() {
               </span>
               <div className="bg-white border border-slate-200/90 rounded-xl overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.008)] flex-1 flex flex-col justify-between">
                 <div className="flex-1 flex flex-col">
-                  <div className="bg-gradient-to-b from-[#eef2ff]/70 via-[#f8fafc]/40 to-white border-b border-slate-200/80 py-4 px-6 flex-none">
+                  <div className="bg-white border-b border-slate-200/80 py-4 px-6 flex-none">
                     <span className="block text-[16px] font-semibold text-blue-600">
                       Start_Date__c
                     </span>
                   </div>
                   
-                  <div className="flex-1 flex flex-col text-[15.5px] font-bold text-slate-900">
+                  <div className="flex-1 flex flex-col text-[15.5px] font-semibold text-slate-900">
                     <div className="border-b border-slate-100 py-4 px-6">2024-05-25</div>
                     <div className="border-b border-slate-100 py-4 px-6">2024-01-31</div>
                     <div className="border-b border-slate-100 py-4 px-6">2024-08-15</div>
@@ -1031,27 +1031,27 @@ export default function TransformationsPage() {
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between text-[14.5px]">
-                      <span className="font-bold text-slate-400">Type</span>
+                      <span className="font-semibold text-slate-400">Type</span>
                       <span className="font-semibold text-slate-900">Date Conversion</span>
                     </div>
 
                     <div className="flex items-center justify-between text-[14.5px]">
-                      <span className="font-bold text-slate-400">Input Format</span>
+                      <span className="font-semibold text-slate-400">Input Format</span>
                       <span className="font-semibold text-slate-500">DD/MM/YYYY</span>
                     </div>
 
                     <div className="flex items-center justify-between text-[14.5px]">
-                      <span className="font-bold text-slate-400">Output Format</span>
+                      <span className="font-semibold text-slate-400">Output Format</span>
                       <span className="font-semibold text-slate-500">YYYY-MM-DD</span>
                     </div>
 
                     <div className="flex items-center justify-between text-[14.5px]">
-                      <span className="font-bold text-slate-400">Applied On</span>
+                      <span className="font-semibold text-slate-400">Applied On</span>
                       <span className="font-semibold text-emerald-700">1,256 records</span>
                     </div>
 
                     <div className="flex items-center justify-between text-[14.5px]">
-                      <span className="font-bold text-slate-400">Executed By</span>
+                      <span className="font-semibold text-slate-400">Executed By</span>
                       <span className="font-semibold text-blue-600">AI Suggestion</span>
                     </div>
                   </div>
@@ -1060,10 +1060,10 @@ export default function TransformationsPage() {
 
               <button
                 onClick={handleApproveExecution}
-                className="w-full py-4.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[15px] font-semibold flex items-center justify-center gap-2 hover:scale-[0.98] active:scale-[0.96] transition-all cursor-pointer shadow-lg shadow-blue-500/10"
+                className="w-full py-4.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[15px] font-semibold flex items-center justify-center gap-2 hover:scale-[0.98] active:scale-[0.96] transition-all cursor-pointer shadow-lg"
               >
                 <span>Approve & Add to Execution</span>
-                <span className="text-[16px] font-bold">&rarr;</span>
+                <span className="text-[16px] font-semibold">&rarr;</span>
               </button>
 
             </div>
@@ -1091,7 +1091,7 @@ export default function TransformationsPage() {
             <h3 className="text-[20px] font-semibold text-slate-900">
               Review & Provide Feedback
             </h3>
-            <span className="text-[14px] font-bold text-slate-400">
+            <span className="text-[14px] font-semibold text-slate-400">
               Review AI suggestions and provide your feedback.
             </span>
           </div>
@@ -1118,29 +1118,29 @@ export default function TransformationsPage() {
                 </div>
 
                 <div className="space-y-3.5 pt-1">
-                  <span className="block text-[13.5px] font-semibold text-violet-600 uppercase tracking-wider">
+                  <span className="block text-[13.5px] font-semibold text-blue-600 uppercase tracking-wider">
                     Mapping Suggestion
                   </span>
                   
-                  <div className="space-y-3.5 pt-0.5 text-[15px] font-bold">
+                  <div className="space-y-3.5 pt-0.5 text-[15px] font-semibold">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-900">Business</span>
-                      <span className="text-slate-300 font-bold">&rarr;</span>
+                      <span className="text-slate-300 font-semibold">&rarr;</span>
                       <span className="text-slate-900/80">B2B</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-900">Individual</span>
-                      <span className="text-slate-300 font-bold">&rarr;</span>
+                      <span className="text-slate-300 font-semibold">&rarr;</span>
                       <span className="text-slate-900/80">B2C</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-900">Partner</span>
-                      <span className="text-slate-300 font-bold">&rarr;</span>
+                      <span className="text-slate-300 font-semibold">&rarr;</span>
                       <span className="text-slate-900/80">Partner</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-900">Others</span>
-                      <span className="text-slate-300 font-bold">&rarr;</span>
+                      <span className="text-slate-300 font-semibold">&rarr;</span>
                       <span className="text-slate-900/80">Other</span>
                     </div>
                   </div>
@@ -1270,7 +1270,7 @@ export default function TransformationsPage() {
                   handleTabChange("Preview Engine");
                 }, 1300);
               }}
-              className="px-9 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-semibold flex items-center gap-1.5 transition-all select-none cursor-pointer shadow-lg shadow-blue-500/10"
+              className="px-9 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-semibold flex items-center gap-1.5 transition-all select-none cursor-pointer shadow-lg"
             >
               Save & Execute Preview
             </button>
@@ -1297,7 +1297,7 @@ export default function TransformationsPage() {
             <h3 className="text-[20px] font-semibold text-slate-900">
               Transformation Execution
             </h3>
-            <span className="text-[14px] font-bold text-slate-400">
+            <span className="text-[14px] font-semibold text-slate-400">
               Executing all approved transformations.
             </span>
           </div>
@@ -1373,7 +1373,7 @@ export default function TransformationsPage() {
                         <th className="pb-4 text-right pr-4">Progress</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50 text-[15px] font-bold text-slate-900">
+                    <tbody className="divide-y divide-slate-50 text-[15px] font-semibold text-slate-900">
                       
                       <tr className="hover:bg-slate-50/20 transition-all">
                         <td className="py-4.5 pl-2 font-semibold">1</td>
@@ -1508,7 +1508,7 @@ export default function TransformationsPage() {
             </div>
 
             <div className="bg-white border border-slate-150 rounded-xl p-5 flex items-center gap-4 shadow-[0_2px_10px_rgba(0,0,0,0.005)]">
-              <div className="w-12 h-12 bg-indigo-50 border border-indigo-500/20 text-[#6366f1] rounded-xl flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 bg-blue-50 border border-blue-500/20 text-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <circle cx="12" cy="12" r="8" />
                   <line x1="12" y1="2" x2="12" y2="6" />

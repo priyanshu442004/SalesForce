@@ -19,10 +19,17 @@ from comparison import compare_excel_files
 from transformer import transform_source_data
 import boto3
 from dotenv import load_dotenv
+from simple_salesforce import Salesforce
+from simple_salesforce.exceptions import SalesforceAuthenticationFailed
 
 # Load backend environment configurations
 load_dotenv()
+from pydantic import BaseModel
 
+class SalesforceLoginRequest(BaseModel):
+    username: str
+    password: str
+    security_token: str
 
 def _aggregate_issues(issues: list) -> list:
     """Group raw validation issues by field, deduplicating issue types and summing counts."""
@@ -58,6 +65,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Salesforce OAuth routes
+from salesforce import router as salesforce_router
+app.include_router(salesforce_router)
 
 # Initialize AWS S3 client
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -770,6 +781,7 @@ def unique_identifier_analyze(source_key: str = Query(...)):
     finally:
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
+
 
 
 @app.get("/api/unique-identifier/download")

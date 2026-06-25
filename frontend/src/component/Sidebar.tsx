@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMigration } from "@/context/MigrationContext";
@@ -23,150 +22,132 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside 
-      className={`shrink-0 bg-[#0d162d] flex flex-col justify-between text-slate-300 p-5 border-r border-[#1e293b]/40 h-screen sticky top-0 z-40 hidden lg:flex transition-all duration-350 ease-in-out ${
-        sidebarCollapsed ? "w-[78px]" : "w-[260px]"
+    <aside
+      className={`shrink-0 bg-slate-900 flex flex-col justify-between text-slate-300 border-r border-slate-800 h-screen sticky top-0 z-40 hidden lg:flex transition-all duration-300 ease-in-out ${
+        sidebarCollapsed ? "w-[68px] px-3 py-5" : "w-[240px] p-5"
       }`}
     >
-      <div className="space-y-7">
-        
-        {/* Header Brand Area */}
-        <div className="flex flex-col border-b border-[#1e293b]/40 pb-4 overflow-hidden">
-          <div className="flex items-center justify-between py-2.5">
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-[36px] h-[36px] rounded-[11px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0 transition-transform duration-350 hover:scale-105">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  <path d="M12 8v8" />
-                  <path d="M9 11h6" />
-                </svg>
-              </div>
-              <span 
-                className={`font-semibold text-white text-[15px] tracking-wider uppercase whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  sidebarCollapsed ? "opacity-0 w-0 max-w-0 ml-0 overflow-hidden pointer-events-none" : "opacity-100 ml-1.5"
-                }`}
-              >
-                Data Migrate
-              </span>
+      <div className="space-y-6">
+
+        {/* Brand */}
+        <div className={`flex items-center border-b border-slate-800 pb-4 overflow-hidden ${sidebarCollapsed ? "justify-center" : "justify-between"}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M9 11h6" />
+                <path d="M12 8v6" />
+              </svg>
             </div>
-            
-            <button 
+            <span className={`font-semibold text-white text-[14px] tracking-wide whitespace-nowrap transition-all duration-250 ${
+              sidebarCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
+            }`}>
+              DataMigrate
+            </span>
+          </div>
+
+          {!sidebarCollapsed && (
+            <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-1 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors duration-250 shrink-0 select-none ml-1 cursor-pointer focus:outline-none"
+              className="p-1.5 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer focus:outline-none"
             >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="16" 
-                height="16" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2.5" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className={`transform transition-transform duration-350 ${sidebarCollapsed ? "rotate-180" : ""}`}
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-          </div>
+          )}
 
-          {currentProject && !sidebarCollapsed && (
-            <div className="mt-3.5 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[11px] font-medium tracking-wide truncate flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-              Project: <span className="font-semibold text-white truncate">{currentProject.name}</span>
-            </div>
+          {sidebarCollapsed && (
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              className="absolute top-5 right-[-12px] w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer focus:outline-none shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
           )}
         </div>
 
-        {/* Navigation Menu Links */}
-        <nav className="space-y-1.5 max-h-[calc(100vh-230px)] overflow-y-auto pr-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        {/* Active project badge */}
+        {currentProject && !sidebarCollapsed && (
+          <div className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 flex items-center gap-2.5 overflow-hidden">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+            <span className="text-[11px] font-medium text-slate-400 truncate">
+              <span className="text-slate-500">Project: </span>
+              <span className="text-slate-200 font-semibold">{currentProject.name}</span>
+            </span>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <nav className="space-y-0.5">
           {navItems.map((item, idx) => {
             const isActive = pathname === item.path;
             return (
               <Link
                 key={idx}
                 href={item.path}
-                className={`w-full flex items-center py-2.5 rounded-lg text-[13px] font-semibold tracking-wide transition-all duration-200 group relative focus:outline-none select-none cursor-pointer ${
-                  sidebarCollapsed ? "justify-center px-0" : "px-3"
+                title={sidebarCollapsed ? item.name : undefined}
+                className={`w-full flex items-center py-2 rounded-md text-[13px] font-medium transition-colors duration-150 group focus:outline-none select-none ${
+                  sidebarCollapsed ? "justify-center px-0" : "px-3 gap-3"
                 } ${
                   isActive
-                    ? "bg-white/10 text-white"
-                    : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"
                 }`}
               >
-                <Icon
-                  name={item.icon}
-                  size={16}
-                  className={`shrink-0 ${isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300"}`}
-                />
-                <span 
-                  className={`whitespace-nowrap transition-all duration-300 ease-in-out ${
-                    sidebarCollapsed ? "opacity-0 w-0 max-w-0 ml-0 overflow-hidden pointer-events-none" : "opacity-100 ml-3.5"
-                  }`}
-                >
-                  {item.name}
+                <span className="relative flex items-center justify-center shrink-0">
+                  {isActive && (
+                    <span className="absolute -left-[13px] top-1/2 -translate-y-1/2 w-[3px] h-4 bg-blue-500 rounded-r-full" />
+                  )}
+                  <Icon
+                    name={item.icon}
+                    size={15}
+                    className={isActive ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"}
+                  />
                 </span>
+                {!sidebarCollapsed && (
+                  <span className="whitespace-nowrap">{item.name}</span>
+                )}
               </Link>
             );
           })}
         </nav>
       </div>
 
-      {/* User Profile Card Footer */}
-      <div className="pt-4 border-t border-[#1e293b]/40 flex items-center justify-between overflow-hidden">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-            <span className="text-[12px] font-semibold text-white leading-none">
-              {(currentUser?.name || "U").split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
-            </span>
-          </div>
-          <div 
-            className={`flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
-              sidebarCollapsed ? "opacity-0 w-0 max-w-0 overflow-hidden pointer-events-none" : "opacity-100 ml-1"
-            }`}
-          >
-            <span className="text-[12.5px] font-semibold text-white leading-tight truncate">
-              {currentUser?.name || ""}
-            </span>
-            <span className="text-[10px] text-slate-500 truncate">
-              {currentUser?.email || ""}
-            </span>
-          </div>
+      {/* User footer */}
+      <div className="pt-4 border-t border-slate-800 flex items-center overflow-hidden" style={{ gap: sidebarCollapsed ? 0 : "0.75rem" }}>
+        <div className="w-7 h-7 rounded-md bg-slate-700 flex items-center justify-center shrink-0">
+          <span className="text-[11px] font-semibold text-slate-200 leading-none">
+            {(currentUser?.name || "U").split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
+          </span>
         </div>
-        
-        {/* Logout Button */}
-        <button
-          onClick={() => setCurrentUser(null)}
-          title="Logout"
-          className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors select-none cursor-pointer focus:outline-none"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+
+        <div className={`flex flex-col min-w-0 flex-1 transition-all duration-250 ${
+          sidebarCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
+        }`}>
+          <span className="text-[12px] font-semibold text-slate-200 leading-tight truncate">
+            {currentUser?.name || ""}
+          </span>
+          <span className="text-[10px] text-slate-500 truncate mt-0.5">
+            {currentUser?.email || ""}
+          </span>
+        </div>
+
+        {!sidebarCollapsed && (
+          <button
+            onClick={() => setCurrentUser(null)}
+            title="Sign out"
+            className="p-1.5 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer focus:outline-none shrink-0"
           >
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-        </button>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
+        )}
       </div>
     </aside>
   );

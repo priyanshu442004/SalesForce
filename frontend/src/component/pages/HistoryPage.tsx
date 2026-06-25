@@ -168,13 +168,13 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm sm:p-6 animate-fade-in">
-      <div className="flex h-full max-h-[85vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] shadow-2xl animate-scale-up-modal">
+      <div className="flex h-full max-h-[85vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl animate-scale-up-modal">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-[#1E293B] px-6 py-4.5">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 px-6 py-4.5">
           <div className="space-y-1 min-w-0 flex-1 mr-4">
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold uppercase tracking-wider ${
-                log.category === "Transformation" ? "bg-purple-50 text-purple-700 ring-1 ring-purple-100" :
+                log.category === "Transformation" ? "bg-slate-100 text-slate-700 ring-1 ring-slate-200" :
                 log.category === "Mapping" ? "bg-blue-50 text-blue-700 ring-1 ring-blue-100" :
                 log.category === "Validation" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100" :
                 log.category === "Upload" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" :
@@ -218,7 +218,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
         </div>
 
         {/* Info bar */}
-        <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 px-6 py-3 text-xs font-bold text-slate-500 dark:text-slate-400">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-1.5">
             <User size={13} className="text-slate-400" />
             <span>Actor:</span>
@@ -239,7 +239,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
         </div>
 
         {/* Content */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-6 bg-slate-50/45 dark:bg-[#0F172A]/50">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 bg-slate-50/45 dark:bg-slate-900/60">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start h-full">
             
             {/* Left Section: Reports */}
@@ -269,7 +269,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                   </div>
 
                   {issues.length > 0 ? (
-                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm flex flex-col">
                       <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2 bg-slate-50/30 dark:bg-slate-800/30">
                         <Search size={14} className="text-slate-400" />
                         <input
@@ -292,9 +292,9 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-300 font-medium">
                             {filteredIssues.map((issue, index) => (
                               <tr key={index} className="hover:bg-slate-50/40 dark:hover:bg-slate-700/30">
-                                <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-slate-200 whitespace-nowrap">{issue.field}</td>
+                                <td className="px-3 py-2.5 font-semibold text-slate-900 dark:text-slate-200 whitespace-nowrap">{issue.field}</td>
                                 <td className="px-3 py-2.5 text-rose-700 dark:text-rose-400">{issue.issue_types}</td>
-                                <td className="px-3 py-2.5 text-right font-bold tabular-nums text-slate-900 dark:text-slate-100 whitespace-nowrap">{issue.count}</td>
+                                <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-slate-900 dark:text-slate-100 whitespace-nowrap">{issue.count}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -302,7 +302,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                       </div>
                     </div>
                   ) : (
-                    <div className="p-8 text-center bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl shadow-sm text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-2">
+                    <div className="p-8 text-center bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 rounded-xl shadow-sm text-slate-400 font-semibold text-xs flex flex-col items-center justify-center gap-2">
                       <CheckCircle2 size={24} className="text-emerald-600" />
                       <span>Data validation passed cleanly. No issues detected!</span>
                     </div>
@@ -341,8 +341,8 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                       {schemaResult.schema_valid ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
                     </span>
                     <div>
-                      <h5 className="font-bold text-xs">{schemaResult.schema_valid ? "Compatible Field Schema Match" : "Field Discrepancies Found"}</h5>
-                      <p className="text-[11.5px] mt-0.5 leading-4 font-bold opacity-90">
+                      <h5 className="font-semibold text-xs">{schemaResult.schema_valid ? "Compatible Field Schema Match" : "Field Discrepancies Found"}</h5>
+                      <p className="text-[11.5px] mt-0.5 leading-4 font-semibold opacity-90">
                         {schemaResult.schema_valid ? "Source fields match perfectly with the mapping rules." : "Review discrepancies below to align source columns."}
                       </p>
                     </div>
@@ -350,27 +350,27 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
 
                   {!schemaResult.schema_valid && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl p-4 shadow-sm">
+                      <div className="bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 rounded-xl p-4 shadow-sm">
                         <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
                           Missing from source data ({schemaResult.missing_fields?.length || 0})
                         </h5>
                         <div className="mt-3 max-h-32 overflow-y-auto flex flex-wrap gap-1.5">
                           {schemaResult.missing_fields?.map((f: string) => (
-                            <span key={f} className="px-2 py-1 bg-rose-50 text-rose-700 rounded-md text-[10.5px] font-bold">
+                            <span key={f} className="px-2 py-1 bg-rose-50 text-rose-700 rounded-md text-[10.5px] font-semibold">
                               {f}
                             </span>
                           )) || <span className="text-xs text-slate-400 italic">None</span>}
                         </div>
                       </div>
-                      <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl p-4 shadow-sm">
+                      <div className="bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 rounded-xl p-4 shadow-sm">
                         <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
                           Missing from mapping logic ({schemaResult.additional_fields?.length || 0})
                         </h5>
                         <div className="mt-3 max-h-32 overflow-y-auto flex flex-wrap gap-1.5">
                           {schemaResult.additional_fields?.map((f: string) => (
-                            <span key={f} className="px-2 py-1 bg-amber-50 text-amber-700 rounded-md text-[10.5px] font-bold">
+                            <span key={f} className="px-2 py-1 bg-amber-50 text-amber-700 rounded-md text-[10.5px] font-semibold">
                               {f}
                             </span>
                           )) || <span className="text-xs text-slate-400 italic">None</span>}
@@ -406,7 +406,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                   </div>
 
                   {cleaningChanges.length > 0 ? (
-                    <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm flex flex-col">
                       <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-left text-xs">
                           <thead className="bg-slate-50/80 dark:bg-slate-800/50 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
@@ -421,12 +421,12 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-300 font-medium">
                             {paginatedCleaningChanges.map((change: any, index: number) => (
                               <tr key={index} className="hover:bg-slate-50/40 dark:hover:bg-slate-700/30">
-                                <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-white font-mono">{change.row}</td>
+                                <td className="px-3 py-2.5 font-semibold text-slate-900 dark:text-white font-mono">{change.row}</td>
                                 <td className="px-3 py-2.5 font-semibold text-slate-800 dark:text-slate-200">{change.column}</td>
                                 <td className="px-3 py-2.5 max-w-[130px] truncate font-mono text-[11px] text-rose-700">{String(change.original_value || "")}</td>
                                 <td className="px-3 py-2.5 max-w-[130px] truncate font-mono text-[11px] text-emerald-700">{String(change.cleaned_value || "")}</td>
                                 <td className="px-3 py-2.5">
-                                  <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-semibold">
                                     {change.rule}
                                   </span>
                                 </td>
@@ -436,7 +436,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                         </table>
                       </div>
                       {totalCleaningPages > 1 && (
-                        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/30 text-[11px] font-bold text-slate-500">
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/30 text-[11px] font-semibold text-slate-500">
                           <span>Showing {(cleaningPage - 1) * cleaningItemsPerPage + 1} to {Math.min(cleaningPage * cleaningItemsPerPage, cleaningChanges.length)} of {cleaningChanges.length}</span>
                           <div className="flex items-center gap-1.5">
                             <button onClick={() => setCleaningPage(p => Math.max(1, p - 1))} disabled={cleaningPage === 1} className="p-1 rounded border disabled:opacity-40"><ChevronLeft size={14} /></button>
@@ -447,7 +447,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                       )}
                     </div>
                   ) : (
-                    <div className="p-8 text-center bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl shadow-sm text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-2">
+                    <div className="p-8 text-center bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 rounded-xl shadow-sm text-slate-400 font-semibold text-xs flex flex-col items-center justify-center gap-2">
                       <CheckCircle2 size={24} className="text-emerald-600" />
                       <span>Data cleaning complete. No changes were necessary!</span>
                     </div>
@@ -463,7 +463,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                     {details.zipS3Key ? (
                       <button
                         onClick={() => downloadFile(details.zipS3Key, details.zipFileName || "transformed_data.zip")}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer shadow-md shadow-blue-500/10"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer shadow-md"
                       >
                         <Download size={13} />
                         <span>Download Transformed Files (ZIP)</span>
@@ -471,7 +471,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                     ) : transformOutputs[0]?.transformedS3Key ? (
                       <button
                         onClick={() => downloadFile(transformOutputs[0].transformedS3Key, transformOutputs[0].fileName || "transformed_data.xlsx")}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer shadow-md shadow-blue-500/10"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer shadow-md"
                       >
                         <Download size={13} />
                         <span>Download Transformed File</span>
@@ -484,7 +484,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                     <MetricTile label="Lookups Missed" value={transformTotalMissed} helper="Lookup values not found" icon={AlertTriangle} tone={transformTotalMissed > 0 ? "rose" : "slate"} />
                   </div>
 
-                  <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                  <div className="bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse text-left text-xs">
                         <thead className="bg-slate-50/50 dark:bg-slate-800/20 text-[10px] font-semibold uppercase tracking-wider text-slate-500 border-b">
@@ -503,11 +503,11 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                             const missed = stats.reduce((s: number, l: any) => s + (l.missed ?? 0), 0);
                             return (
                               <tr key={index} className="hover:bg-slate-50/40 dark:hover:bg-slate-700/30">
-                                <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{out.sheetName}</td>
+                                <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">{out.sheetName}</td>
                                 <td className="px-4 py-3 font-mono truncate max-w-[150px]">{out.fileName}</td>
-                                <td className="px-4 py-3 font-bold">{out.totalRows ?? out.total_rows ?? 0}</td>
+                                <td className="px-4 py-3 font-semibold">{out.totalRows ?? out.total_rows ?? 0}</td>
                                 <td className="px-4 py-3">
-                                  <span className="text-emerald-600 font-bold">{matched}</span> / <span className={missed > 0 ? "text-rose-600 font-bold" : "text-slate-400"}>{missed}</span>
+                                  <span className="text-emerald-600 font-semibold">{matched}</span> / <span className={missed > 0 ? "text-rose-600 font-semibold" : "text-slate-400"}>{missed}</span>
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   <button onClick={() => downloadFile(out.transformedS3Key, out.fileName)} className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-50 transition-colors"><Download size={13} /></button>
@@ -527,7 +527,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                 <div className="p-4 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl flex gap-3 items-start shadow-sm">
                   <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={18} />
                   <div>
-                    <h5 className="font-bold text-xs">Error details</h5>
+                    <h5 className="font-semibold text-xs">Error details</h5>
                     <p className="mt-1.5 text-xs font-mono whitespace-pre-wrap break-all leading-5">{errorMsg}</p>
                   </div>
                 </div>
@@ -550,7 +550,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
               </div>
 
               <div className="space-y-3">
-                <p className="text-[11px] leading-4 text-slate-400 font-bold">
+                <p className="text-[11px] leading-4 text-slate-400 font-semibold">
                   Download files active in the project workspace at this timestamp:
                 </p>
 
@@ -562,13 +562,13 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                     return (
                       <div
                         key={file.id || file.s3Key}
-                        className="bg-white dark:bg-[#0F172A] border border-slate-200/60 dark:border-slate-700 rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm hover:border-slate-300 transition-colors"
+                        className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700 rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm hover:border-slate-300 transition-colors"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
                             isSource ? "bg-blue-50 text-blue-700" :
                             isMaster ? "bg-emerald-50 text-emerald-700" :
-                            "bg-purple-50 text-purple-700"
+                            "bg-slate-100 text-slate-700"
                           }`}>
                             <Table2 size={17} />
                           </span>
@@ -580,12 +580,12 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                               <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-semibold uppercase tracking-wide shrink-0 ${
                                 isSource ? "bg-blue-100 text-blue-800" :
                                 isMaster ? "bg-emerald-100 text-emerald-800" :
-                                "bg-purple-100 text-purple-800"
+                                "bg-slate-200 text-slate-700"
                               }`}>
                                 {file.slot}
                               </span>
                             </div>
-                            <p className="text-[10px] text-slate-400 font-bold mt-0.5">Size: {file.fileSize || "Unknown"}</p>
+                            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Size: {file.fileSize || "Unknown"}</p>
                           </div>
                         </div>
                         <button
@@ -599,7 +599,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                     );
                   })
                 ) : (
-                  <div className="p-8 text-center bg-white dark:bg-[#0F172A] border border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 font-bold text-xs flex flex-col items-center justify-center gap-1.5">
+                  <div className="p-8 text-center bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 font-semibold text-xs flex flex-col items-center justify-center gap-1.5">
                     <Database size={18} className="text-slate-300" />
                     <span>No active files at this timestamp.</span>
                   </div>
@@ -611,10 +611,10 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
         </div>
 
         {/* Footer */}
-        <div className="flex shrink-0 items-center justify-end border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-[#1E293B] px-6 py-4">
+        <div className="flex shrink-0 items-center justify-end border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 px-6 py-4">
           <button
             onClick={onClose}
-            className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors cursor-pointer"
+            className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors cursor-pointer"
           >
             Close
           </button>
@@ -769,7 +769,7 @@ export default function HistoryPage() {
 
   if (!currentUser) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 min-h-[calc(100vh-80px)] bg-slate-50 dark:bg-[#0F172A]">
+      <div className="flex flex-col items-center justify-center p-8 min-h-[calc(100vh-80px)] bg-slate-50 dark:bg-slate-900">
         <div className="max-w-md text-center space-y-3">
           <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Access Denied</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">Please login to view migration history.</p>
@@ -779,7 +779,7 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="p-5 sm:p-7 lg:p-9 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden select-none bg-[#f8fafc] dark:bg-[#0F172A]">
+    <div className="p-5 sm:p-7 lg:p-9 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto lg:overflow-hidden select-none bg-[#f8fafc] dark:bg-slate-900">
 
       {/* Header bar */}
       <div className="flex-none flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200/50 dark:border-slate-800 pb-4">
@@ -801,7 +801,7 @@ export default function HistoryPage() {
               onClick={() => setViewMode("table")}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                 viewMode === "table"
-                  ? "bg-white dark:bg-[#1E293B] text-blue-600 dark:text-blue-400 shadow-sm"
+                  ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm"
                   : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
@@ -812,7 +812,7 @@ export default function HistoryPage() {
               onClick={() => setViewMode("timeline")}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                 viewMode === "timeline"
-                  ? "bg-white dark:bg-[#1E293B] text-blue-600 dark:text-blue-400 shadow-sm"
+                  ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm"
                   : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
@@ -824,7 +824,7 @@ export default function HistoryPage() {
           <button
             onClick={handleExportHistory}
             disabled={filteredLogs.length === 0}
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors disabled:opacity-40 cursor-pointer shadow-sm"
+            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors disabled:opacity-40 cursor-pointer shadow-sm"
           >
             <Download size={13} />
             <span>Export</span>
@@ -846,49 +846,49 @@ export default function HistoryPage() {
       {/* Analytics Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 flex-none">
 
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
           <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/30 rounded-lg flex items-center justify-center shrink-0">
             <Database size={18} />
           </div>
           <div>
             <span className="block text-xs font-medium text-slate-400">Total Activities</span>
-            <span className="block text-2xl font-bold text-slate-900 dark:text-white mt-0.5">
+            <span className="block text-2xl font-semibold text-slate-900 dark:text-white mt-0.5">
               {isLoading ? "—" : totalCount}
             </span>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
           <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/30 rounded-lg flex items-center justify-center shrink-0">
             <CheckCircle2 size={18} />
           </div>
           <div>
             <span className="block text-xs font-medium text-slate-400">Success Rate</span>
-            <span className="block text-2xl font-bold text-emerald-600 mt-0.5">
+            <span className="block text-2xl font-semibold text-emerald-600 mt-0.5">
               {isLoading ? "—" : `${successRate}%`}
             </span>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
           <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/30 rounded-lg flex items-center justify-center shrink-0">
             <AlertTriangle size={18} />
           </div>
           <div>
             <span className="block text-xs font-medium text-slate-400">Warnings</span>
-            <span className="block text-2xl font-bold text-amber-600 mt-0.5">
+            <span className="block text-2xl font-semibold text-amber-600 mt-0.5">
               {isLoading ? "—" : warningCount}
             </span>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 flex items-center gap-4 shadow-sm">
           <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800/30 rounded-lg flex items-center justify-center shrink-0">
             <XCircle size={18} />
           </div>
           <div>
             <span className="block text-xs font-medium text-slate-400">Errors</span>
-            <span className="block text-2xl font-bold text-rose-600 mt-0.5">
+            <span className="block text-2xl font-semibold text-rose-600 mt-0.5">
               {isLoading ? "—" : errorCount}
             </span>
           </div>
@@ -915,7 +915,7 @@ export default function HistoryPage() {
                 className={`px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   isSelected
                     ? "bg-blue-600 border-transparent text-white shadow-sm"
-                    : "bg-white dark:bg-[#1E293B] border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
                 }`}
               >
                 {item.label}
@@ -933,7 +933,7 @@ export default function HistoryPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search history..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm font-medium placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white dark:bg-[#1E293B]"
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm font-medium placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white dark:bg-slate-800"
             />
             <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
               <Search size={15} />
@@ -941,7 +941,7 @@ export default function HistoryPage() {
           </div>
 
           {/* Project Filter */}
-          <div className="flex items-center gap-2 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-500">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-500">
             <span>Project:</span>
             <select
               value={selectedProjectFilter}
@@ -956,7 +956,7 @@ export default function HistoryPage() {
           </div>
 
           {/* Category Filter */}
-          <div className="flex items-center gap-2 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-500">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-500">
             <span>Category:</span>
             <select
               value={selectedCategory}
@@ -976,7 +976,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Main logs display - List or Timeline */}
-      <div className="flex-1 bg-white dark:bg-[#1E293B] border border-slate-200/90 dark:border-slate-700 rounded-xl p-5 shadow-sm min-h-[350px] overflow-hidden flex flex-col">
+      <div className="flex-1 bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-xl p-5 shadow-sm min-h-[350px] overflow-hidden flex flex-col">
         {isLoading ? (
           <div className="flex-1 flex justify-center items-center">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -1023,7 +1023,7 @@ export default function HistoryPage() {
                       </td>
                       <td className="py-3.5">
                         <span className={`px-2.5 py-1 rounded-md text-xs font-semibold uppercase ${
-                          log.category === "Transformation" ? "bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400" :
+                          log.category === "Transformation" ? "bg-slate-100 dark:bg-slate-800/30 text-slate-600 dark:text-slate-400" :
                           log.category === "Mapping" ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" :
                           log.category === "Validation" ? "bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" :
                           log.category === "Upload" ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" :
@@ -1093,7 +1093,7 @@ export default function HistoryPage() {
                     <div className="flex items-center gap-2">
                       <FolderOpen size={16} className="text-blue-600 dark:text-blue-400" />
                       <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{projectName}</h4>
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10.5px] font-bold text-slate-500">
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10.5px] font-semibold text-slate-500">
                         {group.logs.length} {group.logs.length === 1 ? "activity" : "activities"}
                       </span>
                     </div>
@@ -1101,7 +1101,7 @@ export default function HistoryPage() {
                     {group.projectId && (
                       <button
                         onClick={() => handleSelectProject(group.projectId)}
-                        className="px-3 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                        className="px-3 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                       >
                         Open Workspace
                       </button>
@@ -1117,7 +1117,7 @@ export default function HistoryPage() {
                         className="relative pl-6 pb-6 last:pb-2 group cursor-pointer"
                       >
                         {/* Bullet Marker */}
-                        <div className={`absolute left-[3px] top-1.5 w-2.5 h-2.5 rounded-full border-2 bg-white dark:bg-[#1E293B] z-10 transition-transform group-hover:scale-125 ${
+                        <div className={`absolute left-[3px] top-1.5 w-2.5 h-2.5 rounded-full border-2 bg-white dark:bg-slate-800 z-10 transition-transform group-hover:scale-125 ${
                           log.status === "Success" ? "border-emerald-500" :
                           log.status === "Warning" ? "border-amber-500" :
                           "border-rose-500"
@@ -1133,7 +1133,7 @@ export default function HistoryPage() {
                             <div className="flex items-center gap-2 flex-wrap text-xs">
                               <span className="font-mono text-slate-400">{log.timestamp}</span>
                               <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                                log.category === "Transformation" ? "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" :
+                                log.category === "Transformation" ? "bg-slate-100 text-slate-700 dark:bg-slate-800/30 dark:text-slate-400" :
                                 log.category === "Mapping" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
                                 log.category === "Validation" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
                                 log.category === "Upload" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
@@ -1197,7 +1197,7 @@ export default function HistoryPage() {
       {/* Purge Confirmation Modal */}
       {showPurgeConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-6 space-y-4">
+          <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-6 space-y-4">
             <div className="flex items-start gap-3">
               <span className="p-2 bg-rose-50 text-rose-600 rounded-lg"><AlertTriangle size={18} /></span>
               <div>

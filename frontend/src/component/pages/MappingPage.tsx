@@ -41,9 +41,9 @@ export default function MappingPage() {
         <button 
           onClick={handleRegenerate}
           disabled={isRegenerating}
-          className={`px-5 py-3 rounded-xl border border-slate-200 text-indigo-600 text-[13.5px] font-semibold hover:bg-slate-50 transition-all duration-300 active:scale-[0.97] shrink-0 inline-flex items-center gap-2 shadow-sm bg-white cursor-pointer select-none ${isRegenerating ? "opacity-60 cursor-not-allowed" : ""}`}
+          className={`px-5 py-3 rounded-xl border border-slate-200 text-blue-600 text-[13.5px] font-semibold hover:bg-slate-50 transition-all duration-300 active:scale-[0.97] shrink-0 inline-flex items-center gap-2 shadow-sm bg-white cursor-pointer select-none ${isRegenerating ? "opacity-60 cursor-not-allowed" : ""}`}
         >
-          <Icon name="sparkles" size={14.5} className={`text-indigo-600 ${isRegenerating ? "animate-spin" : ""}`} />
+          <Icon name="sparkles" size={14.5} className={`text-blue-600 ${isRegenerating ? "animate-spin" : ""}`} />
           <span>{isRegenerating ? "Analyzing Files..." : "Regenerate Mapping"}</span>
         </button>
       </div>
@@ -123,7 +123,7 @@ export default function MappingPage() {
                   </div>
 
                   {isHovered && (
-                    <div className="absolute left-[36px] top-[-52px] w-68 p-4.5 bg-slate-900 border border-slate-800 text-white text-[12.5px] rounded-xl shadow-2xl z-30 animate-scale-in font-bold pointer-events-none leading-relaxed">
+                    <div className="absolute left-[36px] top-[-52px] w-68 p-4.5 bg-slate-900 border border-slate-800 text-white text-[12.5px] rounded-xl shadow-2xl z-30 animate-scale-in font-semibold pointer-events-none leading-relaxed">
                       <span className="block text-[11px] font-semibold uppercase text-blue-400 mb-0.5">{obj.name} Metadata</span>
                       {obj.desc}
                     </div>
@@ -215,12 +215,12 @@ export default function MappingPage() {
               </div>
 
               <div 
-                className={`flex items-center justify-between p-2 rounded-xl transition-all ${activeSegment === "unmapped" ? "bg-purple-50/50 scale-[1.01]" : ""}`}
+                className={`flex items-center justify-between p-2 rounded-xl transition-all ${activeSegment === "unmapped" ? "bg-slate-100/50 scale-[1.01]" : ""}`}
                 onMouseEnter={() => setActiveSegment("unmapped")}
                 onMouseLeave={() => setActiveSegment(null)}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-3.5 h-3.5 rounded-full bg-purple-600 shrink-0" />
+                  <span className="w-3.5 h-3.5 rounded-full bg-slate-600 shrink-0" />
                   <span className="text-[14.5px] text-slate-500 font-semibold">Unmapped</span>
                 </div>
                 <span className="text-[14.5px] font-semibold text-slate-800">45 (11%)</span>
@@ -314,7 +314,7 @@ export default function MappingPage() {
           <div className="flex justify-end pt-5">
             <button 
               onClick={() => router.push("/transformation-workspace")}
-              className="px-7 py-4 rounded-xl bg-blue-600 text-white text-[14.5px] font-semibold flex items-center gap-2 hover:bg-blue-700 active:scale-[0.98] transition-all duration-250 shadow-md shadow-blue-500/10 cursor-pointer select-none"
+              className="px-7 py-4 rounded-xl bg-blue-600 text-white text-[14.5px] font-semibold flex items-center gap-2 hover:bg-blue-700 active:scale-[0.98] transition-all duration-250 shadow-md cursor-pointer select-none"
             >
               <span>Review Mapping Details</span>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">

@@ -30,7 +30,7 @@ export default function Sidebar() {
         {/* Header Brand Area */}
         <div className="flex items-center justify-between py-4.5 border-b border-[#1e293b]/40 overflow-hidden">
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-[36px] h-[36px] rounded-[11px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0 transition-transform duration-350 hover:scale-105">
+            <div className="w-[36px] h-[36px] rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="20"
@@ -89,7 +89,7 @@ export default function Sidebar() {
                   sidebarCollapsed ? "justify-center px-0" : "px-4"
                 } ${
                   isActive
-                    ? "bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white shadow-lg shadow-blue-500/20"
+                    ? "bg-slate-800 text-white"
                     : "text-slate-400 hover:text-white hover:bg-white/[0.04]"
                 }`}
               >

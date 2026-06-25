@@ -43,7 +43,7 @@ export default function TemplatesPage() {
       rulesCount: 25,
       category: "Industry Cloud",
       tag: "Enterprise",
-      iconBg: "bg-purple-50 border-purple-500/20 text-purple-600",
+      iconBg: "bg-slate-100 border-slate-1000/20 text-slate-600",
       iconText: "FS"
     },
     {
@@ -108,14 +108,14 @@ export default function TemplatesPage() {
         </div>
 
         <div className="bg-white border border-slate-100 rounded-xl p-5 flex items-center gap-4 shadow-sm">
-          <div className="w-10 h-10 bg-purple-50 border border-purple-500/20 text-violet-600 rounded-lg flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 bg-slate-100 border border-slate-1000/20 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 22c5.523 0 10-2.239 10-5V7c0-2.761-4.477-5-10-5S2 4.239 2 7v10c0 2.761 4.477 5 10 5z" />
             </svg>
           </div>
           <div className="space-y-0.5">
             <span className="block text-xs font-medium text-slate-400">Pre-built Mappings</span>
-            <span className="block text-2xl font-semibold text-violet-600">680</span>
+            <span className="block text-2xl font-semibold text-blue-600">680</span>
           </div>
         </div>
 

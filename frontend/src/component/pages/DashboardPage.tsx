@@ -27,10 +27,10 @@ export default function DashboardPage() {
   const circleDashOffset = 414 - (414 * successRateCount) / 100;
 
   return (
-    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-[#f8fafc] dark:bg-[#0F172A]">
+    <div className="p-5 sm:p-7 lg:p-9 space-y-5 lg:space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-[#f8fafc] dark:bg-slate-900">
 
       {/* Welcome Card */}
-      <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 lg:p-6 flex items-center gap-5 shadow-sm flex-none">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 lg:p-6 flex items-center gap-5 shadow-sm flex-none">
         <div className="w-16 h-16 shrink-0 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30 flex items-center justify-center">
           <svg width="38" height="38" viewBox="0 0 46 46" fill="none">
             <path d="M23 4L5 12.5L23 21L41 12.5L23 4Z" fill="#3b82f6" fillOpacity="0.85" />
@@ -49,7 +49,7 @@ export default function DashboardPage() {
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-none">
 
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-5 rounded-xl shadow-sm hover:border-blue-200 dark:hover:border-blue-700 transition-colors cursor-pointer">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 p-5 rounded-xl shadow-sm hover:border-blue-200 dark:hover:border-blue-700 transition-colors cursor-pointer">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">Total Projects</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border border-blue-100 dark:border-blue-800/30">
@@ -57,11 +57,11 @@ export default function DashboardPage() {
             </span>
           </div>
           <div className="mt-3">
-            <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-none">{metricCount.projects}</h3>
+            <h3 className="text-3xl font-semibold text-slate-900 dark:text-white tracking-tight leading-none">{metricCount.projects}</h3>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-5 rounded-xl shadow-sm hover:border-emerald-200 dark:hover:border-emerald-700 transition-colors cursor-pointer">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 p-5 rounded-xl shadow-sm hover:border-emerald-200 dark:hover:border-emerald-700 transition-colors cursor-pointer">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">Completed</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800/30">
@@ -69,11 +69,11 @@ export default function DashboardPage() {
             </span>
           </div>
           <div className="mt-3">
-            <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-none">{metricCount.completed}</h3>
+            <h3 className="text-3xl font-semibold text-slate-900 dark:text-white tracking-tight leading-none">{metricCount.completed}</h3>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-5 rounded-xl shadow-sm hover:border-amber-200 dark:hover:border-amber-700 transition-colors cursor-pointer">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 p-5 rounded-xl shadow-sm hover:border-amber-200 dark:hover:border-amber-700 transition-colors cursor-pointer">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">In Progress</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300 border border-amber-100 dark:border-amber-800/30">
@@ -81,11 +81,11 @@ export default function DashboardPage() {
             </span>
           </div>
           <div className="mt-3">
-            <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-none">{metricCount.progress}</h3>
+            <h3 className="text-3xl font-semibold text-slate-900 dark:text-white tracking-tight leading-none">{metricCount.progress}</h3>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/70 dark:border-slate-700 p-5 rounded-xl shadow-sm hover:border-rose-200 dark:hover:border-rose-700 transition-colors cursor-pointer">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 p-5 rounded-xl shadow-sm hover:border-rose-200 dark:hover:border-rose-700 transition-colors cursor-pointer">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">Failed</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 border border-rose-100 dark:border-rose-800/30">
@@ -93,7 +93,7 @@ export default function DashboardPage() {
             </span>
           </div>
           <div className="mt-3">
-            <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-none">{metricCount.failed}</h3>
+            <h3 className="text-3xl font-semibold text-slate-900 dark:text-white tracking-tight leading-none">{metricCount.failed}</h3>
           </div>
         </div>
 
@@ -103,7 +103,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-none">
 
         {/* Migration Activity Chart */}
-        <div className="lg:col-span-6 bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 lg:p-6 flex flex-col justify-between shadow-sm h-full overflow-hidden">
+        <div className="lg:col-span-6 bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 lg:p-6 flex flex-col justify-between shadow-sm h-full overflow-hidden">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700 flex-none">
             <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Migration Activity</h4>
             <div className="flex items-center gap-3">
@@ -140,12 +140,12 @@ export default function DashboardPage() {
               <path d="M 30 155 L 95 142 L 160 120 L 225 142 L 290 130 L 355 132 L 420 105" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
               {inProgressCoords.map((coord, idx) => (
                 <g key={`blue-node-${idx}`}>
-                  <circle cx={coord.x} cy={coord.y} r="4" className="fill-white dark:fill-[#1E293B]" stroke="#2563eb" strokeWidth="2"
+                  <circle cx={coord.x} cy={coord.y} r="4" className="fill-white dark:fill-slate-800" stroke="#2563eb" strokeWidth="2"
                     onMouseEnter={() => setActiveTooltip(idx)} onMouseLeave={() => setActiveTooltip(null)} />
                 </g>
               ))}
               {completedCoords.map((coord, idx) => (
-                <circle key={`green-node-${idx}`} cx={coord.x} cy={coord.y} r="4" className="fill-white dark:fill-[#1E293B]" stroke="#10b981" strokeWidth="2" />
+                <circle key={`green-node-${idx}`} cx={coord.x} cy={coord.y} r="4" className="fill-white dark:fill-slate-800" stroke="#10b981" strokeWidth="2" />
               ))}
             </svg>
 
@@ -166,7 +166,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Success Rate Circle */}
-        <div className="lg:col-span-3 bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 lg:p-6 flex flex-col justify-between items-center shadow-sm h-full overflow-hidden">
+        <div className="lg:col-span-3 bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 lg:p-6 flex flex-col justify-between items-center shadow-sm h-full overflow-hidden">
           <div className="w-full text-left pb-3 border-b border-slate-100 dark:border-slate-700 flex-none">
             <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Success Rate</h4>
           </div>
@@ -178,7 +178,7 @@ export default function DashboardPage() {
                   strokeDasharray="414" strokeDashoffset={circleDashOffset} strokeLinecap="round" />
               </svg>
               <div className="absolute text-center">
-                <span className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-none block">
+                <span className="text-3xl font-semibold text-slate-900 dark:text-white tracking-tight leading-none block">
                   {successRateCount}%
                 </span>
                 <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-1">Success</p>
@@ -189,16 +189,16 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="lg:col-span-3 bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 lg:p-6 flex flex-col justify-between shadow-sm h-full overflow-hidden">
+        <div className="lg:col-span-3 bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 lg:p-6 flex flex-col justify-between shadow-sm h-full overflow-hidden">
           <div className="w-full text-left pb-3 border-b border-slate-100 dark:border-slate-700 flex-none">
             <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Quick Actions</h4>
           </div>
           <div className="flex-1 flex flex-col justify-between py-1.5 space-y-1">
-            <Link href="/upload" className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-slate-100 dark:border-slate-700 hover:border-violet-200 dark:hover:border-violet-700 hover:bg-violet-50/30 transition-colors group text-left cursor-pointer focus:outline-none">
-              <div className="w-8 h-8 rounded-lg bg-violet-100/80 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300 flex items-center justify-center shrink-0">
+            <Link href="/upload" className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-slate-100 dark:border-slate-700 hover:border-blue-100 dark:hover:border-blue-700 hover:bg-blue-50/30 transition-colors group text-left cursor-pointer focus:outline-none">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0">
                 <Icon name="plus" size={14} />
               </div>
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">New Migration</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-300 transition-colors">New Migration</span>
             </Link>
             <Link href="/transformation-workspace" className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-50/30 transition-colors group text-left cursor-pointer focus:outline-none">
               <div className="w-8 h-8 rounded-lg bg-blue-100/80 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0">
@@ -225,7 +225,7 @@ export default function DashboardPage() {
 
       {/* Version Rollback Control Center */}
       {currentProject && (
-        <div className="bg-white dark:bg-[#1E293B] border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 lg:p-6 shadow-sm space-y-4 flex-none">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl p-5 lg:p-6 shadow-sm space-y-4 flex-none">
           <div className="border-b border-slate-100 dark:border-slate-700 pb-3 flex items-center justify-between">
             <div>
               <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Version Rollback</h4>
@@ -242,13 +242,13 @@ export default function DashboardPage() {
               <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1 border border-slate-100 dark:border-slate-700 rounded-xl p-2 bg-slate-50/50 dark:bg-slate-800/30">
                 {currentProject.files && currentProject.files.length > 0 ? (
                   currentProject.files.map((file: any) => (
-                    <div key={file.id} className="bg-white dark:bg-[#0F172A] border border-slate-100 dark:border-slate-700 rounded-lg p-2.5 flex items-center justify-between text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                    <div key={file.id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-lg p-2.5 flex items-center justify-between text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                       <div className="space-y-0.5 min-w-0 pr-2">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase shrink-0 ${
                             file.slot === "source" ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" :
                             file.slot === "master" ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" :
-                            "bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
+                            "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                           }`}>
                             {file.slot}
                           </span>
@@ -278,7 +278,7 @@ export default function DashboardPage() {
               <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1 border border-slate-100 dark:border-slate-700 rounded-xl p-2 bg-slate-50/50 dark:bg-slate-800/30">
                 {currentProject.outputs && currentProject.outputs.length > 0 ? (
                   currentProject.outputs.map((out: any) => (
-                    <div key={out.id} className="bg-white dark:bg-[#0F172A] border border-slate-100 dark:border-slate-700 rounded-lg p-2.5 flex items-center justify-between text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                    <div key={out.id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-lg p-2.5 flex items-center justify-between text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                       <div className="space-y-0.5 min-w-0 pr-2">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[9px] font-semibold uppercase shrink-0">

@@ -50,7 +50,7 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="p-6 sm:p-8 lg:p-10 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-[#f8fafc] dark:bg-[#0F172A]">
+    <div className="p-6 sm:p-8 lg:p-10 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto select-none bg-[#f8fafc] dark:bg-slate-900">
 
       {/* Header */}
       <div className="flex-none flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -70,7 +70,7 @@ export default function ProjectsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search projects..."
-              className="w-full pl-10 pr-4 h-10 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white text-sm font-medium placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white dark:bg-[#1E293B]"
+              className="w-full pl-10 pr-4 h-10 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white text-sm font-medium placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white dark:bg-slate-800"
             />
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -94,7 +94,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects Table Card */}
-      <div className="flex-1 bg-white dark:bg-[#1E293B] border border-slate-200/90 dark:border-slate-700 rounded-xl p-6 shadow-sm min-h-[350px] overflow-hidden flex flex-col">
+      <div className="flex-1 bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-xl p-6 shadow-sm min-h-[350px] overflow-hidden flex flex-col">
         {isLoadingProjects ? (
           <div className="flex-1 flex justify-center items-center">
             <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -210,7 +210,7 @@ export default function ProjectsPage() {
       {/* New Project Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-6 space-y-5">
+          <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">Create New Migration</h3>
               <button

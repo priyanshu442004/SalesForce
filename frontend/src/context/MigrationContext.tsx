@@ -199,6 +199,19 @@ interface MigrationContextType {
     dataValidationResult?: DataValidationResult | null;
     transformResult?: TransformResult | null;
   }) => void;
+
+  // Salesforce session state
+  sfAccessToken: string | null;
+  setSfAccessToken: React.Dispatch<React.SetStateAction<string | null>>;
+  sfInstanceUrl: string | null;
+  setSfInstanceUrl: React.Dispatch<React.SetStateAction<string | null>>;
+  sfRefreshToken: string | null;
+  setSfRefreshToken: React.Dispatch<React.SetStateAction<string | null>>;
+  sfSelectedObject: string | null;
+  setSfSelectedObject: React.Dispatch<React.SetStateAction<string | null>>;
+  sfUserInfo: { displayName: string | null; email: string | null; username: string | null } | null;
+  setSfUserInfo: React.Dispatch<React.SetStateAction<{ displayName: string | null; email: string | null; username: string | null } | null>>;
+  clearSalesforceSession: () => void;
 }
 
 const MigrationContext = createContext<MigrationContextType | undefined>(undefined);
@@ -245,6 +258,26 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   const [dataValidationResult, setDataValidationResult] = useState<DataValidationResult | null>(null);
   const [transformResult, setTransformResult] = useState<TransformResult | null>(null);
   const [transformError, setTransformError] = useState<string | null>(null);
+
+  // Salesforce session state
+  const [sfAccessToken, setSfAccessToken] = useState<string | null>(null);
+  const [sfInstanceUrl, setSfInstanceUrl] = useState<string | null>(null);
+  const [sfRefreshToken, setSfRefreshToken] = useState<string | null>(null);
+  const [sfSelectedObject, setSfSelectedObject] = useState<string | null>(null);
+  const [sfUserInfo, setSfUserInfo] = useState<{ displayName: string | null; email: string | null; username: string | null } | null>(null);
+
+  const clearSalesforceSession = useCallback(() => {
+    setSfAccessToken(null);
+    setSfInstanceUrl(null);
+    setSfRefreshToken(null);
+    setSfSelectedObject(null);
+    setSfUserInfo(null);
+  }, []);
+
+  useEffect(() => {
+    console.log("[MigrationContext] sfAccessToken:", sfAccessToken);
+    console.log("[MigrationContext] sfInstanceUrl:", sfInstanceUrl);
+  }, [sfAccessToken, sfInstanceUrl]);
 
   const pipelineProjectIdRef = useRef<string | null>(null);
   // Monotonic counter: only the latest in-flight refreshCurrentProject() response is applied.
@@ -1310,6 +1343,19 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         proceedWithSkips,
         resetPipelineState,
         restorePipelineState,
+
+        // Salesforce session state
+        sfAccessToken,
+        setSfAccessToken,
+        sfInstanceUrl,
+        setSfInstanceUrl,
+        sfRefreshToken,
+        setSfRefreshToken,
+        sfSelectedObject,
+        setSfSelectedObject,
+        sfUserInfo,
+        setSfUserInfo,
+        clearSalesforceSession,
       }}
     >
       {children}

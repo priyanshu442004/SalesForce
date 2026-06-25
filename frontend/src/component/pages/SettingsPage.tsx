@@ -73,14 +73,14 @@ export default function SettingsPage() {
         </div>
 
         <div className="bg-white border border-slate-100 rounded-xl p-5 flex items-center gap-4 shadow-sm">
-          <div className="w-10 h-10 bg-purple-50 border border-purple-500/20 text-violet-600 rounded-lg flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 bg-slate-100 border border-slate-1000/20 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
             </svg>
           </div>
           <div className="space-y-0.5">
             <span className="block text-xs font-medium text-slate-400">Batch Record Size</span>
-            <span className="block text-2xl font-semibold text-violet-600">200</span>
+            <span className="block text-2xl font-semibold text-blue-600">200</span>
           </div>
         </div>
 
@@ -229,7 +229,7 @@ export default function SettingsPage() {
                 <span className="block text-[12.5px] font-semibold text-blue-600 uppercase tracking-wider">System Architect</span>
               </div>
 
-              <div className="w-full border-t border-slate-100 pt-5 space-y-3 text-[14px] font-bold">
+              <div className="w-full border-t border-slate-100 pt-5 space-y-3 text-[14px] font-semibold">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Workspace Tenant:</span>
                   <span className="text-slate-900">Enterprise Sandbox</span>

@@ -129,7 +129,7 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
               <path d="M9 11h6" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl font-semibold text-white tracking-tight">
             Data Migrate
           </h1>
           <p className="text-sm font-medium text-slate-400">
@@ -189,7 +189,7 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-11 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              className="w-full h-11 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2.5 border-white border-t-transparent rounded-full animate-spin"></div>
