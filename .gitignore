@@ -79,3 +79,5 @@ Thumbs.db
 *.sln
 *.sw?
 backend/uploads/
+backend/import_jobs.db
+*.tsbuildinfo

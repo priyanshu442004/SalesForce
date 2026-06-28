@@ -17,6 +17,7 @@ export default function Sidebar() {
     { name: "Transformations", path: "/transformation-workspace", icon: "layers" },
     { name: "Unique Identifier", path: "/unique-identifier", icon: "hash" },
     { name: "Projects", path: "/projects", icon: "folder" },
+    { name: "Import Jobs", path: "/import-jobs", icon: "briefcase" },
     { name: "Activity Log", path: "/activity-log", icon: "activity" },
     { name: "History", path: "/history", icon: "clock" },
   ];

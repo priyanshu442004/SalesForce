@@ -10,6 +10,7 @@ import {
   Download,
   AlertTriangle,
   CheckCircle2,
+  Cloud,
   Eye,
   Info,
   FileText,
@@ -144,6 +145,9 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
 
   const isGenericError = log.status === "Error" || (details && typeof details === "object" && "error" in details);
   const errorMsg = details && typeof details === "object" && "error" in details ? details.error : null;
+
+  const isSalesforceMigration = details && typeof details === "object" && details.sf_type === "salesforce_migration";
+  const sfDurationSec = isSalesforceMigration && details.duration_ms ? (details.duration_ms / 1000).toFixed(1) : null;
 
   const MetricTile = ({ label, value, helper, icon: Icon, tone = "slate" }: any) => {
     const toneStyles = {
@@ -522,8 +526,84 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                 </div>
               )}
 
+              {/* Salesforce Migration */}
+              {isSalesforceMigration && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Salesforce Migration Details</h5>
+                    {details.report_s3_key && (
+                      <button
+                        onClick={() => downloadFile(details.report_s3_key, "Migration_Report.xlsx")}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer shadow-md"
+                      >
+                        <Download size={13} />
+                        Download Report
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Info row: object + account + duration */}
+                  <div className="flex flex-wrap gap-4 text-xs font-medium text-slate-500">
+                    <div className="flex items-center gap-1.5">
+                      <Cloud size={13} className="text-slate-400" />
+                      <span>Object:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{details.sf_object ?? "—"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <User size={13} className="text-slate-400" />
+                      <span>Account:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{details.sf_user_email ?? "—"}</span>
+                    </div>
+                    {sfDurationSec && (
+                      <div className="flex items-center gap-1.5">
+                        <Clock size={13} className="text-slate-400" />
+                        <span>Duration:</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{sfDurationSec}s</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Metric tiles */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <MetricTile label="Total Attempted" value={details.total ?? 0} helper="Records sent to Salesforce" icon={Table2} tone="blue" />
+                    <MetricTile label="Successful" value={details.success ?? 0} helper="Records inserted" icon={CheckCircle2} tone="emerald" />
+                    <MetricTile label="Failed" value={details.failed ?? 0} helper="Records rejected" icon={XCircle} tone={details.failed > 0 ? "rose" : "slate"} />
+                  </div>
+
+                  {/* Error from thrown exception */}
+                  {details.error && (
+                    <div className="p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800/30 text-rose-800 dark:text-rose-300 rounded-xl flex gap-3 items-start">
+                      <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={16} />
+                      <div>
+                        <p className="text-xs font-semibold">Error</p>
+                        <p className="text-xs mt-0.5 font-medium opacity-90">{details.error}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Per-row errors from partial failures */}
+                  {Array.isArray(details.errors) && details.errors.length > 0 && (
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                      <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 px-4 py-2.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                          Row Errors ({details.errors.length})
+                        </span>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/50">
+                        {details.errors.map((e: any, i: number) => (
+                          <div key={i} className="flex items-start gap-3 px-4 py-2.5 text-xs">
+                            <span className="font-mono font-semibold text-slate-500 shrink-0 pt-0.5">Row {e.row}</span>
+                            <span className="text-rose-700 dark:text-rose-400 font-medium">{e.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Generic Error message */}
-              {isGenericError && errorMsg && !isDataValidation && !isSchemaValidation && !isDataCleaning && !isDataTransformation && (
+              {isGenericError && errorMsg && !isDataValidation && !isSchemaValidation && !isDataCleaning && !isDataTransformation && !isSalesforceMigration && (
                 <div className="p-4 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl flex gap-3 items-start shadow-sm">
                   <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={18} />
                   <div>

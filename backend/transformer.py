@@ -4,7 +4,7 @@ import datetime as dt
 import math
 import os
 import re
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -245,7 +245,7 @@ def excel_format_to_strftime(format_value: Any, default_format: str) -> str:
     return py_format
 
 
-def parse_datetime(value: Any) -> pd.Timestamp | None:
+def parse_datetime(value: Any) -> Optional[pd.Timestamp]:
     if is_blank(value):
         return None
     if isinstance(value, pd.Timestamp):
@@ -418,8 +418,8 @@ def _anf_number_series(expression: str, source_df: pd.DataFrame) -> pd.Series:
     """
     col_map = _anf_col_map(source_df)
     tokens  = [t.strip() for t in re.split(r"([+\-*/])", expression) if t.strip()]
-    result: pd.Series | None = None
-    op: str | None = None
+    result: Optional[pd.Series] = None
+    op: Optional[str] = None
 
     for token in tokens:
         if token in ("+", "-", "*", "/"):
@@ -722,8 +722,8 @@ def _transform_one_sheet(
     master_sheets: dict[str, pd.DataFrame],
     output_path: str,
     sheet_name: str,
-    anf_rules: list[dict[str, Any]] | None = None,
-    target_map: dict[str, str] | None = None,
+    anf_rules: Optional[list[dict[str, Any]]] = None,
+    target_map: Optional[dict[str, str]] = None,
 ) -> dict[str, Any]:
     """Apply this sheet's transform_rules to source_df and write to output_path.
 
@@ -916,7 +916,7 @@ def transform_source_data(
     logic_path: str,
     master_path: str,
     output_dir: str,
-    skipped_fields: list[str] | None = None,
+    skipped_fields: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """Process all mapping sheets independently and return per-sheet results.
 

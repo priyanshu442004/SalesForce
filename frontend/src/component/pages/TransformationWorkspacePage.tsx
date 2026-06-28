@@ -18,6 +18,7 @@ import {
   LoaderCircle,
   RefreshCw,
   Scissors,
+  Settings2,
   ShieldCheck,
   Sparkles,
   Table2,
@@ -432,7 +433,6 @@ export default function TransformationWorkspacePage() {
   const [filePreviewError, setFilePreviewError] = useState<string | null>(null);
 
   const {
-    currentUser,
     currentProject,
     uploadedFiles,
     isContinueEnabled,
@@ -447,12 +447,17 @@ export default function TransformationWorkspacePage() {
     proceedWithSkips,
     restorePipelineState,
     sfAccessToken,
+    setSfAccessToken,
     sfInstanceUrl,
+    setSfInstanceUrl,
     sfRefreshToken,
+    setSfRefreshToken,
     sfSelectedObject,
     setSfSelectedObject,
-    sfUserInfo,
-    clearSalesforceSession,
+    sfUserEmail,
+    setSfUserEmail,
+    logActivity,
+    currentUser,
   } = useMigration();
 
   console.log("[TransformationWorkspace]", {
@@ -471,9 +476,13 @@ export default function TransformationWorkspacePage() {
 
   const [sfObjectSearch, setSfObjectSearch] = useState("");
 
+  // When true, the next connect attempt will pass prompt=login to force the
+  // Salesforce credentials page, allowing the user to switch accounts.
+  const [sfForceLogin, setSfForceLogin] = useState(false);
+
   // Salesforce upload state
   const [sfUploading, setSfUploading] = useState(false);
-  const [sfUploadResult, setSfUploadResult] = useState<{ total: number; success: number; failed: number; errors: { row: number; message: string }[] } | null>(null);
+  const [sfUploadResult, setSfUploadResult] = useState<{ total: number; success: number; failed: number; errors: { row: number; message: string }[]; report_s3_key?: string } | null>(null);
   const [sfUploadError, setSfUploadError] = useState<string | null>(null);
   const [sfResultOpen, setSfResultOpen] = useState(false);
 
@@ -683,23 +692,14 @@ export default function TransformationWorkspacePage() {
     }
   };
 
-  const handleSwitchSalesforceAccount = async () => {
-    clearSalesforceSession();
-    try {
-      const res = await fetch(`${NEXT_PUBLIC_API_URL}/salesforce/login`);
-      if (!res.ok) throw new Error("Failed to get Salesforce login URL");
-      const { auth_url } = await res.json();
-      window.location.href = auth_url;
-    } catch (err) {
-      console.error("[Switch Salesforce Account] OAuth initiation failed:", err);
-    }
-  };
-
   const handlePushToSalesforce = async () => {
     if (!sfAccessToken || !sfInstanceUrl) {
       // Not authenticated — start OAuth flow
       try {
-        const res = await fetch(`${NEXT_PUBLIC_API_URL}/salesforce/login`);
+        const url = sfForceLogin
+          ? `${NEXT_PUBLIC_API_URL}/salesforce/login?force_login=true`
+          : `${NEXT_PUBLIC_API_URL}/salesforce/login`;
+        const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to get Salesforce login URL");
         const { auth_url } = await res.json();
         window.location.href = auth_url;
@@ -742,6 +742,9 @@ export default function TransformationWorkspacePage() {
     setSfUploadError(null);
     setSfUploadResult(null);
 
+    const uploadStartMs = Date.now();
+    const actor = currentUser?.email ?? currentUser?.name ?? "Unknown";
+
     try {
       await fetch(`${NEXT_PUBLIC_API_URL}/salesforce/validate-mapping`, {
         method: "POST",
@@ -772,8 +775,51 @@ export default function TransformationWorkspacePage() {
       const result = await res.json();
       setSfUploadResult(result);
       setSfResultOpen(true);
+
+      const durationMs = Date.now() - uploadStartMs;
+      const allFailed = result.success === 0 && result.total > 0;
+      const partial = result.failed > 0 && result.success > 0;
+      const logStatus = allFailed ? "Error" : partial ? "Warning" : "Success";
+      const logLabel = allFailed ? "Failed" : partial ? "Partially Completed" : "Completed";
+
+      await logActivity(
+        "Upload",
+        actor,
+        `Salesforce Migration ${logLabel} — ${objectName}`,
+        logStatus,
+        {
+          sf_type: "salesforce_migration",
+          sf_object: objectName,
+          sf_user_email: sfUserEmail,
+          total: result.total,
+          success: result.success,
+          failed: result.failed,
+          errors: result.errors ?? [],
+          report_s3_key: result.report_s3_key ?? null,
+          duration_ms: durationMs,
+        }
+      );
     } catch (err) {
-      setSfUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+      const errorMsg = err instanceof Error ? err.message : "Upload failed. Please try again.";
+      setSfUploadError(errorMsg);
+
+      await logActivity(
+        "Upload",
+        actor,
+        `Salesforce Migration Failed — ${objectName}`,
+        "Error",
+        {
+          sf_type: "salesforce_migration",
+          sf_object: objectName,
+          sf_user_email: sfUserEmail,
+          total: 0,
+          success: 0,
+          failed: 0,
+          errors: [],
+          error: errorMsg,
+          duration_ms: Date.now() - uploadStartMs,
+        }
+      );
     } finally {
       setSfUploading(false);
     }
@@ -1301,100 +1347,110 @@ export default function TransformationWorkspacePage() {
 
       return (
         <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
-          <div className="flex flex-col gap-3 border-b border-slate-200 dark:border-slate-700 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
-            <div className="flex items-start gap-3.5">
-              <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}><Icon size={20} /></span>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
-                {statusBadge}
-                {sheetCount > 1 && (
-                  <span className="rounded-full bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-700/30">
-                    {sheetCount} files
-                  </span>
-                )}
-              </div>
+          {/* ── Header row ── */}
+          <div className="flex items-center gap-4 px-6 py-4 border-b border-slate-100 dark:border-slate-700/60">
+            <span className={cx("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1", iconBg)}>
+              <Icon size={18} />
+            </span>
+            <div className="flex flex-1 flex-wrap items-center gap-2">
+              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
+              {statusBadge}
+              {sheetCount > 1 && (
+                <span className="rounded-full bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-700/30">
+                  {sheetCount} files
+                </span>
+              )}
             </div>
-            {sfAccessToken ? (
-              <div className="flex flex-col items-end gap-2">
-                {/* File actions */}
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="secondary" onClick={openPreview} className="shrink-0">
-                    <Eye size={14} />
-                    Preview Output
-                  </Button>
-                  <Button type="button" variant={hasZip ? "dark" : "secondary"} onClick={downloadTransformedFile} className="shrink-0">
-                    <Download size={14} />
-                    {hasZip ? "Download ZIP" : "Re-download"}
-                  </Button>
-                </div>
-                {/* Salesforce connection card */}
-                <div className="flex items-stretch overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                  {/* Identity */}
-                  <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white">
-                      <Cloud size={13} />
+            <div className="flex shrink-0 items-center gap-2">
+              <Button type="button" variant="secondary" onClick={openPreview} className="gap-1.5">
+                <Eye size={13} />
+                Preview Output
+              </Button>
+              <Button type="button" variant={hasZip ? "dark" : "secondary"} onClick={downloadTransformedFile} className="gap-1.5">
+                <Download size={13} />
+                {hasZip ? "Download ZIP" : "Re-download"}
+              </Button>
+            </div>
+          </div>
+
+          {/* ── Salesforce integration ── */}
+          <div className="flex items-center justify-between gap-8 px-6 py-5 border-b border-slate-100 dark:border-slate-700/60">
+            {/* Left: status + email + disconnect */}
+            <div className="flex flex-col gap-2">
+              {sfAccessToken ? (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-1.5 w-1.5 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     </span>
-                    <div className="leading-[1.3]">
-                      <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Connected</p>
-                      <p className="max-w-[180px] truncate text-[11.5px] font-semibold text-slate-700 dark:text-slate-200">
-                        {sfUserInfo?.email ?? sfUserInfo?.username ?? "Salesforce"}
-                      </p>
-                    </div>
+                    <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">Connected to Salesforce</span>
                   </div>
-                  <div className="w-px bg-slate-200 dark:bg-slate-700" />
-                  {/* Switch Account */}
+                  {sfUserEmail && (
+                    <p className="pl-3.5 text-[11px] text-slate-400 dark:text-slate-500">{sfUserEmail}</p>
+                  )}
                   <button
                     type="button"
-                    onClick={handleSwitchSalesforceAccount}
-                    className="whitespace-nowrap bg-white dark:bg-slate-800 px-3.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                    onClick={() => {
+                      setSfAccessToken(null);
+                      setSfInstanceUrl(null);
+                      setSfRefreshToken(null);
+                      setSfUserEmail(null);
+                      setSfSelectedObject(null);
+                      setSfObjectPickerOpen(false);
+                      setSfForceLogin(true);
+                    }}
+                    className="w-fit pl-3.5 text-[11px] text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 transition-colors"
                   >
-                    Switch Account
-                  </button>
-                  <div className="w-px bg-slate-200 dark:bg-slate-700" />
-                  {/* Push */}
-                  <button
-                    type="button"
-                    onClick={handlePushToSalesforce}
-                    disabled={sfUploading}
-                    className="inline-flex items-center gap-1.5 whitespace-nowrap bg-blue-600 px-4 text-[11px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed"
-                  >
-                    {sfUploading ? (
-                      <>
-                        <svg className="animate-spin w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                        </svg>
-                        Uploading…
-                      </>
-                    ) : (
-                      "Push to Salesforce Object"
-                    )}
+                    Disconnect
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="secondary" onClick={openPreview} className="shrink-0">
-                  <Eye size={14} />
-                  Preview Output
-                </Button>
-                <Button type="button" variant={hasZip ? "dark" : "secondary"} onClick={downloadTransformedFile} className="shrink-0">
-                  <Download size={14} />
-                  {hasZip ? "Download ZIP" : "Re-download"}
-                </Button>
-                <Button type="button" variant="primary" onClick={handlePushToSalesforce} disabled={sfUploading} className="shrink-0">
-                  {sfUploading ? (
-                    <>
-                      <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                      </svg>
-                      Uploading…
-                    </>
-                  ) : (
-                    "Push to Salesforce Object"
-                  )}
-                </Button>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+                  <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Not Connected</span>
+                </div>
+              )}
+            </div>
+
+            {/* Right: action buttons */}
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => router.push("/import-configuration")}
+                className="shrink-0 gap-1.5"
+              >
+                <Settings2 size={13} />
+                Configure Import
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handlePushToSalesforce}
+                disabled={sfUploading}
+                className="shrink-0 gap-1.5"
+              >
+                {sfUploading ? (
+                  <>
+                    <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                    </svg>
+                    Uploading…
+                  </>
+                ) : sfAccessToken ? (
+                  <>
+                    <Cloud size={13} />
+                    Import to Salesforce
+                  </>
+                ) : (
+                  <>
+                    <Cloud size={13} />
+                    Connect Salesforce
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
           <div className="p-5 lg:p-6">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1923,7 +1979,23 @@ export default function TransformationWorkspacePage() {
             )}
 
             {/* Footer */}
-            <div className="flex justify-end px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+              {sfUploadResult.report_s3_key ? (
+                <button
+                  onClick={() => {
+                    const link = document.createElement("a");
+                    link.href = `${NEXT_PUBLIC_API_URL}/api/download-file?s3_key=${encodeURIComponent(sfUploadResult.report_s3_key!)}`;
+                    link.setAttribute("download", "Migration_Report.xlsx");
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[13px] font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <Download size={14} />
+                  Download Migration Report
+                </button>
+              ) : <div />}
               <button
                 onClick={() => setSfResultOpen(false)}
                 className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors cursor-pointer"

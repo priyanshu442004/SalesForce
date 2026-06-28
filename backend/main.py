@@ -70,6 +70,10 @@ app.add_middleware(
 from salesforce import router as salesforce_router
 app.include_router(salesforce_router)
 
+# Import Jobs monitoring
+from import_jobs import router as import_jobs_router
+app.include_router(import_jobs_router)
+
 # Initialize AWS S3 client
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")

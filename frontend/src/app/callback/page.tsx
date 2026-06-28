@@ -9,7 +9,7 @@ import { NEXT_PUBLIC_API_URL } from "@/lib/config";
 export default function CallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setSfAccessToken, setSfInstanceUrl, setSfRefreshToken, setSfUserInfo } = useMigration();
+  const { setSfAccessToken, setSfInstanceUrl, setSfRefreshToken, setSfUserEmail } = useMigration();
   const [error, setError] = useState<string | null>(null);
   const exchanged = useRef(false);
 
@@ -41,20 +41,29 @@ export default function CallbackPage() {
         console.log("[callback] setSfInstanceUrl called");
         setSfRefreshToken(data.refresh_token);
         console.log("[callback] setSfRefreshToken called");
-        if (data.user_info) {
-          setSfUserInfo({
-            displayName: data.user_info.display_name ?? null,
-            email: data.user_info.email ?? null,
-            username: data.user_info.username ?? null,
-          });
+
+        try {
+          const infoRes = await fetch(
+            `${data.instance_url}/services/oauth2/userinfo`,
+            { headers: { Authorization: `Bearer ${data.access_token}` } }
+          );
+          if (infoRes.ok) {
+            const info = await infoRes.json();
+            setSfUserEmail(info.email ?? null);
+          }
+        } catch {
+          // non-fatal — email is optional display info
         }
-        console.log("[callback] calling router.replace('/transformation-workspace')");
-        router.replace("/transformation-workspace");
+
+        const returnTo = sessionStorage.getItem("sfReturnTo") || "/transformation-workspace";
+        sessionStorage.removeItem("sfReturnTo");
+        console.log("[callback] calling router.replace(" + returnTo + ")");
+        router.replace(returnTo);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to connect to Salesforce.");
       }
     })();
-  }, [searchParams, setSfAccessToken, setSfInstanceUrl, setSfRefreshToken, setSfUserInfo, router]);
+  }, [searchParams, setSfAccessToken, setSfInstanceUrl, setSfRefreshToken, setSfUserEmail, router]);
 
   if (error) {
     return (

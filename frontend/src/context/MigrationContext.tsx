@@ -42,6 +42,27 @@ export interface Project {
 }
 
 // ---------------------------------------------------------------------------
+// Import Configuration type
+// ---------------------------------------------------------------------------
+
+export type MappingStatus = "auto" | "manual" | "unmapped" | "invalid" | "skipped";
+
+export interface ImportConfig {
+  targetObject: string | null;
+  action: "Insert" | "Update" | "Upsert" | "Delete";
+  batchSize: number;
+  threads?: number;
+  fieldMappings: Record<string, string | null>;
+  mappingStatuses?: Record<string, MappingStatus>;
+  skipUnknownFields: boolean;
+  continueOnError: boolean;
+  validateOnly: boolean;
+  preSkipMappings?: Record<string, string | null>;
+  preSkipStatuses?: Record<string, string>;
+  matchingField?: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline types (exported so TransformationWorkspacePage can import them)
 // ---------------------------------------------------------------------------
 
@@ -209,9 +230,12 @@ interface MigrationContextType {
   setSfRefreshToken: React.Dispatch<React.SetStateAction<string | null>>;
   sfSelectedObject: string | null;
   setSfSelectedObject: React.Dispatch<React.SetStateAction<string | null>>;
-  sfUserInfo: { displayName: string | null; email: string | null; username: string | null } | null;
-  setSfUserInfo: React.Dispatch<React.SetStateAction<{ displayName: string | null; email: string | null; username: string | null } | null>>;
-  clearSalesforceSession: () => void;
+  sfUserEmail: string | null;
+  setSfUserEmail: React.Dispatch<React.SetStateAction<string | null>>;
+
+  // Import configuration
+  importConfig: ImportConfig | null;
+  setImportConfig: (config: ImportConfig | null) => void;
 }
 
 const MigrationContext = createContext<MigrationContextType | undefined>(undefined);
@@ -264,15 +288,10 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   const [sfInstanceUrl, setSfInstanceUrl] = useState<string | null>(null);
   const [sfRefreshToken, setSfRefreshToken] = useState<string | null>(null);
   const [sfSelectedObject, setSfSelectedObject] = useState<string | null>(null);
-  const [sfUserInfo, setSfUserInfo] = useState<{ displayName: string | null; email: string | null; username: string | null } | null>(null);
+  const [sfUserEmail, setSfUserEmail] = useState<string | null>(null);
 
-  const clearSalesforceSession = useCallback(() => {
-    setSfAccessToken(null);
-    setSfInstanceUrl(null);
-    setSfRefreshToken(null);
-    setSfSelectedObject(null);
-    setSfUserInfo(null);
-  }, []);
+  // Import configuration
+  const [importConfig, setImportConfigState] = useState<ImportConfig | null>(null);
 
   useEffect(() => {
     console.log("[MigrationContext] sfAccessToken:", sfAccessToken);
@@ -306,6 +325,29 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       setTransformError(null);
     }
   }, [currentProject?.id]);
+
+  // Load import config from localStorage when project changes
+  useEffect(() => {
+    if (!currentProject?.id) {
+      setImportConfigState(null);
+      return;
+    }
+    const saved = localStorage.getItem(`import_config_${currentProject.id}`);
+    if (saved) {
+      try { setImportConfigState(JSON.parse(saved)); } catch (_) {}
+    } else {
+      setImportConfigState(null);
+    }
+  }, [currentProject?.id]);
+
+  const setImportConfig = (config: ImportConfig | null) => {
+    setImportConfigState(config);
+    if (config && currentProject?.id) {
+      localStorage.setItem(`import_config_${currentProject.id}`, JSON.stringify(config));
+    } else if (!config && currentProject?.id) {
+      localStorage.removeItem(`import_config_${currentProject.id}`);
+    }
+  };
 
   // Load Users List
   const loadUsers = useCallback(async () => {
@@ -1353,9 +1395,12 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         setSfRefreshToken,
         sfSelectedObject,
         setSfSelectedObject,
-        sfUserInfo,
-        setSfUserInfo,
-        clearSalesforceSession,
+        sfUserEmail,
+        setSfUserEmail,
+
+        // Import configuration
+        importConfig,
+        setImportConfig,
       }}
     >
       {children}
