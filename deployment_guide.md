@@ -90,14 +90,18 @@ Create the backend `.env` file:
 ```bash
 nano backend/.env
 ```
-Add the following content (update S3 credentials and bucket name as needed):
+Add the following content (using your specific credentials):
 ```env
-AWS_ACCESS_KEY_ID=AKIAREN2QKKEBE33AP7G
-AWS_SECRET_ACCESS_KEY=CRTL3o00l4pGxu0nyyp7Bmkf5ook9vdbuiX5ue6W
-AWS_REGION=ap-south-1
-AWS_BUCKET_NAME=s3-bucket-analytx4t
-GOOGLE_CLIENT_ID=20399312144-s8o42220q34kt2mfckvmfiuaser2450e.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
+DATABASE_URL="YOUR_DATABASE_URL"
+AWS_ACCESS_KEY_ID="YOUR_AWS_ACCESS_KEY_ID"
+AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET_ACCESS_KEY"
+AWS_REGION="YOUR_AWS_REGION"
+AWS_BUCKET_NAME="YOUR_AWS_BUCKET_NAME"
+GOOGLE_CLIENT_ID="YOUR_GOOGLE_CLIENT_ID"
+GOOGLE_CLIENT_SECRET="YOUR_GOOGLE_CLIENT_SECRET"
+SALESFORCE_CLIENT_ID="YOUR_SALESFORCE_CLIENT_ID"
+SALESFORCE_CLIENT_SECRET="YOUR_SALESFORCE_CLIENT_SECRET"
+SALESFORCE_REDIRECT_URI="https://datamigration.analytx4t.com/callback"
 ```
 
 Set up python virtual environment and install backend dependencies:
@@ -115,12 +119,12 @@ Create the frontend `.env` file:
 ```bash
 nano frontend/.env
 ```
-Add the following content. **Note that we are using your Neon serverless PostgreSQL connection string directly:**
+Add the following content (using your specific credentials):
 ```env
-DATABASE_URL="postgresql://neondb_owner:npg_KOPGzQjTq4g8@ep-lively-union-ahqq78hg-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DATABASE_URL="YOUR_DATABASE_URL"
 NEXT_PUBLIC_API_URL="https://datamigration.analytx4t.com/pyapi"
-NEXT_PUBLIC_GOOGLE_CLIENT_ID="20399312144-s8o42220q34kt2mfckvmfiuaser2450e.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="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"
+NEXT_PUBLIC_GOOGLE_CLIENT_ID="YOUR_GOOGLE_CLIENT_ID"
+GOOGLE_CLIENT_SECRET="YOUR_GOOGLE_CLIENT_SECRET"
 ```
 
 Initialize Prisma and build the Next.js frontend:

@@ -20,9 +20,18 @@ CLEAR='\033[0m'
 # Default configurations
 DOMAIN="datamigration.analytx4t.com"
 PROJECT_DIR="/home/ubuntu/salesforce-migration"
-DB_URL="postgresql://neondb_owner:npg_KOPGzQjTq4g8@ep-lively-union-ahqq78hg-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-GOOGLE_ID="20399312144-s8o42220q34kt2mfckvmfiuaser2450e.apps.googleusercontent.com"
-GOOGLE_SECRET="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"
+
+# Configuration variables (not hardcoded for security)
+DB_URL=""
+GOOGLE_ID=""
+GOOGLE_SECRET=""
+AWS_KEY=""
+AWS_SECRET=""
+AWS_REG="us-east-1"
+AWS_BUCKET="james-fixer"
+SALESFORCE_ID=""
+SALESFORCE_SECRET=""
+SALESFORCE_REDIRECT=""
 
 echo -e "${BLUE}>>> starting Automated Salesforce Data Migration deployment...${CLEAR}"
 
@@ -92,32 +101,98 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 # Create/Verify Backend .env
-# We prompt for AWS credentials if they are not already in .env
-AWS_KEY=""
-AWS_SECRET=""
-AWS_REG="ap-south-1"
-AWS_BUCKET="s3-bucket-analytx4t"
-
+# We load values from existing backend .env if it exists
 if [ -f .env ]; then
     echo -e "${GREEN}Existing backend .env found. Loading values...${CLEAR}"
-    source .env || true
-    AWS_KEY=${AWS_ACCESS_KEY_ID:-$AWS_KEY}
-    AWS_SECRET=${AWS_SECRET_ACCESS_KEY:-$AWS_SECRET}
-    AWS_REG=${AWS_REGION:-$AWS_REG}
-    AWS_BUCKET=${AWS_BUCKET_NAME:-$AWS_BUCKET}
+    # Read variables line-by-line to avoid issues with sourcing Windows line endings or empty variables
+    while IFS='=' read -r key value || [ -n "$key" ]; do
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$key" ]] && continue
+        # Strip leading/trailing quotes if present
+        value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+        case "$key" in
+            DATABASE_URL) DB_URL="$value" ;;
+            AWS_ACCESS_KEY_ID) AWS_KEY="$value" ;;
+            AWS_SECRET_ACCESS_KEY) AWS_SECRET="$value" ;;
+            AWS_REGION) AWS_REG="$value" ;;
+            AWS_BUCKET_NAME) AWS_BUCKET="$value" ;;
+            GOOGLE_CLIENT_ID) GOOGLE_ID="$value" ;;
+            GOOGLE_CLIENT_SECRET) GOOGLE_SECRET="$value" ;;
+            SALESFORCE_CLIENT_ID) SALESFORCE_ID="$value" ;;
+            SALESFORCE_CLIENT_SECRET) SALESFORCE_SECRET="$value" ;;
+            SALESFORCE_REDIRECT_URI) SALESFORCE_REDIRECT="$value" ;;
+        esac
+    done < .env
+fi
+
+# Fallback: Load from frontend .env if DATABASE_URL or GOOGLE credentials are empty
+if [ -z "$DB_URL" ] || [ -z "$GOOGLE_ID" ] || [ -z "$GOOGLE_SECRET" ]; then
+    if [ -f "$PROJECT_DIR/frontend/.env" ]; then
+        while IFS='=' read -r key value || [ -n "$key" ]; do
+            [[ "$key" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "$key" ]] && continue
+            value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            case "$key" in
+                DATABASE_URL) [ -z "$DB_URL" ] && DB_URL="$value" ;;
+                NEXT_PUBLIC_GOOGLE_CLIENT_ID) [ -z "$GOOGLE_ID" ] && GOOGLE_ID="$value" ;;
+                GOOGLE_CLIENT_SECRET) [ -z "$GOOGLE_SECRET" ] && GOOGLE_SECRET="$value" ;;
+            esac
+        done < "$PROJECT_DIR/frontend/.env"
+    fi
+fi
+
+# Now prompt for any missing values
+if [ -z "$DB_URL" ]; then
+    echo -e "${YELLOW}Database URL (DATABASE_URL) is not configured.${CLEAR}"
+    read -p "Enter Database URL: " DB_URL
+fi
+
+if [ -z "$GOOGLE_ID" ]; then
+    echo -e "${YELLOW}Google Client ID (GOOGLE_CLIENT_ID) is not configured.${CLEAR}"
+    read -p "Enter Google Client ID: " GOOGLE_ID
+fi
+
+if [ -z "$GOOGLE_SECRET" ]; then
+    echo -e "${YELLOW}Google Client Secret (GOOGLE_CLIENT_SECRET) is not configured.${CLEAR}"
+    read -sp "Enter Google Client Secret: " GOOGLE_SECRET
+    echo ""
 fi
 
 if [ -z "$AWS_KEY" ]; then
-    echo -e "${YELLOW}AWS Access Key ID not configured.${CLEAR}"
-    read -p "Enter AWS Access Key ID: " input_key
-    AWS_KEY=$input_key
+    echo -e "${YELLOW}AWS Access Key ID (AWS_ACCESS_KEY_ID) is not configured.${CLEAR}"
+    read -p "Enter AWS Access Key ID: " AWS_KEY
 fi
 
 if [ -z "$AWS_SECRET" ]; then
-    echo -e "${YELLOW}AWS Secret Access Key not configured.${CLEAR}"
-    read -sp "Enter AWS Secret Access Key: " input_secret
+    echo -e "${YELLOW}AWS Secret Access Key (AWS_SECRET_ACCESS_KEY) is not configured.${CLEAR}"
+    read -sp "Enter AWS Secret Access Key: " AWS_SECRET
     echo ""
-    AWS_SECRET=$input_secret
+fi
+
+if [ -z "$AWS_REG" ]; then
+    read -p "Enter AWS Region [us-east-1]: " input_reg
+    AWS_REG=${input_reg:-us-east-1}
+fi
+
+if [ -z "$AWS_BUCKET" ]; then
+    read -p "Enter AWS Bucket Name [james-fixer]: " input_bucket
+    AWS_BUCKET=${input_bucket:-james-fixer}
+fi
+
+if [ -z "$SALESFORCE_ID" ]; then
+    echo -e "${YELLOW}Salesforce Client ID (SALESFORCE_CLIENT_ID) is not configured.${CLEAR}"
+    read -p "Enter Salesforce Client ID: " SALESFORCE_ID
+fi
+
+if [ -z "$SALESFORCE_SECRET" ]; then
+    echo -e "${YELLOW}Salesforce Client Secret (SALESFORCE_CLIENT_SECRET) is not configured.${CLEAR}"
+    read -sp "Enter Salesforce Client Secret: " SALESFORCE_SECRET
+    echo ""
+fi
+
+if [ -z "$SALESFORCE_REDIRECT" ]; then
+    read -p "Enter Salesforce Redirect URI [https://$DOMAIN/callback]: " input_redirect
+    SALESFORCE_REDIRECT=${input_redirect:-https://$DOMAIN/callback}
 fi
 
 cat <<EOT > .env
@@ -128,6 +203,9 @@ AWS_REGION="$AWS_REG"
 AWS_BUCKET_NAME="$AWS_BUCKET"
 GOOGLE_CLIENT_ID="$GOOGLE_ID"
 GOOGLE_CLIENT_SECRET="$GOOGLE_SECRET"
+SALESFORCE_CLIENT_ID="$SALESFORCE_ID"
+SALESFORCE_CLIENT_SECRET="$SALESFORCE_SECRET"
+SALESFORCE_REDIRECT_URI="$SALESFORCE_REDIRECT"
 EOT
 
 # Create Startup Script for Backend
