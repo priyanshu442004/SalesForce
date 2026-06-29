@@ -10,6 +10,13 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Backfill: any project at 100% / TRANSFORMED that wasn't marked Completed
+    // (predates the auto-status logic). Idempotent — becomes a no-op once done.
+    await db.project.updateMany({
+      where: { userId, progress: 100, stage: "TRANSFORMED", status: { not: "Completed" } },
+      data: { status: "Completed" },
+    });
+
     const projects = await db.project.findMany({
       where: { userId },
       include: {

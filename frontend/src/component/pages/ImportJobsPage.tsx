@@ -246,6 +246,23 @@ function JobDetailDrawer({
   const [failedPage, setFailedPage] = useState(0);
   const FAILED_PAGE = 25;
 
+  const [apiUsage, setApiUsage] = useState<{
+    available: boolean;
+    used?: number;
+    limit?: number;
+    remaining?: number;
+    percent_used?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${NEXT_PUBLIC_API_URL}/salesforce/api-usage`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d) setApiUsage(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [job.job_id]);
+
   const failedCols = useMemo(() => {
     if (!job.failed_records.length) return [];
     const cols = Object.keys(job.failed_records[0]).filter(k => k !== "_sf_error");
@@ -412,6 +429,54 @@ function JobDetailDrawer({
                     <ShieldCheck size={13} />Validation Report
                   </button>
                 )}
+              </div>
+
+              {/* Salesforce API Usage */}
+              <div className="rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-2.5">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Salesforce API Usage</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">Today</span>
+                </div>
+                <div className="px-4 py-3">
+                  {!apiUsage ? (
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 animate-pulse">Loading…</p>
+                  ) : !apiUsage.available ? (
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">API usage unavailable.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="text-center">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">Used</p>
+                          <p className="mt-0.5 text-base font-bold text-slate-800 dark:text-slate-100 tabular-nums">{apiUsage.used!.toLocaleString()}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">Remaining</p>
+                          <p className="mt-0.5 text-base font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{apiUsage.remaining!.toLocaleString()}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">Daily Limit</p>
+                          <p className="mt-0.5 text-base font-bold text-slate-800 dark:text-slate-100 tabular-nums">{apiUsage.limit!.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-slate-400 dark:text-slate-500">
+                          <span>{apiUsage.percent_used}% consumed</span>
+                          <span>{apiUsage.remaining!.toLocaleString()} left</span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              (apiUsage.percent_used ?? 0) >= 90 ? "bg-rose-500"
+                              : (apiUsage.percent_used ?? 0) >= 75 ? "bg-amber-400"
+                              : "bg-sky-500"
+                            }`}
+                            style={{ width: `${Math.min(100, apiUsage.percent_used ?? 0)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           )}

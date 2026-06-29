@@ -253,6 +253,12 @@ def _run_sf_batch(
         except Exception:
             continue
 
+        try:
+            from salesforce import _update_api_usage
+            _update_api_usage(sr)
+        except Exception:
+            pass
+
         sd        = sr.json()
         job_state = sd.get("state", "")
         processed = sd.get("numberRecordsProcessed", 0) or 0

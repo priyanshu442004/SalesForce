@@ -563,13 +563,13 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Update project stage
-  const updateProjectStage = async (stage: string, progress: number) => {
+  const updateProjectStage = async (stage: string, progress: number, status?: string) => {
     if (!currentProject) return;
     try {
       const res = await fetch(`/api/projects/${currentProject.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage, progress })
+        body: JSON.stringify({ stage, progress, ...(status ? { status } : {}) })
       });
       const data = await res.json();
       if (data.success) {
@@ -892,6 +892,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     setDataValidationResult(null);
     setTransformResult(null);
     setTransformError(null);
+    await updateProjectStage("PIPELINE_STARTED", 0, "In Progress");
 
     // Fetch a fresh copy of the project before reading file keys.
     // React state may lag behind the DB when a file was just uploaded.
@@ -1200,7 +1201,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         { schema: "passed", cleaning: "passed", validation: "passed", transformation: "passed" },
         _schema, _cleaning, _validation, finalTransformResult,
       );
-      await updateProjectStage("TRANSFORMED", 100);
+      await updateProjectStage("TRANSFORMED", 100, "Completed");
       await logActivity("Transformation", cu?.name || "User", "Completed Data Transformation", "Success", data);
       setStageStatus(s => ({ ...s, transformation: "passed" }));
     } catch (error) {
@@ -1309,7 +1310,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       };
       setTransformResult(finalTransformResult);
       persistState("passed", finalTransformResult);
-      await updateProjectStage("TRANSFORMED", 100);
+      await updateProjectStage("TRANSFORMED", 100, "Completed");
       await logActivity("Transformation", currentUser?.name || "User", `Completed Data Transformation (skipped fields: ${skippedFields.join(", ")})`, "Success", data);
       setStageStatus(s => ({ ...s, transformation: "passed" }));
     } catch (error) {

@@ -1,28 +1,71 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useMigration } from "@/context/MigrationContext";
 import Icon from "../Icon";
 
 export default function DashboardPage() {
-  const { currentUser, currentProject, revertFileToVersion, revertOutputToVersion, metricCount, successRateCount } = useMigration();
+  const { currentUser, currentProject, revertFileToVersion, revertOutputToVersion, metricCount, successRateCount, projectList } = useMigration();
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
 
-  const completedCoords = [
-    { x: 30, y: 155 }, { x: 95, y: 142 }, { x: 160, y: 120 },
-    { x: 225, y: 142 }, { x: 290, y: 130 }, { x: 355, y: 132 }, { x: 420, y: 105 }
-  ];
-  const inProgressCoords = [
-    { x: 30, y: 110 }, { x: 95, y: 95 }, { x: 160, y: 95 },
-    { x: 225, y: 78 }, { x: 290, y: 95 }, { x: 355, y: 78 }, { x: 420, y: 83 }
-  ];
-  const chartData = [
-    { date: "May 13", inProgress: 20, completed: 6 }, { date: "May 14", inProgress: 24, completed: 9 },
-    { date: "May 15", inProgress: 24, completed: 15 }, { date: "May 16", inProgress: 28, completed: 11 },
-    { date: "May 17", inProgress: 23, completed: 13 }, { date: "May 18", inProgress: 28, completed: 12 },
-    { date: "May 19", inProgress: 27, completed: 20 }
-  ];
+  // ── Real chart data from projectList ──────────────────────────────────────
+  const { chartData, inProgressCoords, completedCoords, yMax, yLabels, xPositions } = useMemo(() => {
+    const today = new Date();
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - (6 - i));
+      return d;
+    });
+
+    const fmtDay = (d: Date) =>
+      d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    const data = days.map(day => {
+      const dayStr = day.toDateString();
+      const inProgress = projectList.filter(
+        p => new Date(p.createdAt).toDateString() === dayStr
+      ).length;
+      const completed = projectList.filter(
+        p => p.status === "Completed" && new Date(p.updatedAt).toDateString() === dayStr
+      ).length;
+      return { date: fmtDay(day), inProgress, completed };
+    });
+
+    const maxVal = Math.max(...data.map(d => Math.max(d.inProgress, d.completed)), 1);
+    const yMax = Math.ceil(maxVal / 5) * 5 || 5;
+
+    const SVG_TOP = 40;
+    const SVG_BOTTOM = 160;
+    const yScale = (v: number) => SVG_BOTTOM - (v / yMax) * (SVG_BOTTOM - SVG_TOP);
+
+    const xPos = [30, 95, 160, 225, 290, 355, 420];
+    const ipCoords  = data.map((d, i) => ({ x: xPos[i], y: yScale(d.inProgress) }));
+    const cmpCoords = data.map((d, i) => ({ x: xPos[i], y: yScale(d.completed) }));
+
+    const labels = [
+      yMax,
+      Math.round(yMax * 0.75),
+      Math.round(yMax * 0.5),
+      Math.round(yMax * 0.25),
+      0,
+    ];
+
+    return {
+      chartData: data,
+      inProgressCoords: ipCoords,
+      completedCoords: cmpCoords,
+      yMax,
+      yLabels: labels,
+      xPositions: xPos,
+    };
+  }, [projectList]);
+
+  const toPath = (coords: { x: number; y: number }[]) =>
+    coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`).join(" ");
+
+  const toFill = (coords: { x: number; y: number }[]) =>
+    `${toPath(coords)} L ${coords[coords.length - 1].x} 160 L ${coords[0].x} 160 Z`;
 
   const circleDashOffset = 414 - (414 * successRateCount) / 100;
 
@@ -113,15 +156,16 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-[10.5px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">In Progress</span>
+                <span className="text-[10.5px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Created</span>
               </div>
             </div>
           </div>
 
           <div className="relative flex-1 min-h-[220px] w-full mt-4 flex items-end">
             <svg className="w-full h-full" viewBox="0 0 450 180" preserveAspectRatio="none">
-              <line x1="0" y1="40" x2="450" y2="40" className="stroke-slate-100 dark:stroke-slate-700" strokeWidth="1" />
-              <line x1="0" y1="80" x2="450" y2="80" className="stroke-slate-100 dark:stroke-slate-700" strokeWidth="1" />
+              {/* Grid lines */}
+              <line x1="0" y1="40"  x2="450" y2="40"  className="stroke-slate-100 dark:stroke-slate-700" strokeWidth="1" />
+              <line x1="0" y1="80"  x2="450" y2="80"  className="stroke-slate-100 dark:stroke-slate-700" strokeWidth="1" />
               <line x1="0" y1="120" x2="450" y2="120" className="stroke-slate-100 dark:stroke-slate-700" strokeWidth="1" />
               <line x1="0" y1="160" x2="450" y2="160" className="stroke-slate-100 dark:stroke-slate-700" strokeWidth="1" />
               <defs>
@@ -134,33 +178,63 @@ export default function DashboardPage() {
                   <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
-              <path d="M 30 110 L 95 95 L 160 95 L 225 78 L 290 95 L 355 78 L 420 83 L 420 160 L 30 160 Z" fill="url(#blueUnderlay)" />
-              <path d="M 30 160 L 95 142 L 160 120 L 225 142 L 290 130 L 355 132 L 420 105 L 420 160 L 30 160 Z" fill="url(#greenUnderlay)" />
-              <path d="M 30 110 L 95 95 L 160 95 L 225 78 L 290 95 L 355 78 L 420 83" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" />
-              <path d="M 30 155 L 95 142 L 160 120 L 225 142 L 290 130 L 355 132 L 420 105" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+
+              {/* Fill areas */}
+              <path d={toFill(inProgressCoords)}  fill="url(#blueUnderlay)" />
+              <path d={toFill(completedCoords)}   fill="url(#greenUnderlay)" />
+
+              {/* Lines */}
+              <path d={toPath(inProgressCoords)}  fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={toPath(completedCoords)}   fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+              {/* In Progress dots */}
               {inProgressCoords.map((coord, idx) => (
                 <g key={`blue-node-${idx}`}>
-                  <circle cx={coord.x} cy={coord.y} r="4" className="fill-white dark:fill-slate-800" stroke="#2563eb" strokeWidth="2"
-                    onMouseEnter={() => setActiveTooltip(idx)} onMouseLeave={() => setActiveTooltip(null)} />
+                  <circle
+                    cx={coord.x} cy={coord.y} r="4"
+                    className="fill-white dark:fill-slate-800"
+                    stroke="#2563eb" strokeWidth="2"
+                    onMouseEnter={() => setActiveTooltip(idx)}
+                    onMouseLeave={() => setActiveTooltip(null)}
+                    style={{ cursor: "pointer" }}
+                  />
                 </g>
               ))}
+
+              {/* Completed dots */}
               {completedCoords.map((coord, idx) => (
-                <circle key={`green-node-${idx}`} cx={coord.x} cy={coord.y} r="4" className="fill-white dark:fill-slate-800" stroke="#10b981" strokeWidth="2" />
+                <circle
+                  key={`green-node-${idx}`}
+                  cx={coord.x} cy={coord.y} r="4"
+                  className="fill-white dark:fill-slate-800"
+                  stroke="#10b981" strokeWidth="2"
+                />
               ))}
             </svg>
 
+            {/* Tooltip */}
             {activeTooltip !== null && (
-              <div className="absolute bg-slate-900 text-white text-xs font-medium px-2.5 py-1 rounded-lg shadow-xl border border-slate-700 pointer-events-none z-20"
-                style={{ left: `${(inProgressCoords[activeTooltip].x / 450) * 100 - 8}%`, bottom: `${180 - inProgressCoords[activeTooltip].y + 12}px` }}>
-                {chartData[activeTooltip].date}: {chartData[activeTooltip].inProgress} Migrations
+              <div
+                className="absolute bg-slate-900 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-700 pointer-events-none z-20 space-y-0.5"
+                style={{
+                  left: `${(xPositions[activeTooltip] / 450) * 100 - 8}%`,
+                  bottom: `${180 - inProgressCoords[activeTooltip].y + 14}px`,
+                }}
+              >
+                <p className="text-slate-300 text-[10px]">{chartData[activeTooltip].date}</p>
+                <p><span className="text-blue-400">●</span> Created: {chartData[activeTooltip].inProgress}</p>
+                <p><span className="text-emerald-400">●</span> Completed: {chartData[activeTooltip].completed}</p>
               </div>
             )}
 
+            {/* X-axis labels */}
             <div className="absolute left-[30px] bottom-[-22px] right-[30px] flex justify-between text-[10px] font-medium text-slate-400 dark:text-slate-500 pointer-events-none select-none">
               {chartData.map((d, i) => <span key={i} className="text-center">{d.date}</span>)}
             </div>
-            <div className="absolute left-[-15px] top-0 bottom-0 flex flex-col justify-between text-[10px] font-medium text-slate-400 dark:text-slate-500 pointer-events-none select-none">
-              <span>40</span><span>30</span><span>20</span><span>10</span><span>0</span>
+
+            {/* Y-axis labels */}
+            <div className="absolute left-[-18px] top-0 bottom-0 flex flex-col justify-between text-[10px] font-medium text-slate-400 dark:text-slate-500 pointer-events-none select-none">
+              {yLabels.map((v, i) => <span key={i}>{v}</span>)}
             </div>
           </div>
         </div>

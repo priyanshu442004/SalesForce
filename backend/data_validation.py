@@ -676,62 +676,6 @@ def validate_source_dataframe(source_df: pd.DataFrame, logic_path: str, master_p
                 )
             )
 
-                    # Duplicate email validation
-    email_columns = [
-        col
-        for col in source_df.columns
-        if "email" in col.lower()
-    ]
-
-    for email_column in email_columns:
-        duplicate_emails = source_df[
-            source_df[email_column].notna()
-            & source_df[email_column].duplicated(keep=False)
-        ]
-
-        for row_index, value in duplicate_emails[email_column].items():
-            issues.append(
-                {
-                    "row": int(row_index) + 2,
-                    "field": email_column,
-                    "issue_type": "Duplicate Email",
-                    "value": str(value),
-                    "expected": "Unique email address",
-                }
-            )
-
-                # Duplicate phone validation
-    phone_columns = [
-        col
-        for col in source_df.columns
-        if any(
-            keyword in col.lower()
-            for keyword in [
-                "phone",
-                "mobile",
-                "phone_number",
-                "mobile_number",
-                "contact_number",
-            ]
-        )
-    ]
-
-    for phone_column in phone_columns:
-        duplicate_phones = source_df[
-            source_df[phone_column].notna()
-            & source_df[phone_column].duplicated(keep=False)
-        ]
-
-        for row_index, value in duplicate_phones[phone_column].items():
-            issues.append(
-                {
-                    "row": int(row_index) + 2,
-                    "field": phone_column,
-                    "issue_type": "Duplicate Phone",
-                    "value": _normalize_phone_str(value),
-                    "expected": "Unique phone number",
-                }
-            )
                 # Duplicate row validation
     duplicate_rows = source_df[source_df.duplicated(keep=False)]
 

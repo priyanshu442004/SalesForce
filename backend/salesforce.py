@@ -14,6 +14,34 @@ router = APIRouter(prefix="/salesforce", tags=["Salesforce"])
 SALESFORCE_AUTH_BASE = "https://login.salesforce.com/services/oauth2/authorize"
 SALESFORCE_TOKEN_URL = "https://login.salesforce.com/services/oauth2/token"
 
+# ── Shared API-usage cache (updated from every SF response) ──────────────────
+
+_api_usage: dict = {}
+
+def _update_api_usage(response) -> None:
+    """Parse Sforce-Limit-Info header and update the in-memory cache."""
+    header = response.headers.get("Sforce-Limit-Info", "")
+    if not header:
+        return
+    try:
+        part = next(
+            (p.strip() for p in header.split(",") if "api-usage=" in p.lower()), ""
+        )
+        if not part:
+            return
+        value_part = part.split("=", 1)[1]
+        used_str, limit_str = value_part.split("/")
+        used  = int(used_str.strip())
+        limit = int(limit_str.strip())
+        _api_usage.update({
+            "used":         used,
+            "limit":        limit,
+            "remaining":    limit - used,
+            "percent_used": round(used / limit * 100, 1) if limit > 0 else 0.0,
+        })
+    except Exception:
+        pass
+
 BULK_API_VERSION   = "v60.0"
 BULK_POLL_INTERVAL = 5     # seconds between job status polls
 BULK_POLL_TIMEOUT  = 1800  # 30 minutes maximum wait for job completion
@@ -107,7 +135,7 @@ def salesforce_objects(
     response = requests.get(url, headers=headers)
     print(f"[salesforce/objects] HTTP status: {response.status_code}", flush=True)
     print(f"[salesforce/objects] response body: {response.text}", flush=True)
-
+    _update_api_usage(response)
 
     if response.status_code == 401:
         raise HTTPException(status_code=401, detail={"error": "invalid_token", "message": "Access token is invalid or expired"})
@@ -135,6 +163,7 @@ def salesforce_object_fields(
     headers = {"Authorization": f"Bearer {access_token}"}
 
     response = requests.get(url, headers=headers)
+    _update_api_usage(response)
 
     if response.status_code == 401:
         raise HTTPException(status_code=401, detail={"error": "invalid_token", "message": "Access token is invalid or expired"})
@@ -163,6 +192,14 @@ def salesforce_object_fields(
         for field in fields
         if field.get("createable")
     ]
+
+
+@router.get("/api-usage")
+def get_api_usage():
+    """Return the most recently observed Salesforce daily API usage."""
+    if not _api_usage:
+        return {"available": False}
+    return {"available": True, **_api_usage}
 
 
 class PreviewPayloadRequest(BaseModel):
@@ -242,6 +279,7 @@ def salesforce_validate_mapping(body: ValidateMappingRequest):
     describe_url = f"{body.instance_url}/services/data/v60.0/sobjects/{body.object_name}/describe"
     headers = {"Authorization": f"Bearer {body.access_token}"}
     sf_response = requests.get(describe_url, headers=headers)
+    _update_api_usage(sf_response)
 
     if sf_response.status_code == 401:
         raise HTTPException(status_code=401, detail={"error": "invalid_token", "message": "Access token is invalid or expired"})
@@ -610,6 +648,7 @@ def salesforce_validate_import(body: ValidateImportRequest):          # noqa: C9
             headers={"Authorization": f"Bearer {body.access_token}"},
             timeout=30,
         )
+        _update_api_usage(resp)
         _raise_if_401(resp, "describe for validation")
         if resp.ok:
             for fld in resp.json().get("fields", []):
@@ -752,9 +791,8 @@ def salesforce_validate_import(body: ValidateImportRequest):          # noqa: C9
             })
 
     for sf_nm, src_col in sf_to_src.items():
-        if sf_nm in email_sf:            _dups(src_col, sf_nm, "Duplicate Email")
-        elif sf_nm in external_id_fields: _dups(src_col, sf_nm, "Duplicate External ID")
-        elif sf_nm.lower() == "name":    _dups(src_col, sf_nm, "Duplicate Name")
+        if sf_nm in external_id_fields: _dups(src_col, sf_nm, "Duplicate External ID")
+        elif sf_nm.lower() == "name":   _dups(src_col, sf_nm, "Duplicate Name")
 
     # First + Last name combo
     fn_src = next((s for s, f in active_map.items() if f.lower() == "firstname"), None)
