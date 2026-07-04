@@ -466,7 +466,9 @@ export default function TransformationWorkspacePage() {
     sfRefreshToken,
   });
 
-  const [checkedRows, setCheckedRows] = useState<Record<string, boolean>>({});
+  const [checkedRows, setCheckedRows]     = useState<Record<string, boolean>>({});
+  const [remarks, setRemarks]             = useState<Record<string, string>>({});
+  const [remarkErrors, setRemarkErrors]   = useState<Record<string, boolean>>({});
 
   // Salesforce object picker state
   const [sfObjects, setSfObjects] = useState<{ label: string; api_name: string }[]>([]);
@@ -491,6 +493,8 @@ export default function TransformationWorkspacePage() {
       const initial: Record<string, boolean> = {};
       dataValidationResult.issues.forEach(issue => { initial[issue.field] = false; });
       setCheckedRows(initial);
+      setRemarks({});
+      setRemarkErrors({});
     }
   }, [dataValidationResult]);
 
@@ -1151,24 +1155,60 @@ export default function TransformationWorkspacePage() {
                         <th className="px-4 py-3">Field</th>
                         <th className="px-4 py-3">Issue Types</th>
                         <th className="px-4 py-3 text-right">Count</th>
+                        <th className="px-4 py-3">Remark</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                      {dataValidationResult.issues.map((issue, i) => (
-                        <tr key={`${issue.field}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                          <td className="px-4 py-3">
-                            <input
-                              type="checkbox"
-                              checked={checkedRows[issue.field] ?? false}
-                              onChange={e => setCheckedRows(prev => ({ ...prev, [issue.field]: e.target.checked }))}
-                              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 accent-blue-600 cursor-pointer"
-                            />
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{issue.field}</td>
-                          <td className="px-4 py-3 text-rose-700 dark:text-rose-400">{issue.issue_types}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-900 dark:text-slate-100">{issue.count}</td>
-                        </tr>
-                      ))}
+                      {dataValidationResult.issues.map((issue, i) => {
+                        const isSkipped = checkedRows[issue.field] ?? false;
+                        const hasRemarkError = remarkErrors[issue.field] ?? false;
+                        return (
+                          <tr key={`${issue.field}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="px-4 py-3">
+                              <input
+                                type="checkbox"
+                                checked={isSkipped}
+                                onChange={e => {
+                                  const checked = e.target.checked;
+                                  setCheckedRows(prev => ({ ...prev, [issue.field]: checked }));
+                                  if (!checked) {
+                                    setRemarks(prev => ({ ...prev, [issue.field]: "" }));
+                                    setRemarkErrors(prev => ({ ...prev, [issue.field]: false }));
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 accent-blue-600 cursor-pointer"
+                              />
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{issue.field}</td>
+                            <td className="px-4 py-3 text-rose-700 dark:text-rose-400">{issue.issue_types}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-900 dark:text-slate-100">{issue.count}</td>
+                            <td className="px-4 py-3 min-w-[220px]">
+                              <input
+                                type="text"
+                                disabled={!isSkipped}
+                                value={remarks[issue.field] ?? ""}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setRemarks(prev => ({ ...prev, [issue.field]: val }));
+                                  if (val.trim()) setRemarkErrors(prev => ({ ...prev, [issue.field]: false }));
+                                }}
+                                placeholder={isSkipped ? "Enter reason for skipping…" : "—"}
+                                className={[
+                                  "w-full rounded-lg border px-2.5 py-1.5 text-xs transition-colors outline-none",
+                                  !isSkipped
+                                    ? "cursor-not-allowed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-400 placeholder:text-slate-300"
+                                    : hasRemarkError
+                                      ? "border-rose-400 dark:border-rose-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 ring-1 ring-rose-400 dark:ring-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                                      : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500",
+                                ].join(" ")}
+                              />
+                              {hasRemarkError && (
+                                <p className="mt-1 text-[10px] font-medium text-rose-600 dark:text-rose-400">Remark is required.</p>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1187,7 +1227,26 @@ export default function TransformationWorkspacePage() {
                     const skippedFields = dataValidationResult.issues
                       .filter(issue => checkedRows[issue.field])
                       .map(issue => issue.field);
-                    proceedWithSkips(skippedFields);
+
+                    // Validate that every skipped row has a non-blank remark.
+                    const errors: Record<string, boolean> = {};
+                    let hasErrors = false;
+                    for (const field of skippedFields) {
+                      if (!remarks[field]?.trim()) {
+                        errors[field] = true;
+                        hasErrors = true;
+                      }
+                    }
+                    if (hasErrors) {
+                      setRemarkErrors(prev => ({ ...prev, ...errors }));
+                      return;
+                    }
+
+                    const skippedRemarks: Record<string, string> = {};
+                    for (const field of skippedFields) {
+                      skippedRemarks[field] = remarks[field]?.trim() ?? "";
+                    }
+                    proceedWithSkips(skippedFields, skippedRemarks);
                   }}
                 >
                   Proceed

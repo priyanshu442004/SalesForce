@@ -51,6 +51,9 @@ export default function UniqueIdentifierPage() {
   const projectSourceFile = currentProject?.files?.find(
     (f) => f.slot === "source" && f.isActive
   );
+  const projectLogicFile = currentProject?.files?.find(
+    (f) => f.slot === "logic" && f.isActive
+  );
 
   const activeFile = moduleFile ?? (
     projectSourceFile
@@ -68,10 +71,11 @@ export default function UniqueIdentifierPage() {
     setResults(null);
     setExpanded(new Set());
     setSearch("");
+    const logicKey = projectLogicFile?.s3Key;
     try {
-      const res = await fetch(
-        `${NEXT_PUBLIC_API_URL}/api/unique-identifier/analyze?source_key=${encodeURIComponent(s3Key)}`
-      );
+      let url = `${NEXT_PUBLIC_API_URL}/api/unique-identifier/analyze?source_key=${encodeURIComponent(s3Key)}`;
+      if (logicKey) url += `&logic_key=${encodeURIComponent(logicKey)}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.detail || data.error || "Analysis failed");
       setActiveKey(s3Key);
@@ -125,10 +129,11 @@ export default function UniqueIdentifierPage() {
   async function handleDownload() {
     if (!activeKey) return;
     setDownloading(true);
+    const logicKey = projectLogicFile?.s3Key;
     try {
-      const res = await fetch(
-        `${NEXT_PUBLIC_API_URL}/api/unique-identifier/download?source_key=${encodeURIComponent(activeKey)}`
-      );
+      let downloadUrl = `${NEXT_PUBLIC_API_URL}/api/unique-identifier/download?source_key=${encodeURIComponent(activeKey)}`;
+      if (logicKey) downloadUrl += `&logic_key=${encodeURIComponent(logicKey)}`;
+      const res = await fetch(downloadUrl);
       if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -467,7 +472,18 @@ export default function UniqueIdentifierPage() {
               </span>
             </div>
 
-            {filteredResults?.length === 0 && (
+            {results!.length === 0 && (
+              <div className="py-12 text-center space-y-2">
+                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  No Picklist or Checkbox fields available for unique value analysis.
+                </p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  Unique values are only shown for Picklist, Checkbox, and MultiSelect fields defined in your mapping logic file.
+                </p>
+              </div>
+            )}
+
+            {results!.length > 0 && filteredResults?.length === 0 && (
               <div className="py-12 text-center">
                 <p className="text-sm text-slate-400 dark:text-slate-500">
                   No columns match &ldquo;{search}&rdquo;

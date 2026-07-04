@@ -130,6 +130,8 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
     XLSX.writeFile(wb, "data_cleaning_report.xlsx");
   };
 
+  const isSkippedIssue = details && typeof details === "object" && details.skippedIssue === true;
+
   const isDataTransformation = log.category === "Transformation" && details && typeof details === "object" && "outputs" in details;
   const transformOutputs = isDataTransformation && Array.isArray(details.outputs) ? details.outputs : [];
 
@@ -311,6 +313,41 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                       <span>Data validation passed cleanly. No issues detected!</span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Skipped Validation Issue */}
+              {isSkippedIssue && (
+                <div className="space-y-3">
+                  <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Skipped Validation Issue
+                  </h5>
+                  <div className="rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-900/10 p-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-amber-100 dark:border-amber-800/30 bg-white dark:bg-slate-800/40 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.005)]">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <AlertTriangle size={12} className="text-amber-600 opacity-70" />
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400 opacity-85">Field</span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{details.field}</p>
+                      </div>
+                      <div className="rounded-xl border border-rose-100 dark:border-rose-800/30 bg-white dark:bg-slate-800/40 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.005)]">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <AlertTriangle size={12} className="text-rose-500 opacity-70" />
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 opacity-85">Affected Rows</span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{details.count}</p>
+                      </div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-amber-100 dark:border-amber-800/30 px-3 py-2.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Issue Type</p>
+                      <p className="text-xs font-medium text-rose-700 dark:text-rose-400">{details.issue_types || "—"}</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 rounded-lg border border-amber-100 dark:border-amber-800/30 px-3 py-2.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Remark</p>
+                      <p className="text-xs font-medium text-slate-700 dark:text-slate-200 italic">{details.remark || "—"}</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -613,7 +650,7 @@ function LogDetailModal({ log, onClose, onSelectProject }: { log: AuditLog; onCl
                 </div>
               )}
 
-              {details && !isDataValidation && !isSchemaValidation && !isDataCleaning && !isDataTransformation && (
+              {details && !isDataValidation && !isSchemaValidation && !isDataCleaning && !isDataTransformation && !isSkippedIssue && (
                 <div className="space-y-2">
                   <h5 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Operation Metadata</h5>
                   <pre className="p-4 bg-slate-900 text-slate-100 rounded-2xl text-[11px] font-mono overflow-auto max-h-72 leading-5 shadow-inner">

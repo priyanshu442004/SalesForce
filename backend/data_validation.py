@@ -761,20 +761,34 @@ def write_validation_report(issues: list[ValidationIssue], output_path: str) -> 
     summary_df = pd.DataFrame(summary_rows, columns=["Field", "Issue Types", "Count"])
 
     # ── Sheet 2: Error Frequency Summary ─────────────────────────────────────
-    # Group by (field, issue_type, actual_value) and count occurrences.
-    freq: dict[tuple, int] = {}
+    # Group by (field, issue_type, actual_value): count occurrences and collect
+    # all Excel row numbers where each distinct offending value appears.
+    freq: dict[tuple, dict] = {}
     for issue in issues:
         field      = issue.get("field", "") or ""
         issue_type = issue.get("issue_type", "") or ""
         raw_value  = issue.get("value")
         value      = "Blank" if (raw_value is None or str(raw_value).strip() == "") else str(raw_value)
+        row_num    = issue.get("row", 0)
         key = (field, issue_type, value)
-        freq[key] = freq.get(key, 0) + 1
+        if key not in freq:
+            freq[key] = {"count": 0, "rows": []}
+        freq[key]["count"] += 1
+        # row=0 means a config-level issue (e.g. Missing Transformation Mapping)
+        # with no source row — exclude from the row list.
+        if row_num and row_num > 0:
+            freq[key]["rows"].append(row_num)
 
     freq_rows = sorted(
         [
-            {"Field": k[0], "Count of Errors": cnt, "Issue Type": k[1], "Values Found": k[2]}
-            for k, cnt in freq.items()
+            {
+                "Field": k[0],
+                "Count of Errors": v["count"],
+                "Issue Type": k[1],
+                "Values Found": k[2],
+                "Row": ", ".join(str(r) for r in sorted(set(v["rows"]))) if v["rows"] else "",
+            }
+            for k, v in freq.items()
         ],
         key=lambda r: (r["Field"], -r["Count of Errors"]),
     )
@@ -784,7 +798,7 @@ def write_validation_report(issues: list[ValidationIssue], output_path: str) -> 
         summary_df.to_excel(writer, index=False, sheet_name="Summary")
 
         ws = writer.book.create_sheet("Error Frequency")
-        headers = ["Field", "Count of Errors", "Issue Type", "Values Found"]
+        headers = ["Field", "Count of Errors", "Issue Type", "Values Found", "Row"]
 
         # Header row
         for col_idx, header in enumerate(headers, start=1):
@@ -796,6 +810,7 @@ def write_validation_report(issues: list[ValidationIssue], output_path: str) -> 
             ws.cell(row=row_idx, column=2).value = row_data["Count of Errors"]
             ws.cell(row=row_idx, column=3).value = row_data["Issue Type"]
             ws.cell(row=row_idx, column=4).value = row_data["Values Found"]
+            ws.cell(row=row_idx, column=5).value = row_data["Row"]
 
         # Auto-fit column widths based on max content length
         for col_idx, header in enumerate(headers, start=1):

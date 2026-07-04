@@ -211,7 +211,7 @@ interface MigrationContextType {
   transformResult: TransformResult | null;
   transformError: string | null;
   runPipeline: () => Promise<void>;
-  proceedWithSkips: (skippedFields: string[]) => Promise<void>;
+  proceedWithSkips: (skippedFields: string[], skippedRemarks?: Record<string, string>) => Promise<void>;
   resetPipelineState: () => void;
   restorePipelineState: (saved: {
     stageStatus?: Record<PipelineStage, StageStatus>;
@@ -1214,7 +1214,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const proceedWithSkips = async (skippedFields: string[]) => {
+  const proceedWithSkips = async (skippedFields: string[], skippedRemarks?: Record<string, string>) => {
     if (!currentProject) return;
     const cp = currentProject;
     const activeFiles = cp.files || [];
@@ -1226,6 +1226,25 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     const logicKey   = logicFile?.s3Key;
     const effectiveSource = cleaningResult?.cleanedS3Key || sourceKey;
     if (!effectiveSource || !masterKey || !logicKey) return;
+
+    // Persist each skipped validation issue as its own permanent activity entry.
+    const actor = currentUser?.name || "User";
+    for (const field of skippedFields) {
+      const issue = dataValidationResult?.issues.find((i: any) => i.field === field);
+      await logActivity(
+        "Validation",
+        actor,
+        `Validation issue skipped — ${field}`,
+        "Warning",
+        {
+          skippedIssue: true,
+          field,
+          issue_types: issue?.issue_types ?? "",
+          count: issue?.count ?? 0,
+          remark: skippedRemarks?.[field] ?? "",
+        }
+      );
+    }
 
     setPipelineRunning(true);
     setStageStatus(s => ({ ...s, validation: "passed", transformation: "running" }));

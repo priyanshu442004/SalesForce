@@ -7,7 +7,7 @@ import io
 import zipfile
 import sqlite3
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 import math
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Header, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -725,6 +725,52 @@ def _load_df_from_path(path: str):
     return pd.read_excel(path, keep_default_na=False, na_values=[""])
 
 
+_ENUMERATED_DT: set = {
+    "picklist", "picklist(multiselect)", "picklist (multiselect)",
+    "multi picklist", "multipicklist", "multi select picklist",
+    "multi-select picklist", "multiselect picklist", "checkbox",
+}
+
+
+def _is_enumerated_type(data_type: str) -> bool:
+    if not data_type:
+        return False
+    s = str(data_type).strip().lower()
+    if s in _ENUMERATED_DT:
+        return True
+    # Normalise parens / hyphens then re-check
+    s2 = s.replace("(", "").replace(")", "").replace("-", " ").replace("  ", " ").strip()
+    if s2 in _ENUMERATED_DT:
+        return True
+    # Starts with "picklist" covers "Picklist", "Picklist(MultiSelect)", etc.
+    if s2.startswith("picklist"):
+        return True
+    # "multiselect" / "multi select" anywhere in the type string
+    if "multiselect" in s2.replace(" ", ""):
+        return True
+    if "multi" in s2 and ("picklist" in s2 or "select" in s2):
+        return True
+    return False
+
+
+def _eligible_fields_from_logic(logic_path: str) -> Optional[set]:
+    """Return the set of source field names that have an enumerated datatype.
+
+    Returns None when the logic file cannot be read, so the caller can decide
+    whether to skip filtering entirely.
+    """
+    try:
+        from data_validation import read_mapping_rules
+        mapping_df = read_mapping_rules(logic_path)
+        return {
+            str(row["source_field"]).strip()
+            for _, row in mapping_df.iterrows()
+            if _is_enumerated_type(str(row.get("data_type", "") or ""))
+        }
+    except Exception:
+        return None
+
+
 def _compute_unique_stats(df) -> list:
     import re
     _BLANK = {"", "nan", "null", "none", "na", "n/a", "<na>"}
@@ -771,31 +817,47 @@ async def unique_identifier_upload(
 
 
 @app.get("/api/unique-identifier/analyze")
-def unique_identifier_analyze(source_key: str = Query(...)):
-    import pandas as pd
+def unique_identifier_analyze(source_key: str = Query(...), logic_key: Optional[str] = Query(None)):
     temp_path = None
+    logic_temp = None
     try:
         temp_path = temp_download(source_key)
         df = _load_df_from_path(temp_path)
-        return {"success": True, "columns": _compute_unique_stats(df)}
+        stats = _compute_unique_stats(df)
+
+        if logic_key:
+            logic_temp = temp_download(logic_key)
+            eligible = _eligible_fields_from_logic(logic_temp)
+            if eligible is not None:
+                stats = [s for s in stats if s["field"] in eligible]
+
+        return {"success": True, "columns": stats}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
+        for p in (temp_path, logic_temp):
+            if p and os.path.exists(p):
+                os.remove(p)
 
 
 
 @app.get("/api/unique-identifier/download")
-def unique_identifier_download(source_key: str = Query(...)):
+def unique_identifier_download(source_key: str = Query(...), logic_key: Optional[str] = Query(None)):
     import pandas as pd
     temp_path = None
+    logic_temp = None
     try:
         temp_path = temp_download(source_key)
         df = _load_df_from_path(temp_path)
         stats = _compute_unique_stats(df)
+
+        if logic_key:
+            logic_temp = temp_download(logic_key)
+            eligible = _eligible_fields_from_logic(logic_temp)
+            if eligible is not None:
+                stats = [s for s in stats if s["field"] in eligible]
 
         max_len = max((len(s["unique_values"]) for s in stats), default=0)
         out_data = {
@@ -819,5 +881,6 @@ def unique_identifier_download(source_key: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
+        for p in (temp_path, logic_temp):
+            if p and os.path.exists(p):
+                os.remove(p)
