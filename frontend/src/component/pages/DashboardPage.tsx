@@ -1,13 +1,56 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMigration } from "@/context/MigrationContext";
 import Icon from "../Icon";
 
 export default function DashboardPage() {
-  const { currentUser, currentProject, revertFileToVersion, revertOutputToVersion, metricCount, successRateCount, projectList } = useMigration();
+  const { currentUser, currentProject, selectProject, createProject, revertFileToVersion, revertOutputToVersion, metricCount, successRateCount, projectList } = useMigration();
+  const router = useRouter();
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
+  const [switchOpen, setSwitchOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState<string | null>(null);
+  const switchRef = useRef<HTMLDivElement>(null);
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+
+  useEffect(() => {
+    if (!switchOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (switchRef.current && !switchRef.current.contains(e.target as Node)) {
+        setSwitchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [switchOpen]);
+
+  const handleSwitch = async (projectId: string) => {
+    setIsSwitching(projectId);
+    await selectProject(projectId);
+    setSwitchOpen(false);
+    setIsSwitching(null);
+  };
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectName.trim() || isCreating) return;
+    setIsCreating(true);
+    try {
+      const project = await createProject(newProjectName.trim());
+      if (project) {
+        setNewProjectName("");
+        setIsNewProjectOpen(false);
+        await selectProject(project.id);
+        router.push("/upload");
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   // ── Real chart data from projectList ──────────────────────────────────────
   const { chartData, inProgressCoords, completedCoords, yMax, yLabels, xPositions } = useMemo(() => {
@@ -81,11 +124,95 @@ export default function DashboardPage() {
             <path d="M5 21V28L23 36.5L41 28V21L23 29.5L5 21Z" fill="#1d4ed8" />
           </svg>
         </div>
-        <div>
+
+        {/* Greeting */}
+        <div className="flex-1 min-w-0">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 leading-snug">
             Welcome back, {currentUser?.name || ""}
           </h2>
           <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">Salesforce Migration Workspace</p>
+        </div>
+
+        {/* Project Switcher */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Active project display + switch dropdown */}
+          <div className="relative" ref={switchRef}>
+            <button
+              onClick={() => setSwitchOpen(v => !v)}
+              className={`flex items-center gap-2 pl-3 pr-2.5 h-9 rounded-lg border text-sm font-medium transition-colors cursor-pointer focus:outline-none ${
+                currentProject
+                  ? "border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                  : "border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/40 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+              }`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              <span className="max-w-[160px] truncate">
+                {currentProject ? currentProject.name : "No project selected"}
+              </span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={`shrink-0 transition-transform ${switchOpen ? "rotate-180" : ""}`}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {/* Dropdown */}
+            {switchOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-700">
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Switch Project</p>
+                </div>
+                <div className="max-h-56 overflow-y-auto">
+                  {projectList.length === 0 ? (
+                    <p className="px-3 py-4 text-sm text-slate-400 text-center">No projects yet.</p>
+                  ) : (
+                    projectList.map((p) => {
+                      const isActive = currentProject?.id === p.id;
+                      const isLoading = isSwitching === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => !isActive && handleSwitch(p.id)}
+                          disabled={isActive || isLoading}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors cursor-pointer focus:outline-none ${
+                            isActive
+                              ? "bg-blue-50 dark:bg-blue-900/20 cursor-default"
+                              : "hover:bg-slate-50 dark:hover:bg-slate-700/40"
+                          }`}
+                        >
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-medium truncate ${isActive ? "text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-200"}`}>
+                              {p.name}
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-0.5 capitalize">{p.stage} · {p.status}</p>
+                          </div>
+                          {isActive && (
+                            <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide shrink-0">Active</span>
+                          )}
+                          {isLoading && (
+                            <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* New Project button */}
+          <button
+            onClick={() => { setNewProjectName(""); setIsNewProjectOpen(true); }}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:border-blue-600 hover:text-white text-sm font-medium transition-colors cursor-pointer focus:outline-none"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>New Project</span>
+          </button>
         </div>
       </div>
 
@@ -380,6 +507,57 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Project Modal */}
+      {isNewProjectOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">New Migration Project</h3>
+              <button
+                onClick={() => setIsNewProjectOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateProject} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">Project Name</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="e.g., Enterprise Migration Phase 1"
+                  className="w-full px-4 h-10 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white dark:bg-slate-700 dark:placeholder-slate-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsNewProjectOpen(false)}
+                  className="px-4 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 text-sm font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating || !newProjectName.trim()}
+                  className="px-5 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isCreating ? "Creating..." : "Create Project"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
