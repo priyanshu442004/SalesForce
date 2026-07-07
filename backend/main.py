@@ -142,15 +142,17 @@ def health_check():
 @app.post("/api/upload-migration-files")
 async def upload_migration_files(
     x_project_id: str = Header(None),
+    x_client_id: str = Header(None),
     source: UploadFile = File(None),
     master: UploadFile = File(None),
     logic: UploadFile = File(None)
 ):
     """
-    Uploads files to S3 inside a folder dedicated to the project ID.
+    Uploads files to S3 inside a folder dedicated to the client and project IDs.
     Returns the uploaded file details for database recording.
     """
     project_id = x_project_id or str(uuid.uuid4())
+    client_id = x_client_id
     saved_files = []
     
     files_to_upload = {
@@ -167,9 +169,12 @@ async def upload_migration_files(
                 file_bytes = await file_obj.read()
                 size_mb = f"{(len(file_bytes) / (1024 * 1024)):.2f} MB"
                 
-                # S3 Key structure: projects/{project_id}/uploads/{slot}/{timestamp}_{filename}
+                # S3 Key structure: clients/{client_id}/projects/{project_id}/uploads/{slot}/{timestamp}_{filename}
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                s3_key = f"projects/{project_id}/uploads/{slot}/{timestamp}_{filename}"
+                if client_id:
+                    s3_key = f"clients/{client_id}/projects/{project_id}/uploads/{slot}/{timestamp}_{filename}"
+                else:
+                    s3_key = f"projects/{project_id}/uploads/{slot}/{timestamp}_{filename}"
                 
                 # Upload to S3
                 s3_client.put_object(
@@ -196,6 +201,7 @@ async def upload_migration_files(
 @app.post("/api/upload-comparison-files")
 async def upload_comparison_files(
     x_project_id: str = Header(None),
+    x_client_id: str = Header(None),
     base_file: UploadFile = File(None),
     new_file: UploadFile = File(None)
 ):
@@ -203,6 +209,7 @@ async def upload_comparison_files(
     Uploads comparison files to S3.
     """
     project_id = x_project_id or str(uuid.uuid4())
+    client_id = x_client_id
     saved_files = []
     
     files_to_upload = {
@@ -218,7 +225,10 @@ async def upload_comparison_files(
                 size_mb = f"{(len(file_bytes) / (1024 * 1024)):.2f} MB"
                 
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                s3_key = f"projects/{project_id}/comparison/{slot}/{timestamp}_{filename}"
+                if client_id:
+                    s3_key = f"clients/{client_id}/projects/{project_id}/comparison/{slot}/{timestamp}_{filename}"
+                else:
+                    s3_key = f"projects/{project_id}/comparison/{slot}/{timestamp}_{filename}"
                 
                 s3_client.put_object(
                     Bucket=AWS_BUCKET_NAME,
@@ -305,18 +315,21 @@ def validate_schema(
 def clean_data(
     source_key: str = Query(...),
     logic_key: str = Query(...),
-    x_project_id: str = Header(None)
+    x_project_id: str = Header(None),
+    x_client_id: str = Header(None)
 ):
     """
     Cleans source data and uploads the cleaned file to S3.
     Returns summary statistics and a detailed change log.
     """
     project_id = x_project_id or str(uuid.uuid4())
+    client_id = x_client_id
     temp_source = None
     temp_logic = None
     temp_cleaned_path = None
 
     print(f"[clean-data] project_id: {project_id}")
+    print(f"[clean-data] client_id:  {client_id}")
     print(f"[clean-data] source_key: {source_key}")
     print(f"[clean-data] logic_key:  {logic_key}")
 
@@ -336,7 +349,10 @@ def clean_data(
         cleaned_df.to_excel(temp_cleaned_path, index=False)
 
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        s3_cleaned_key = f"projects/{project_id}/uploads/source_cleaned/{timestamp}_cleaned_source.xlsx"
+        if client_id:
+            s3_cleaned_key = f"clients/{client_id}/projects/{project_id}/uploads/source_cleaned/{timestamp}_cleaned_source.xlsx"
+        else:
+            s3_cleaned_key = f"projects/{project_id}/uploads/source_cleaned/{timestamp}_cleaned_source.xlsx"
         upload_to_s3(temp_cleaned_path, s3_cleaned_key)
         print(f"[clean-data] cleaned S3 key: {s3_cleaned_key}")
 
@@ -361,7 +377,8 @@ def validate_data(
     source_key: str = Query(...),
     logic_key: str = Query(...),
     master_key: str = Query(None),
-    x_project_id: str = Header(None)
+    x_project_id: str = Header(None),
+    x_client_id: str = Header(None)
 ):
     """
     Validates data and uploads the report to S3 if issues are found.
@@ -369,7 +386,9 @@ def validate_data(
 
 
     project_id = x_project_id or str(uuid.uuid4())
+    client_id = x_client_id
     print(f"[validate-data] project_id:  {project_id}")
+    print(f"[validate-data] client_id:   {client_id}")
     print(f"[validate-data] source_key:  {source_key}")
     print(f"[validate-data] logic_key:   {logic_key}")
     if master_key:
@@ -400,7 +419,10 @@ def validate_data(
             write_validation_report(out["issues"], temp_report_path)
             
             timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            s3_report_key = f"projects/{project_id}/outputs/validation_report/{timestamp}_data_validation_report.xlsx"
+            if client_id:
+                s3_report_key = f"clients/{client_id}/projects/{project_id}/outputs/validation_report/{timestamp}_data_validation_report.xlsx"
+            else:
+                s3_report_key = f"projects/{project_id}/outputs/validation_report/{timestamp}_data_validation_report.xlsx"
             
             # Upload the report to S3
             upload_to_s3(temp_report_path, s3_report_key)
@@ -428,12 +450,14 @@ def generate_preview(
     source_key: str = Query(...),
     master_key: str = Query(...),
     logic_key: str = Query(...),
-    x_project_id: str = Header(None)
+    x_project_id: str = Header(None),
+    x_client_id: str = Header(None)
 ):
     """
     Generates mapping preview and uploads generated Excel sheet to S3.
     """
     project_id = x_project_id or str(uuid.uuid4())
+    client_id = x_client_id
     temp_source = None
     temp_master = None
     temp_logic = None
@@ -457,7 +481,10 @@ def generate_preview(
             raise HTTPException(status_code=500, detail=f"Data processing failed: {res.get('error')}")
             
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        s3_preview_key = f"projects/{project_id}/outputs/preview/{timestamp}_preview.xlsx"
+        if client_id:
+            s3_preview_key = f"clients/{client_id}/projects/{project_id}/outputs/preview/{timestamp}_preview.xlsx"
+        else:
+            s3_preview_key = f"projects/{project_id}/outputs/preview/{timestamp}_preview.xlsx"
         
         upload_to_s3(temp_output_path, s3_preview_key)
         
@@ -479,7 +506,8 @@ def transform_data(
     logic_key: str = Query(...),
     master_key: str = Query(...),
     skipped_fields: List[str] = Query(default=[]),
-    x_project_id: str = Header(None)
+    x_project_id: str = Header(None),
+    x_client_id: str = Header(None)
 ):
     """
     Transforms data for every mapping sheet independently.
@@ -489,7 +517,9 @@ def transform_data(
     into a single .zip file and uploaded to S3.
     """
     project_id = x_project_id or str(uuid.uuid4())
+    client_id = x_client_id
     print(f"[transform-data] project_id:  {project_id}")
+    print(f"[transform-data] client_id:   {client_id}")
     print(f"[transform-data] source_key:  {source_key}")
     print(f"[transform-data] master_key:  {master_key}")
     print(f"[transform-data] logic_key:   {logic_key}")
@@ -522,7 +552,10 @@ def transform_data(
             sheet_name = sheet["sheet_name"]
             local_path = sheet["output_path"]
             safe_name = os.path.basename(local_path)
-            s3_key = f"projects/{project_id}/outputs/transformed_data/{timestamp}_{safe_name}"
+            if client_id:
+                s3_key = f"clients/{client_id}/projects/{project_id}/outputs/transformed_data/{timestamp}_{safe_name}"
+            else:
+                s3_key = f"projects/{project_id}/outputs/transformed_data/{timestamp}_{safe_name}"
             upload_to_s3(local_path, s3_key)
             uploaded_outputs.append({
                 "sheetName": sheet_name,
@@ -542,7 +575,10 @@ def transform_data(
                 for sheet in sheet_outputs:
                     zf.write(sheet["output_path"], arcname=os.path.basename(sheet["output_path"]))
             zip_file_name = "transformed_data.zip"
-            zip_s3_key = f"projects/{project_id}/outputs/transformed_data/{timestamp}_{zip_file_name}"
+            if client_id:
+                zip_s3_key = f"clients/{client_id}/projects/{project_id}/outputs/transformed_data/{timestamp}_{zip_file_name}"
+            else:
+                zip_s3_key = f"projects/{project_id}/outputs/transformed_data/{timestamp}_{zip_file_name}"
             upload_to_s3(zip_local_path, zip_s3_key)
 
         return {

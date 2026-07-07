@@ -7,7 +7,21 @@ import { useMigration } from "@/context/MigrationContext";
 import Icon from "../Icon";
 
 export default function DashboardPage() {
-  const { currentUser, currentProject, selectProject, createProject, revertFileToVersion, revertOutputToVersion, metricCount, successRateCount, projectList } = useMigration();
+  const {
+    currentUser,
+    currentProject,
+    currentClient,
+    projectList,
+    clientList,
+    createClient,
+    createProject,
+    selectClient,
+    selectProject,
+    revertFileToVersion,
+    revertOutputToVersion,
+    metricCount,
+    successRateCount
+  } = useMigration();
   const router = useRouter();
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
   const [switchOpen, setSwitchOpen] = useState(false);
@@ -16,6 +30,24 @@ export default function DashboardPage() {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+
+  // Client dropdown and creation states
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [showNewClientInput, setShowNewClientInput] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+
+  // Keep selectedClientId in sync with currentClient or clientList
+  useEffect(() => {
+    if (currentClient) {
+      setSelectedClientId(currentClient.id);
+      setShowNewClientInput(false);
+    } else if (clientList.length > 0) {
+      setSelectedClientId(clientList[0].id);
+      setShowNewClientInput(false);
+    } else {
+      setShowNewClientInput(true);
+    }
+  }, [currentClient, clientList, isNewProjectOpen]);
 
   useEffect(() => {
     if (!switchOpen) return;
@@ -40,13 +72,38 @@ export default function DashboardPage() {
     if (!newProjectName.trim() || isCreating) return;
     setIsCreating(true);
     try {
-      const project = await createProject(newProjectName.trim());
+      let finalClientId = selectedClientId;
+
+      if (showNewClientInput) {
+        if (!newClientName.trim()) {
+          setIsCreating(false);
+          return;
+        }
+        const createdClient = await createClient(newClientName.trim());
+        if (createdClient) {
+          finalClientId = createdClient.id;
+          await selectClient(createdClient.id);
+        } else {
+          throw new Error("Failed to create client");
+        }
+      }
+
+      if (!finalClientId) {
+        setIsCreating(false);
+        return;
+      }
+
+      const project = await createProject(newProjectName.trim(), finalClientId);
       if (project) {
         setNewProjectName("");
+        setNewClientName("");
+        setShowNewClientInput(false);
         setIsNewProjectOpen(false);
         await selectProject(project.id);
         router.push("/upload");
       }
+    } catch (err) {
+      console.error("Error creating project:", err);
     } finally {
       setIsCreating(false);
     }
@@ -528,6 +585,61 @@ export default function DashboardPage() {
             </div>
 
             <form onSubmit={handleCreateProject} className="space-y-4">
+              {/* Client Selection */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Client</label>
+                {!showNewClientInput ? (
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedClientId}
+                      onChange={(e) => setSelectedClientId(e.target.value)}
+                      className="flex-1 px-3 h-10 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white dark:bg-slate-700 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+                    >
+                      {clientList.map((client) => (
+                        <option key={client.id} value={client.id}>
+                          {client.name}
+                        </option>
+                      ))}
+                      {clientList.length === 0 && (
+                        <option value="" disabled>No clients found</option>
+                      )}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewClientInput(true)}
+                      className="px-3 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      + New
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        required={showNewClientInput}
+                        value={newClientName}
+                        onChange={(e) => setNewClientName(e.target.value)}
+                        placeholder="New Client Name (e.g., Acme Corp)"
+                        className="flex-1 px-3 h-10 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white dark:bg-slate-700 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+                      />
+                      {clientList.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowNewClientInput(false);
+                            setNewClientName("");
+                          }}
+                          className="px-3 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          Choose Existing
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">Project Name</label>
                 <input
@@ -551,7 +663,7 @@ export default function DashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isCreating || !newProjectName.trim()}
+                  disabled={isCreating || !newProjectName.trim() || (showNewClientInput && !newClientName.trim()) || (!showNewClientInput && !selectedClientId)}
                   className="px-5 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isCreating ? "Creating..." : "Create Project"}

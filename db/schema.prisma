@@ -17,6 +17,20 @@ model User {
   password  String    @default("12345678")
   createdAt DateTime  @default(now())
   projects  Project[]
+  clients   Client[]
+}
+
+model Client {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects  Project[]
+
+  @@unique([userId, name])
 }
 
 model Project {
@@ -31,6 +45,9 @@ model Project {
   
   userId       String
   user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  clientId     String?
+  client       Client?                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
   
   files        UploadedFileReference[]
   activities   ActivityHistory[]

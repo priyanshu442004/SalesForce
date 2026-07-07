@@ -17,7 +17,8 @@ export async function GET(
         // one isActive=true row for the same slot.
         files: { orderBy: { uploadedAt: "desc" } },
         activities: { orderBy: { timestamp: "desc" } },
-        outputs: { orderBy: { generatedAt: "desc" } }
+        outputs: { orderBy: { generatedAt: "desc" } },
+        client: true
       }
     });
 

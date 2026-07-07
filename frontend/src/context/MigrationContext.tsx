@@ -17,6 +17,15 @@ export interface User {
   email: string;
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  projects?: Project[];
+}
+
 export interface ProjectFile {
   id: string;
   slot: string;
@@ -34,6 +43,8 @@ export interface Project {
   stage: string;
   recordsCount: number;
   userId: string;
+  clientId?: string | null;
+  client?: Client | null;
   createdAt: string;
   updatedAt: string;
   files: ProjectFile[];
@@ -182,14 +193,21 @@ interface MigrationContextType {
   setCurrentUser: (user: User | null) => void;
   currentProject: Project | null;
   setCurrentProject: (project: Project | null) => void;
+  currentClient: Client | null;
+  setCurrentClient: (client: Client | null) => void;
   userList: User[];
   projectList: Project[];
+  clientList: Client[];
   isLoadingUsers: boolean;
   isLoadingProjects: boolean;
+  isLoadingClients: boolean;
   loadUsers: () => Promise<void>;
   loadProjects: (userId: string) => Promise<void>;
-  createProject: (name: string) => Promise<Project | null>;
+  loadClients: (userId: string) => Promise<void>;
+  createProject: (name: string, clientId: string) => Promise<Project | null>;
+  createClient: (name: string) => Promise<Client | null>;
   selectProject: (projectId: string) => Promise<void>;
+  selectClient: (clientId: string) => Promise<void>;
   refreshCurrentProject: () => Promise<void>;
   updateProjectStage: (stage: string, progress: number) => Promise<void>;
   logActivity: (category: string, actor: string, description: string, status: string, details?: any) => Promise<void>;
@@ -253,10 +271,13 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   // DB States
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [currentClient, setCurrentClient] = useState<Client | null>(null);
   const [userList, setUserList] = useState<User[]>([]);
   const [projectList, setProjectList] = useState<Project[]>([]);
+  const [clientList, setClientList] = useState<Client[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
 
   const [successRateCount, setSuccessRateCount] = useState(0);
   const [metricCount, setMetricCount] = useState({
@@ -381,6 +402,22 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Load Client List for active user
+  const loadClients = useCallback(async (userId: string) => {
+    setIsLoadingClients(true);
+    try {
+      const res = await fetch(`/api/clients?userId=${userId}`);
+      const data = await res.json();
+      if (data.success) {
+        setClientList(data.clients);
+      }
+    } catch (err) {
+      console.error("Failed to load clients:", err);
+    } finally {
+      setIsLoadingClients(false);
+    }
+  }, []);
+
   // Seed / Initialize users list on mount
   useEffect(() => {
     loadUsers();
@@ -390,11 +427,20 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const savedUser = localStorage.getItem("salesforce_migration_user");
     const savedProject = localStorage.getItem("salesforce_migration_project");
+    const savedClient = localStorage.getItem("salesforce_migration_client");
 
     if (savedUser) {
       const parsedUser = JSON.parse(savedUser);
       setCurrentUser(parsedUser);
       loadProjects(parsedUser.id);
+      loadClients(parsedUser.id);
+
+      if (savedClient) {
+        try {
+          const parsedClient = JSON.parse(savedClient);
+          setCurrentClient(parsedClient);
+        } catch (_) {}
+      }
 
       if (savedProject) {
         const parsedProject = JSON.parse(savedProject);
@@ -404,6 +450,10 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
           .then((data) => {
             if (data.success) {
               setCurrentProject(data.project);
+              if (data.project.client) {
+                setCurrentClient(data.project.client);
+                localStorage.setItem("salesforce_migration_client", JSON.stringify(data.project.client));
+              }
             } else {
               setCurrentProject(parsedProject);
             }
@@ -414,7 +464,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
           });
       }
     }
-  }, [loadUsers, loadProjects]);
+  }, [loadUsers, loadProjects, loadClients]);
 
   // Sync dashboard counters based on active project state
   useEffect(() => {
@@ -486,11 +536,15 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   const handleSetUser = (user: User | null) => {
     setCurrentUser(user);
     setCurrentProject(null);
+    setCurrentClient(null);
     setProjectList([]);
+    setClientList([]);
     localStorage.removeItem("salesforce_migration_project");
+    localStorage.removeItem("salesforce_migration_client");
     if (user) {
       localStorage.setItem("salesforce_migration_user", JSON.stringify(user));
       loadProjects(user.id);
+      loadClients(user.id);
     } else {
       localStorage.removeItem("salesforce_migration_user");
     }
@@ -501,8 +555,25 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     setCurrentProject(project);
     if (project) {
       localStorage.setItem("salesforce_migration_project", JSON.stringify(project));
+      // Sync client if project has one
+      if (project.client) {
+        setCurrentClient(project.client);
+        localStorage.setItem("salesforce_migration_client", JSON.stringify(project.client));
+      }
     } else {
       localStorage.removeItem("salesforce_migration_project");
+    }
+  };
+
+  // Handle active client selection
+  const selectClient = async (clientId: string) => {
+    const client = clientList.find((c) => c.id === clientId);
+    if (client) {
+      setCurrentClient(client);
+      localStorage.setItem("salesforce_migration_client", JSON.stringify(client));
+    } else {
+      setCurrentClient(null);
+      localStorage.removeItem("salesforce_migration_client");
     }
   };
 
@@ -522,6 +593,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("salesforce_migration_project", JSON.stringify(data.project));
         if (currentUser) {
           loadProjects(currentUser.id);
+          loadClients(currentUser.id); // Also sync clients lists
         }
       }
     } catch (err) {
@@ -529,18 +601,39 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Create project API
-  const createProject = async (name: string): Promise<Project | null> => {
+  // Create client API
+  const createClient = async (name: string): Promise<Client | null> => {
     if (!currentUser) return null;
     try {
-      const res = await fetch("/api/projects", {
+      const res = await fetch("/api/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: currentUser.id, name })
       });
       const data = await res.json();
       if (data.success) {
+        await loadClients(currentUser.id);
+        return data.client;
+      }
+    } catch (err) {
+      console.error("Failed to create client:", err);
+    }
+    return null;
+  };
+
+  // Create project API
+  const createProject = async (name: string, clientId: string): Promise<Project | null> => {
+    if (!currentUser) return null;
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: currentUser.id, name, clientId })
+      });
+      const data = await res.json();
+      if (data.success) {
         await loadProjects(currentUser.id);
+        await loadClients(currentUser.id);
         return data.project;
       }
     } catch (err) {
@@ -642,12 +735,17 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       const formData = new FormData();
       formData.append(slot, file);
 
+      const headers: Record<string, string> = {
+        "x-project-id": currentProject.id
+      };
+      if (currentProject.clientId) {
+        headers["x-client-id"] = currentProject.clientId;
+      }
+
       const response = await fetch(`${NEXT_PUBLIC_API_URL}/api/upload-migration-files`, {
         method: "POST",
         body: formData,
-        headers: {
-          "x-project-id": currentProject.id
-        }
+        headers
       });
 
       if (!response.ok) {
@@ -811,11 +909,16 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       }
 
       const url = `${NEXT_PUBLIC_API_URL}/api/generate-preview?source_key=${encodeURIComponent(sourceKey)}&master_key=${encodeURIComponent(masterKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const headers: Record<string, string> = {
+        "x-project-id": currentProject.id
+      };
+      if (currentProject.clientId) {
+        headers["x-client-id"] = currentProject.clientId;
+      }
+
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "x-project-id": currentProject.id
-        }
+        headers
       });
       if (!response.ok) {
         const errorBody = await response.json();
@@ -990,7 +1093,11 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     let schemaPassed = false;
     try {
       const url = `${NEXT_PUBLIC_API_URL}/api/validate-schema?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
-      const resp = await fetch(url, { method: "POST", headers: { "x-project-id": cp.id } });
+      const headers: Record<string, string> = { "x-project-id": cp.id };
+      if (cp.clientId) {
+        headers["x-client-id"] = cp.clientId;
+      }
+      const resp = await fetch(url, { method: "POST", headers });
       if (!resp.ok) {
         const err = await resp.json();
         throw new Error(parseErrorDetail(err.detail, "Schema validation failed"));
@@ -1032,9 +1139,13 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     let cleaningPassed = false;
     try {
       const url = `${NEXT_PUBLIC_API_URL}/api/clean-data?source_key=${encodeURIComponent(sourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      const cleanHeaders: Record<string, string> = { "x-project-id": cp.id };
+      if (cp.clientId) {
+        cleanHeaders["x-client-id"] = cp.clientId;
+      }
       const resp = await fetch(url, {
         method: "POST",
-        headers: { "x-project-id": cp.id },
+        headers: cleanHeaders,
       });
       if (!resp.ok) {
         const err = await resp.json();
@@ -1087,9 +1198,13 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       let url = `${NEXT_PUBLIC_API_URL}/api/validate-data?source_key=${encodeURIComponent(effectiveSourceKey)}&logic_key=${encodeURIComponent(logicKey)}`;
       if (masterKey) url += `&master_key=${encodeURIComponent(masterKey)}`;
       console.log("[pipeline] validate-data effective source key:", effectiveSourceKey);
+      const validationHeaders: Record<string, string> = { "x-project-id": cp.id };
+      if (cp.clientId) {
+        validationHeaders["x-client-id"] = cp.clientId;
+      }
       const resp = await fetch(url, {
         method: "POST",
-        headers: { "x-project-id": cp.id },
+        headers: validationHeaders,
       });
       if (!resp.ok) {
         const err = await resp.json();
@@ -1272,9 +1387,13 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       for (const field of skippedFields) {
         url += `&skipped_fields=${encodeURIComponent(field)}`;
       }
+      const transformHeaders: Record<string, string> = { "x-project-id": cp.id };
+      if (cp.clientId) {
+        transformHeaders["x-client-id"] = cp.clientId;
+      }
       const response = await fetch(url, {
         method: "POST",
-        headers: { "x-project-id": cp.id },
+        headers: transformHeaders,
       });
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
@@ -1372,14 +1491,21 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser: handleSetUser,
         currentProject,
         setCurrentProject: handleSetProject,
+        currentClient,
+        setCurrentClient,
         userList,
         projectList,
+        clientList,
         isLoadingUsers,
         isLoadingProjects,
+        isLoadingClients,
         loadUsers,
         loadProjects,
+        loadClients,
         createProject,
+        createClient,
         selectProject,
+        selectClient,
         refreshCurrentProject,
         updateProjectStage,
         logActivity,

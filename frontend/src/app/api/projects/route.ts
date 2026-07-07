@@ -21,7 +21,8 @@ export async function GET(request: Request) {
       where: { userId },
       include: {
         files: true,
-        activities: { orderBy: { timestamp: "desc" } }
+        activities: { orderBy: { timestamp: "desc" } },
+        client: true
       },
       orderBy: { updatedAt: "desc" }
     });
@@ -35,23 +36,25 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { userId, name } = await request.json();
+    const { userId, name, clientId } = await request.json();
 
-    if (!userId || !name) {
-      return NextResponse.json({ success: false, error: "userId and name are required" }, { status: 400 });
+    if (!userId || !name || !clientId) {
+      return NextResponse.json({ success: false, error: "userId, name, and clientId are required" }, { status: 400 });
     }
 
     const newProject = await db.project.create({
       data: {
         userId,
         name,
+        clientId,
         status: "In Progress",
         progress: 0.0,
         stage: "upload"
       },
       include: {
         files: true,
-        activities: true
+        activities: true,
+        client: true
       }
     });
 

@@ -7,7 +7,7 @@ import Icon from "./Icon";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { sidebarCollapsed, setSidebarCollapsed, currentUser, setCurrentUser, currentProject } = useMigration();
+  const { sidebarCollapsed, setSidebarCollapsed, currentUser, setCurrentUser, currentProject, currentClient } = useMigration();
 
   if (!currentUser) return null;
 
@@ -70,14 +70,25 @@ export default function Sidebar() {
           )}
         </div>
 
-        {/* Active project badge */}
+        {/* Active client and project badge */}
         {currentProject && !sidebarCollapsed && (
-          <div className="px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 flex items-center gap-2 overflow-hidden">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-            <span className="text-[10px] font-medium text-slate-400 truncate">
-              <span className="text-slate-500">Project: </span>
-              <span className="text-slate-200 font-semibold">{currentProject.name}</span>
-            </span>
+          <div className="px-2.5 py-2 rounded-lg bg-slate-800 border border-slate-700 space-y-1 overflow-hidden">
+            {currentClient && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
+                <span className="text-[10px] font-medium text-slate-400 truncate">
+                  <span className="text-slate-500">Client: </span>
+                  <span className="text-slate-200 font-semibold">{currentClient.name}</span>
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+              <span className="text-[10px] font-medium text-slate-400 truncate">
+                <span className="text-slate-500">Project: </span>
+                <span className="text-slate-200 font-semibold">{currentProject.name}</span>
+              </span>
+            </div>
           </div>
         )}
 

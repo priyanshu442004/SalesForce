@@ -167,12 +167,56 @@ export default function UploadFilesPage() {
   const [isSubmittingProj, setIsSubmittingProj] = useState(false);
   const [projTab, setProjTab] = useState<"select" | "create">("select");
 
-  const { currentProject, setCurrentProject, projectList, createProject, selectProject, uploadedFiles, handleFileUpload, clearFile, isContinueEnabled, resetPipelineState } = useMigration();
+  // Client dropdown and creation states
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [showNewClientInput, setShowNewClientInput] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+
+  const {
+    currentProject,
+    setCurrentProject,
+    projectList,
+    createProject,
+    selectProject,
+    uploadedFiles,
+    handleFileUpload,
+    clearFile,
+    isContinueEnabled,
+    resetPipelineState,
+    clientList,
+    currentClient,
+    createClient,
+    selectClient,
+  } = useMigration();
 
   React.useEffect(() => {
-    if (projectList.length === 0) setProjTab("create");
-    else if (projectList.length > 0 && !selectedProjId) { setSelectedProjId(projectList[0].id); setProjTab("select"); }
-  }, [projectList, selectedProjId]);
+    if (currentClient) {
+      setSelectedClientId(currentClient.id);
+      setShowNewClientInput(false);
+    } else if (clientList.length > 0) {
+      setSelectedClientId(clientList[0].id);
+      setShowNewClientInput(false);
+    } else {
+      setShowNewClientInput(true);
+    }
+  }, [currentClient, clientList]);
+
+  const clientProjects = React.useMemo(() => {
+    if (!selectedClientId) return [];
+    return projectList.filter((p) => p.clientId === selectedClientId);
+  }, [projectList, selectedClientId]);
+
+  React.useEffect(() => {
+    if (clientProjects.length > 0) {
+      if (!clientProjects.some((p) => p.id === selectedProjId)) {
+        setSelectedProjId(clientProjects[0].id);
+        setProjTab("select");
+      }
+    } else {
+      setProjTab("create");
+      setSelectedProjId("");
+    }
+  }, [clientProjects, selectedProjId]);
 
   const inputRefs = { source: sourceInputRef, master: masterInputRef, logic: logicInputRef };
 
@@ -180,18 +224,53 @@ export default function UploadFilesPage() {
     if (!newProjName.trim() || isSubmittingProj) return;
     setIsSubmittingProj(true);
     try {
-      const project = await createProject(newProjName);
-      if (project) { setNewProjName(""); await selectProject(project.id); }
-    } catch (err) { console.error("Error creating project inline:", err); }
-    finally { setIsSubmittingProj(false); }
+      let finalClientId = selectedClientId;
+      if (showNewClientInput) {
+        if (!newClientName.trim()) {
+          setIsSubmittingProj(false);
+          return;
+        }
+        const createdClient = await createClient(newClientName.trim());
+        if (createdClient) {
+          finalClientId = createdClient.id;
+          await selectClient(createdClient.id);
+        } else {
+          throw new Error("Failed to create client");
+        }
+      }
+
+      if (!finalClientId) {
+        setIsSubmittingProj(false);
+        return;
+      }
+
+      const project = await createProject(newProjName.trim(), finalClientId);
+      if (project) {
+        setNewProjName("");
+        setNewClientName("");
+        setShowNewClientInput(false);
+        await selectProject(project.id);
+      }
+    } catch (err) {
+      console.error("Error creating project inline:", err);
+    } finally {
+      setIsSubmittingProj(false);
+    }
   };
 
   const handleSelectProjectInline = async () => {
     if (!selectedProjId || isSubmittingProj) return;
     setIsSubmittingProj(true);
-    try { await selectProject(selectedProjId); }
-    catch (err) { console.error("Error selecting project inline:", err); }
-    finally { setIsSubmittingProj(false); }
+    try {
+      if (selectedClientId) {
+        await selectClient(selectedClientId);
+      }
+      await selectProject(selectedProjId);
+    } catch (err) {
+      console.error("Error selecting project inline:", err);
+    } finally {
+      setIsSubmittingProj(false);
+    }
   };
 
   if (!currentProject) {
@@ -204,51 +283,138 @@ export default function UploadFilesPage() {
             </div>
             <h3 className="mt-1.5 text-lg font-semibold">Select or Create a Project</h3>
             <p className="mt-1 text-xs text-slate-300 leading-relaxed">
-              You must choose an active project workspace to begin uploading and validating migration files.
+              Choose a client and project workspace to begin uploading and validating migration files.
             </p>
           </div>
 
-          {projectList.length > 0 && (
-            <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-              <button onClick={() => setProjTab("select")} className={cx("flex-1 py-3 text-center text-xs font-semibold transition-all border-b-2 focus:outline-none",
-                projTab === "select" ? "border-blue-600 text-blue-600 bg-white dark:bg-slate-800" : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white")}>
-                Continue Existing Project
-              </button>
-              <button onClick={() => setProjTab("create")} className={cx("flex-1 py-3 text-center text-xs font-semibold transition-all border-b-2 focus:outline-none",
-                projTab === "create" ? "border-blue-600 text-blue-600 bg-white dark:bg-slate-800" : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white")}>
-                Create New Project
-              </button>
+          <div className="p-6 bg-white dark:bg-slate-800 space-y-5">
+            {/* Client Selection */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Client</label>
+              {!showNewClientInput ? (
+                <div className="flex gap-2">
+                  <select
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    className="flex-1 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    {clientList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                    {clientList.length === 0 && (
+                      <option value="" disabled>No clients found</option>
+                    )}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewClientInput(true);
+                      setProjTab("create");
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    + New
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required={showNewClientInput}
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    placeholder="New Client Name (e.g., Acme Corp)"
+                    className="flex-1 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  {clientList.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNewClientInput(false);
+                        setNewClientName("");
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Choose Existing
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-          )}
 
-          <div className="p-6 bg-white dark:bg-slate-800">
-            {projTab === "select" ? (
-              <div className="space-y-4">
-                {projectList.length === 0 ? (
+            {/* Project Selection / Creation Section */}
+            {!showNewClientInput && clientProjects.length > 0 && (
+              <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setProjTab("select")}
+                  className={cx(
+                    "flex-1 py-2 text-center text-[11px] font-semibold transition-all focus:outline-none",
+                    projTab === "select" ? "bg-blue-600 text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  )}
+                >
+                  Choose Project
+                </button>
+                <button
+                  onClick={() => setProjTab("create")}
+                  className={cx(
+                    "flex-1 py-2 text-center text-[11px] font-semibold transition-all focus:outline-none",
+                    projTab === "create" ? "bg-blue-600 text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  )}
+                >
+                  Create Project
+                </button>
+              </div>
+            )}
+
+            {projTab === "select" && !showNewClientInput ? (
+              <div className="space-y-4 pt-1">
+                {clientProjects.length === 0 ? (
                   <div className="text-center py-6">
                     <p className="text-xs text-slate-400 font-medium">No projects found. Please create a new project to get started.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Select Project Workspace</label>
-                    <select value={selectedProjId} onChange={(e) => setSelectedProjId(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                      {projectList.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.stage.replace("_", " ")})</option>)}
+                    <select
+                      value={selectedProjId}
+                      onChange={(e) => setSelectedProjId(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      {clientProjects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.stage.replace("_", " ")})
+                        </option>
+                      ))}
                     </select>
                   </div>
                 )}
-                <Button onClick={handleSelectProjectInline} disabled={!selectedProjId || isSubmittingProj} className="w-full py-3 text-xs">
+                <Button
+                  onClick={handleSelectProjectInline}
+                  disabled={!selectedProjId || isSubmittingProj}
+                  className="w-full py-3 text-xs"
+                >
                   {isSubmittingProj ? "Opening Workspace..." : "Open Workspace"}
                 </Button>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 pt-1">
                 <div className="space-y-2">
                   <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Project Name</label>
-                  <input type="text" placeholder="e.g. Acme Q3 Salesforce Migration" value={newProjName} onChange={(e) => setNewProjName(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                  <input
+                    type="text"
+                    placeholder="e.g. Acme Q3 Salesforce Migration"
+                    value={newProjName}
+                    onChange={(e) => setNewProjName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
                 </div>
-                <Button onClick={handleCreateProjectInline} disabled={!newProjName.trim() || isSubmittingProj} className="w-full py-3 text-xs">
+                <Button
+                  onClick={handleCreateProjectInline}
+                  disabled={!newProjName.trim() || isSubmittingProj || (showNewClientInput && !newClientName.trim()) || (!showNewClientInput && !selectedClientId)}
+                  className="w-full py-3 text-xs"
+                >
                   {isSubmittingProj ? "Creating Project..." : "Create & Launch Workspace"}
                 </Button>
               </div>
