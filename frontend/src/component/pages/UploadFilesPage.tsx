@@ -3,9 +3,10 @@
 import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRight, Check, CheckCircle2, ChevronRight, CloudUpload,
-  FileCheck2, FileSpreadsheet, Sparkles, Trash2, Upload,
+  AlertCircle, ArrowRight, Check, CheckCircle2, ChevronRight, CloudUpload,
+  Database, Eye, EyeOff, FileCheck2, FileSpreadsheet, Loader2, Sparkles, Trash2, Upload, Wifi,
 } from "lucide-react";
+import { NEXT_PUBLIC_API_URL } from "@/lib/config";
 import { useMigration } from "@/context/MigrationContext";
 import type { UploadedFile } from "@/context/MigrationContext";
 
@@ -151,6 +152,443 @@ function UploadCard({ config, file, onUpload, onClear }: {
             <ChevronRight size={13} />
           </button>
         </div>
+      </div>
+    </article>
+  );
+}
+
+// SQL Server is intentionally omitted here so it does not appear in the UI.
+// The backend implementation is fully preserved and can be restored by adding
+// "SQL Server" back to this array and updating DB_DEFAULTS below.
+const DB_TYPES = ["PostgreSQL", "MySQL", "MongoDB"] as const;
+type DbType = (typeof DB_TYPES)[number];
+
+// DbTypeAll includes SQL Server so its defaults stay in the codebase even
+// while it is hidden from the UI.  DbType (the visible set) is a subset of it.
+type DbTypeAll = DbType | "SQL Server";
+const DB_DEFAULTS: Record<DbTypeAll, { port: string; tablePlaceholder: string; tableLabel: string }> = {
+  PostgreSQL: { port: "5432", tablePlaceholder: "e.g. public.users", tableLabel: "Table Name" },
+  MySQL: { port: "3306", tablePlaceholder: "e.g. customers", tableLabel: "Table Name" },
+  MongoDB: { port: "27017", tablePlaceholder: "e.g. orders", tableLabel: "Collection Name" },
+  // Hidden from UI — restore by adding "SQL Server" to DB_TYPES above.
+  "SQL Server": { port: "1433", tablePlaceholder: "e.g. dbo.contacts", tableLabel: "Table Name" },
+};
+
+function SourceDataCard({ file, onUpload, onClear }: {
+  file: UploadedFile | null; onUpload: () => void; onClear: () => void;
+}) {
+  const config = FILE_SLOTS[0];
+  const styles = toneStyles[config.tone];
+  const isComplete = file?.completed && !file.loading;
+  const isLoading = file?.loading;
+
+  const [sourceMode, setSourceMode] = useState<"upload" | "database">("upload");
+  const [dbType, setDbType] = useState<DbType>("PostgreSQL");
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("5432");
+  const [dbName, setDbName] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [tableName, setTableName] = useState("");
+  const [authDatabase, setAuthDatabase] = useState("admin");
+
+  // Connection / fetch status state
+  const [connStatus, setConnStatus] = useState<"idle" | "testing" | "success" | "warning" | "error">("idle");
+  const [connMessage, setConnMessage] = useState("");
+  const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const { currentProject, setUploadedFiles, refreshCurrentProject } = useMigration();
+
+  const handleDbTypeChange = (type: DbType) => {
+    setDbType(type);
+    setPort(DB_DEFAULTS[type].port);
+    setConnStatus("idle");
+    setConnMessage("");
+  };
+
+  const handleTestConnection = async () => {
+    if (connStatus === "testing") return;
+    setConnStatus("testing");
+    setConnMessage("");
+    try {
+      const res = await fetch(`${NEXT_PUBLIC_API_URL}/api/database/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dbType,
+          host,
+          port: parseInt(port, 10) || 5432,
+          database: dbName,
+          username,
+          password,
+          auth_database: authDatabase,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setConnStatus("error");
+        setConnMessage(data.detail || "Connection failed");
+      } else if (data.trust_auth_detected) {
+        setConnStatus("warning");
+        setConnMessage(data.message);
+      } else {
+        setConnStatus("success");
+        setConnMessage(data.message || "Connection successful");
+      }
+    } catch (err: any) {
+      setConnStatus("error");
+      setConnMessage(err.message || "Connection failed");
+    }
+  };
+
+  const handleFetchData = async () => {
+    if (!currentProject || isFetching || !tableName.trim()) return;
+    setIsFetching(true);
+    setFetchError(null);
+
+    // Optimistic loading UI — mirrors what handleFileUpload does for upload mode
+    setUploadedFiles((prev) => ({
+      ...prev,
+      source: {
+        name: `${tableName.trim()} (${dbType})`,
+        size: "Fetching…",
+        loading: true,
+        progress: 0,
+        completed: false,
+      },
+    }));
+
+    let prog = 0;
+    const interval = setInterval(() => {
+      prog += 5;
+      const cap = Math.min(prog, 88);
+      setUploadedFiles((prev) => {
+        const item = prev["source"];
+        if (!item?.loading) { clearInterval(interval); return prev; }
+        return { ...prev, source: { ...item, progress: cap } };
+      });
+      if (prog >= 88) clearInterval(interval);
+    }, 200);
+
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "x-project-id": currentProject.id,
+      };
+      if (currentProject.clientId) {
+        headers["x-client-id"] = currentProject.clientId;
+      }
+
+      const res = await fetch(`${NEXT_PUBLIC_API_URL}/api/database/fetch`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          dbType,
+          host,
+          port: parseInt(port, 10) || 5432,
+          database: dbName,
+          username,
+          password,
+          auth_database: authDatabase,
+          table: tableName.trim(),
+        }),
+      });
+
+      clearInterval(interval);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Failed to fetch data from database");
+      }
+
+      const data = await res.json();
+
+      // Register the S3 file in the project DB — identical to what uploadFileToServer does
+      const dbRes = await fetch(`/api/projects/${currentProject.id}/files`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slot: "source",
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          s3Key: data.s3Key,
+        }),
+      });
+      const dbData = await dbRes.json();
+      if (!dbData.success) throw new Error("Failed to register file in project");
+
+      // Flip to complete state before project refresh so the card doesn't flash blank
+      setUploadedFiles((prev) => ({
+        ...prev,
+        source: {
+          name: data.fileName,
+          size: data.fileSize,
+          loading: false,
+          progress: 100,
+          completed: true,
+        },
+      }));
+      await refreshCurrentProject();
+    } catch (err: any) {
+      clearInterval(interval);
+      setFetchError(err.message || "Failed to fetch data");
+      setUploadedFiles((prev) => ({ ...prev, source: null }));
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const { tableLabel, tablePlaceholder } = DB_DEFAULTS[dbType];
+
+  const inputCls = "w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700/60 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20";
+  const labelCls = "mb-1 block text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500";
+
+  return (
+    <article className={cx(
+      "group relative overflow-hidden rounded-xl border bg-white dark:bg-slate-800 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_28px_rgba(15,23,42,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)]",
+      isComplete && sourceMode === "upload" ? "border-emerald-200 dark:border-emerald-700/50" : "border-slate-200 dark:border-slate-700"
+    )}>
+      <div className={cx("absolute inset-x-0 top-0 h-1", isComplete && sourceMode === "upload" ? "bg-emerald-500" : styles.accent)} />
+
+      <div className="flex flex-col gap-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3.5">
+            <span className={cx("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1", styles.icon)}>
+              {sourceMode === "database" ? <Database size={21} strokeWidth={2.2} /> : <FileSpreadsheet size={21} strokeWidth={2.2} />}
+            </span>
+            <div className="min-w-0">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Step {config.step}</span>
+                {isComplete && sourceMode === "upload" && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-100 dark:ring-emerald-800/30">
+                    <Check size={11} strokeWidth={3} />Uploaded
+                  </span>
+                )}
+              </div>
+              <h3 className="text-[15px] font-semibold tracking-tight text-slate-950 dark:text-slate-100">{config.title}</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{config.description}</p>
+            </div>
+          </div>
+          {isComplete && sourceMode === "upload" && (
+            <button type="button" onClick={onClear} aria-label="Remove Source Data"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 dark:hover:text-rose-400">
+              <Trash2 size={15} />
+            </button>
+          )}
+        </div>
+
+        {/* Segmented Toggle */}
+        <div className="flex rounded-lg bg-slate-100 dark:bg-slate-700/60 p-0.5 gap-0.5">
+          {(["upload", "database"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setSourceMode(mode)}
+              className={cx(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-semibold transition-all",
+                sourceMode === mode
+                  ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              )}
+            >
+              {mode === "upload" ? <Upload size={12} /> : <Database size={12} />}
+              {mode === "upload" ? "Upload File" : "Connect Database"}
+            </button>
+          ))}
+        </div>
+
+        {/* Upload mode — exact same content as UploadCard */}
+        {sourceMode === "upload" && (
+          <>
+            <div>
+              {isLoading ? (
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3.5">
+                  <div className="mb-2.5 flex items-center justify-between gap-3 text-xs">
+                    <span className="truncate font-semibold text-slate-700 dark:text-slate-200">{file.name}</span>
+                    <span className="font-semibold tabular-nums text-slate-600 dark:text-slate-300">{file.progress}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white dark:bg-slate-700 ring-1 ring-slate-200 dark:ring-slate-600">
+                    <div className={cx("h-full rounded-full transition-all duration-150", styles.progress)} style={{ width: `${file.progress}%` }} />
+                  </div>
+                  <p className="mt-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">Saving securely to the S3 workspace.</p>
+                </div>
+              ) : isComplete ? (
+                <div className="rounded-xl border border-emerald-100 dark:border-emerald-800/30 bg-emerald-50/60 dark:bg-emerald-900/20 p-3.5">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-sm">
+                      <FileCheck2 size={18} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{file.name}</span>
+                      <span className="mt-0.5 block text-[11px] text-slate-500 dark:text-slate-400">{file.size} · Ready for processing</span>
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={onUpload}
+                  className="flex w-full items-center justify-between rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50/70 dark:bg-slate-800/50 px-3.5 py-3 text-left transition-all hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                  <span>
+                    <span className="block text-xs font-semibold text-slate-700 dark:text-slate-200">Choose file</span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500 dark:text-slate-400">{config.helper}</span>
+                  </span>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600">
+                    <Upload size={15} />
+                  </span>
+                </button>
+              )}
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-700 pt-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              <span className={cx("rounded-full px-2 py-1 ring-1", isComplete ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 ring-emerald-100 dark:ring-emerald-800/30" : styles.badge)}>
+                {isComplete ? "Complete" : isLoading ? "Uploading" : "Pending"}
+              </span>
+              <button type="button" onClick={onUpload} className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400 transition-colors hover:text-blue-700 dark:hover:text-blue-400">
+                {isComplete ? "Replace" : "Browse"}
+                <ChevronRight size={13} />
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Database connection form */}
+        {sourceMode === "database" && (
+          <div className="space-y-3">
+            {/* DB Type pills */}
+            <div>
+              <label className={labelCls}>Database Type</label>
+              <div className="flex flex-wrap gap-1.5">
+                {DB_TYPES.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleDbTypeChange(type)}
+                    className={cx(
+                      "rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-all",
+                      dbType === type
+                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                        : "border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    )}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Host + Port */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <label className={labelCls}>Host</label>
+                <input type="text" value={host} onChange={(e) => setHost(e.target.value)}
+                  placeholder="e.g. db.example.com" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Port</label>
+                <input type="text" value={port} onChange={(e) => setPort(e.target.value)} className={inputCls} />
+              </div>
+            </div>
+
+            {/* Database Name */}
+            <div>
+              <label className={labelCls}>Database Name</label>
+              <input type="text" value={dbName} onChange={(e) => setDbName(e.target.value)}
+                placeholder="e.g. salesforce_migration" className={inputCls} />
+            </div>
+
+            {/* Username + Password */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelCls}>Username</label>
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+                  placeholder="e.g. admin" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className={cx(inputCls, "pr-8")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Authentication Database — MongoDB only */}
+            {dbType === "MongoDB" && (
+              <div>
+                <label className={labelCls}>Authentication Database</label>
+                <input type="text" value={authDatabase} onChange={(e) => setAuthDatabase(e.target.value)}
+                  placeholder="admin" className={inputCls} />
+              </div>
+            )}
+
+            {/* Table / Collection Name */}
+            <div>
+              <label className={labelCls}>{tableLabel}</label>
+              <input type="text" value={tableName} onChange={(e) => setTableName(e.target.value)}
+                placeholder={tablePlaceholder} className={inputCls} />
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2 border-t border-slate-100 dark:border-slate-700 pt-3">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={connStatus === "testing" || isFetching}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700/50 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {connStatus === "testing"
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : <Wifi size={13} />}
+                {connStatus === "testing" ? "Testing…" : "Test Connection"}
+              </button>
+              <button
+                type="button"
+                onClick={handleFetchData}
+                disabled={isFetching || !tableName.trim() || connStatus === "testing"}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              >
+                {isFetching
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : <Database size={13} />}
+                {isFetching ? "Fetching…" : "Fetch Data"}
+              </button>
+            </div>
+
+            {/* Connection / fetch status feedback */}
+            {connStatus !== "idle" && !isFetching && (
+              <div className={cx(
+                "flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium",
+                connStatus === "success" && "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300",
+                connStatus === "warning" && "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300",
+                connStatus === "error" && "bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400",
+              )}>
+                {connStatus === "success"
+                  ? <CheckCircle2 size={12} className="mt-px shrink-0" />
+                  : <AlertCircle size={12} className="mt-px shrink-0" />}
+                <span className="break-all">{connMessage}</span>
+              </div>
+            )}
+            {fetchError && !isFetching && (
+              <div className="flex items-start gap-1.5 rounded-lg bg-rose-50 dark:bg-rose-900/20 px-2.5 py-1.5 text-[11px] font-medium text-rose-700 dark:text-rose-400">
+                <AlertCircle size={12} className="mt-px shrink-0" />
+                <span className="break-all">{fetchError}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </article>
   );
@@ -472,7 +910,12 @@ export default function UploadFilesPage() {
         </header>
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {FILE_SLOTS.map((config) => (
+          <SourceDataCard
+            file={uploadedFiles["source"]}
+            onUpload={() => inputRefs.source.current?.click()}
+            onClear={() => clearFile("source")}
+          />
+          {FILE_SLOTS.slice(1).map((config) => (
             <UploadCard key={config.slot} config={config} file={uploadedFiles[config.slot]}
               onUpload={() => inputRefs[config.slot].current?.click()} onClear={() => clearFile(config.slot)} />
           ))}

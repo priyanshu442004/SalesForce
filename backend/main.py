@@ -74,6 +74,10 @@ app.include_router(salesforce_router)
 from import_jobs import router as import_jobs_router
 app.include_router(import_jobs_router)
 
+# Database connection routes
+from database import router as database_router
+app.include_router(database_router)
+
 # Initialize AWS S3 client
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
