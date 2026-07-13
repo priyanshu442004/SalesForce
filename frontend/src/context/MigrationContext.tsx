@@ -1250,10 +1250,14 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     setStageStatus(s => ({ ...s, transformation: "running" }));
     try {
       const effectiveSource = cleanedKey || sourceKey;
-      if (!effectiveSource || !masterKey || !logicKey) {
+      if (!effectiveSource || !logicKey) {
         throw new Error("Missing required migration files for transformation.");
       }
-      const url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(effectiveSource)}&master_key=${encodeURIComponent(masterKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      let url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(effectiveSource)}&logic_key=${encodeURIComponent(logicKey)}`;
+      if (masterKey) url += `&master_key=${encodeURIComponent(masterKey)}`;
+      if (sfAccessToken && sfInstanceUrl) {
+        url += `&sf_access_token=${encodeURIComponent(sfAccessToken)}&sf_instance_url=${encodeURIComponent(sfInstanceUrl)}`;
+      }
       console.log("[pipeline] transform-data effective source key:", effectiveSource);
       const response = await fetch(url, {
         method: "POST",
@@ -1340,7 +1344,7 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     const masterKey  = masterFile?.s3Key;
     const logicKey   = logicFile?.s3Key;
     const effectiveSource = cleaningResult?.cleanedS3Key || sourceKey;
-    if (!effectiveSource || !masterKey || !logicKey) return;
+    if (!effectiveSource || !logicKey) return;
 
     // Persist each skipped validation issue as its own permanent activity entry.
     const actor = currentUser?.name || "User";
@@ -1383,9 +1387,13 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
     };
 
     try {
-      let url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(effectiveSource)}&master_key=${encodeURIComponent(masterKey)}&logic_key=${encodeURIComponent(logicKey)}`;
+      let url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(effectiveSource)}&logic_key=${encodeURIComponent(logicKey)}`;
+      if (masterKey) url += `&master_key=${encodeURIComponent(masterKey)}`;
       for (const field of skippedFields) {
         url += `&skipped_fields=${encodeURIComponent(field)}`;
+      }
+      if (sfAccessToken && sfInstanceUrl) {
+        url += `&sf_access_token=${encodeURIComponent(sfAccessToken)}&sf_instance_url=${encodeURIComponent(sfInstanceUrl)}`;
       }
       const transformHeaders: Record<string, string> = { "x-project-id": cp.id };
       if (cp.clientId) {
@@ -1465,7 +1473,6 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   // so the Continue button only enables once files are truly registered in S3/DB.
   const isContinueEnabled = !!(
     currentProject?.files.some((f: ProjectFile) => f.slot === "source" && f.isActive) &&
-    currentProject?.files.some((f: ProjectFile) => f.slot === "master" && f.isActive) &&
     currentProject?.files.some((f: ProjectFile) => f.slot === "logic" && f.isActive)
   );
 

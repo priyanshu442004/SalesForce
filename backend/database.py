@@ -314,6 +314,75 @@ def test_connection(req: DBConnectionRequest):
         raise HTTPException(status_code=400, detail=_friendly_error(exc))
 
 
+def _get_schema_from_sql(engine, table_str: str, dialect: str) -> dict:
+    """
+    Fetch {column_name: data_type} from information_schema for a SQL table.
+    Returns an empty dict on any error so callers can fall back gracefully.
+    """
+    from sqlalchemy import text as _text
+
+    safe = table_str.strip().replace('"', "")
+    if "." in safe:
+        schema_name, table_name = safe.split(".", 1)
+    else:
+        schema_name = "public" if dialect == "postgresql" else None
+        table_name = safe
+
+    try:
+        with engine.connect() as conn:
+            if dialect == "mysql":
+                rows = conn.execute(
+                    _text(
+                        "SELECT column_name, data_type "
+                        "FROM information_schema.columns "
+                        "WHERE table_name = :t AND table_schema = DATABASE() "
+                        "ORDER BY ordinal_position"
+                    ),
+                    {"t": table_name},
+                ).fetchall()
+            else:
+                params: dict = {"t": table_name}
+                extra = ""
+                if schema_name:
+                    extra = " AND table_schema = :s"
+                    params["s"] = schema_name
+                rows = conn.execute(
+                    _text(
+                        f"SELECT column_name, data_type "
+                        f"FROM information_schema.columns "
+                        f"WHERE table_name = :t{extra} "
+                        f"ORDER BY ordinal_position"
+                    ),
+                    params,
+                ).fetchall()
+        return {row[0]: row[1] for row in rows}
+    except Exception:
+        return {}
+
+
+def _get_schema_from_mongo(docs: list) -> dict:
+    """
+    Infer {field_name: bson_type_string} from the first few MongoDB documents.
+    Returns an empty dict when the collection is empty.
+    """
+    schema: dict = {}
+    for doc in docs[:10]:
+        for k, v in doc.items():
+            if k == "_id" or k in schema:
+                continue
+            if isinstance(v, bool):
+                schema[k] = "boolean"
+            elif isinstance(v, int):
+                schema[k] = "integer"
+            elif isinstance(v, float):
+                schema[k] = "double precision"
+            elif hasattr(v, "year"):
+                schema[k] = "timestamp"
+            else:
+                schema[k] = "text"
+    return schema
+
+
 @router.post("/fetch")
 def fetch_data(
     req: DBFetchRequest,
@@ -325,16 +394,33 @@ def fetch_data(
     to an Excel workbook, uploads it to S3 using the same path structure as
     /api/upload-migration-files, and returns a response identical to what that
     endpoint returns for the source slot.
+
+    Additionally returns `dbSchema` ({col: db_type}) for downstream type-detection
+    (used by the Unique Identifier module's Priority 2 path).
     """
     project_id = x_project_id or str(uuid.uuid4())
     client_id = x_client_id
+    dialect = req.dbType.strip().lower()
 
     # ── 1. Fetch from database ────────────────────────────────────────────────
-    # Both helpers return a plain pandas DataFrame; everything below is DB-agnostic.
-    if req.dbType.strip().lower() == "mongodb":
-        df = _fetch_mongo_dataframe(req)   # new — uses PyMongo
+    db_schema: dict = {}
+    if dialect == "mongodb":
+        from pymongo import MongoClient
+        uri = _build_mongo_uri(req)
+        try:
+            mongo_client = MongoClient(uri, serverSelectionTimeoutMS=10000)
+            docs_raw = list(mongo_client[req.database][req.table].find({}))
+            mongo_client.close()
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=_friendly_mongo_error(exc))
+        db_schema = _get_schema_from_mongo(docs_raw)
+        df = _fetch_mongo_dataframe(req)
     else:
-        df = _fetch_sql_dataframe(req)     # unchanged — uses SQLAlchemy
+        from sqlalchemy import create_engine
+        engine = create_engine(_build_url(req), connect_args={"connect_timeout": 10})
+        db_schema = _get_schema_from_sql(engine, req.table, dialect)
+        engine.dispose()
+        df = _fetch_sql_dataframe(req)
 
     # ── 2. Serialise to Excel in memory ───────────────────────────────────────
     buf = io.BytesIO()
@@ -372,4 +458,5 @@ def fetch_data(
         "columns": columns,
         "rows": rows,
         "totalRows": len(df),
+        "dbSchema": db_schema,
     }

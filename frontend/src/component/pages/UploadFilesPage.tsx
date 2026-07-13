@@ -3,8 +3,9 @@
 import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertCircle, ArrowRight, Check, CheckCircle2, ChevronRight, CloudUpload,
-  Database, Eye, EyeOff, FileCheck2, FileSpreadsheet, Loader2, Sparkles, Trash2, Upload, Wifi,
+  AlertCircle, ArrowRight, Check, CheckCircle2, ChevronRight, Cloud, CloudUpload,
+  Database, Eye, EyeOff, FileCheck2, FileSpreadsheet, Loader2, LogOut,
+  Sparkles, Trash2, Upload, Wifi,
 } from "lucide-react";
 import { NEXT_PUBLIC_API_URL } from "@/lib/config";
 import { useMigration } from "@/context/MigrationContext";
@@ -594,6 +595,57 @@ function SourceDataCard({ file, onUpload, onClear }: {
   );
 }
 
+function SalesforceConnectionCard() {
+  const {
+    sfAccessToken,
+    setSfAccessToken, setSfInstanceUrl, setSfRefreshToken, setSfUserEmail, setSfSelectedObject,
+  } = useMigration();
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const handleConnect = async () => {
+    try {
+      setIsConnecting(true);
+      sessionStorage.setItem("sfReturnTo", "/upload");
+      const res = await fetch(`${NEXT_PUBLIC_API_URL}/salesforce/login`);
+      if (!res.ok) throw new Error("Failed to get login URL");
+      window.location.href = (await res.json()).auth_url;
+    } catch (err) {
+      console.error("[UploadFiles] SF OAuth initiation failed:", err);
+      setIsConnecting(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    setSfAccessToken(null);
+    setSfInstanceUrl(null);
+    setSfRefreshToken(null);
+    setSfUserEmail(null);
+    setSfSelectedObject(null);
+  };
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between px-5 py-4">
+        <div className="flex items-center gap-2">
+          <Cloud size={15} className="text-slate-400 dark:text-slate-500" />
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Salesforce Connection</p>
+        </div>
+        {!sfAccessToken ? (
+          <Button type="button" variant="secondary" onClick={handleConnect} disabled={isConnecting}>
+            {isConnecting ? <Loader2 size={13} className="animate-spin" /> : <Cloud size={13} />}
+            {isConnecting ? "Connecting…" : "Connect Salesforce"}
+          </Button>
+        ) : (
+          <Button type="button" variant="danger" onClick={handleDisconnect}>
+            <LogOut size={13} />
+            Disconnect
+          </Button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function UploadFilesPage() {
   const router = useRouter();
   const sourceInputRef = useRef<HTMLInputElement>(null);
@@ -921,16 +973,18 @@ export default function UploadFilesPage() {
           ))}
         </section>
 
+        <SalesforceConnectionCard />
+
         <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_10px_30px_rgba(15,23,42,0.04)]">
           <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-6">
             <div>
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {isContinueEnabled ? "All files uploaded — ready to continue" : `${uploadedCount} of 3 files uploaded`}
+                {isContinueEnabled ? "Required files ready — continue when ready" : `${uploadedCount} of 3 files uploaded`}
               </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {isContinueEnabled
                   ? "Head to the Transformation Workspace to validate, clean, and transform your data."
-                  : "Upload all three required workbooks before proceeding."}
+                  : "Upload Source Data and Mapping Logic to continue. Master Metadata is only required for Excel Lookup transformations."}
               </p>
             </div>
             <Button type="button" variant="dark"

@@ -5,6 +5,7 @@ import math
 import os
 import re
 from typing import Any, Optional
+from urllib.parse import quote as _url_quote
 
 import pandas as pd
 
@@ -477,7 +478,7 @@ def _load_rules_from_df(logic_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
         is_date = data_type == "date"
         is_datetime = data_type == "datetime"
         is_multiselect = data_type == "picklist(multiselect)"
-        is_lookup = data_type == "lookup"
+        is_lookup = data_type in ("lookup", "lookup(s)")
 
         if not value_mapping and not is_date and not is_datetime and not is_multiselect and not is_lookup:
             continue
@@ -509,6 +510,27 @@ def load_transform_rules_for_sheet(
     """Load transform rules from a named sheet in an already-open logic workbook."""
     logic_df = pd.read_excel(logic_excel, sheet_name=sheet_name)
     return _load_rules_from_df(logic_df)
+
+
+def inspect_mapping_requirements(logic_path: str) -> dict[str, bool]:
+    """Inspect a logic workbook and return which external resources it requires."""
+    needs_master = False
+    needs_sf = False
+    with pd.ExcelFile(logic_path) as logic_excel:
+        for sheet_name in logic_excel.sheet_names:
+            rules = load_transform_rules_for_sheet(logic_excel, sheet_name)
+            anf_rules = load_anf_rules_for_sheet(logic_excel, sheet_name)
+            for rule in rules.values():
+                if rule.get("data_type") == "lookup" and rule.get("master_sheet"):
+                    needs_master = True
+                if rule.get("data_type") == "lookup(s)":
+                    needs_sf = True
+            for anf in anf_rules:
+                if anf.get("data_type") == "lookup" and anf.get("master_sheet"):
+                    needs_master = True
+                if anf.get("data_type") == "lookup(s)":
+                    needs_sf = True
+    return {"needs_master": needs_master, "needs_sf": needs_sf}
 
 
 def _extract_anf_rules(logic_df: pd.DataFrame) -> list[dict[str, Any]]:
@@ -715,6 +737,124 @@ def apply_lookup_rule(
     return results, matched, missed
 
 
+def apply_sf_lookup_rule(
+    series: pd.Series,
+    rule: dict[str, Any],
+    sf_credentials: dict[str, str],
+    sf_cache: dict[str, str],
+) -> tuple[list[str], int, int, list[str]]:
+    """Execute Salesforce SOQL lookups for each non-blank value in series.
+
+    Returns (results, matched_count, missed_count, error_messages).
+
+    sf_credentials: {"access_token": str, "instance_url": str}
+    sf_cache: shared dict (populated in-place) for de-duplication within one run.
+    """
+    import requests as _req
+
+    sf_object    = rule["master_sheet"]       # e.g. "Account"
+    search_field = rule["search_column"]      # e.g. "Name"
+    return_field = rule["copyable_column"]    # e.g. "Id"
+
+    access_token = sf_credentials.get("access_token", "")
+    instance_url = sf_credentials.get("instance_url", "").rstrip("/")
+
+    if not all([sf_object, search_field, return_field, access_token, instance_url]):
+        print(
+            f"[SF-LOOKUP] Missing config — object={sf_object!r} "
+            f"search={search_field!r} return={return_field!r} "
+            f"has_token={bool(access_token)} has_url={bool(instance_url)}"
+        )
+        return [""] * len(series), 0, 0, []
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    results: list[str] = []
+    matched = 0
+    missed = 0
+    errors: list[str] = []
+
+    for value in series.tolist():
+        source_value = clean_cell(value)
+        if not source_value:
+            results.append("")
+            continue
+
+        cache_key = f"{sf_object}\x00{search_field}\x00{return_field}\x00{source_value}"
+
+        # ── Cache hit ────────────────────────────────────────────────────────
+        if cache_key in sf_cache:
+            result = sf_cache[cache_key]
+            results.append(result)
+            if result:
+                matched += 1
+            else:
+                missed += 1
+            continue
+
+        # ── Cache miss: execute SOQL ─────────────────────────────────────────
+        escaped = source_value.replace("\\", "\\\\").replace("'", "\\'")
+        soql = (
+            f"SELECT {return_field} FROM {sf_object} "
+            f"WHERE {search_field} = '{escaped}' LIMIT 1"
+        )
+        url = f"{instance_url}/services/data/v60.0/query?q={_url_quote(soql)}"
+
+        result = ""
+        try:
+            resp = _req.get(url, headers=headers, timeout=30)
+            if resp.status_code == 200:
+                data = resp.json()
+                records = data.get("records", [])
+                if records:
+                    raw = records[0].get(return_field, "") or ""
+                    result = str(raw).strip()
+                else:
+                    # No matching record
+                    print(
+                        f"[SF-LOOKUP] no record — "
+                        f"{sf_object}.{search_field} = {source_value!r}"
+                    )
+            elif resp.status_code == 401:
+                msg = (
+                    "Salesforce session expired or access token invalid. "
+                    "Please reconnect to Salesforce and re-run the transformation."
+                )
+                print(f"[SF-LOOKUP] 401 authentication failure")
+                if msg not in errors:
+                    errors.append(msg)
+            else:
+                detail = ""
+                try:
+                    body = resp.json()
+                    if isinstance(body, list) and body:
+                        detail = body[0].get("message", "")
+                    elif isinstance(body, dict):
+                        detail = body.get("message", "")
+                except Exception:
+                    detail = resp.text[:200]
+                msg = (
+                    f"Salesforce lookup failed for {sf_object}.{search_field}: "
+                    f"HTTP {resp.status_code} — {detail}"
+                )
+                print(f"[SF-LOOKUP] {msg}")
+                if msg not in errors:
+                    errors.append(msg)
+        except Exception as exc:
+            msg = f"Salesforce lookup error ({sf_object}.{search_field}): {exc}"
+            print(f"[SF-LOOKUP] {msg}")
+            if msg not in errors:
+                errors.append(msg)
+
+        sf_cache[cache_key] = result
+        results.append(result)
+        if result:
+            matched += 1
+        else:
+            missed += 1
+
+    return results, matched, missed, errors
+
+
 def _transform_one_sheet(
     source_df: pd.DataFrame,
     transform_rules: dict[str, dict[str, Any]],
@@ -724,6 +864,8 @@ def _transform_one_sheet(
     sheet_name: str,
     anf_rules: Optional[list[dict[str, Any]]] = None,
     target_map: Optional[dict[str, str]] = None,
+    sf_credentials: Optional[dict[str, str]] = None,
+    sf_cache: Optional[dict[str, str]] = None,
 ) -> dict[str, Any]:
     """Apply this sheet's transform_rules to source_df and write to output_path.
 
@@ -776,6 +918,33 @@ def _transform_one_sheet(
                 "matched": lk_matched,
                 "missed": lk_missed,
                 "total": lk_matched + lk_missed,
+                "sf_lookup": False,
+                "errors": [],
+            })
+        elif rule["data_type"] == "lookup(s)":
+            if sf_credentials:
+                transformed_values, lk_matched, lk_missed, lk_errors = apply_sf_lookup_rule(
+                    source_df[column], rule, sf_credentials, sf_cache if sf_cache is not None else {}
+                )
+            else:
+                print(
+                    f"[SF-LOOKUP] Skipping '{source_column_name}' — "
+                    "no Salesforce credentials supplied to this transformation run"
+                )
+                transformed_values = [""] * len(source_df)
+                lk_matched, lk_missed, lk_errors = 0, 0, [
+                    "No Salesforce credentials provided. Connect to Salesforce before running this transformation."
+                ]
+            lookup_stats.append({
+                "column": source_column_name,
+                "matched": lk_matched,
+                "missed": lk_missed,
+                "total": lk_matched + lk_missed,
+                "sf_lookup": True,
+                "sf_object": rule.get("master_sheet", ""),
+                "sf_search_field": rule.get("search_column", ""),
+                "sf_return_field": rule.get("copyable_column", ""),
+                "errors": lk_errors,
             })
         else:
             transformed_values = apply_transform_rule(source_df[column], rule)
@@ -792,7 +961,7 @@ def _transform_one_sheet(
 
         if original_values == transformed_values_clean:
             continue
-        output_headers[-1] = f"__{target_name}"
+        output_headers[-1] = f"__{source_column_name}"
         output_columns.append(pd.Series(transformed_values))
         output_headers.append(target_name)
         transformed_columns.append(target_name)
@@ -861,6 +1030,29 @@ def _transform_one_sheet(
                 resolved_values.append(result)
 
             derived = pd.Series(resolved_values, dtype=object)
+        elif dtype == "lookup(s)":
+            # ANF Salesforce lookup: expression produces the search value;
+            # the SOQL lookup translates it via the SF object.
+            expr_series = _anf_text_series(expr, source_df)
+
+            anf_rule = {
+                "master_sheet":    anf.get("master_sheet", ""),
+                "search_column":   anf.get("search_column", ""),
+                "copyable_column": anf.get("copyable_column", ""),
+                "data_type":       "lookup(s)",
+            }
+
+            if sf_credentials:
+                sf_values, _, _, _ = apply_sf_lookup_rule(
+                    expr_series, anf_rule, sf_credentials, sf_cache if sf_cache is not None else {}
+                )
+            else:
+                print(
+                    f"[ANF][SF-LOOKUP] Skipping '{new_col}' — no SF credentials"
+                )
+                sf_values = [""] * len(expr_series)
+
+            derived = pd.Series(sf_values, dtype=object)
         else:
             derived = _anf_text_series(expr, source_df)
 
@@ -914,20 +1106,22 @@ def _safe_filename(sheet_name: str) -> str:
 def transform_source_data(
     source_path: str,
     logic_path: str,
-    master_path: str,
     output_dir: str,
+    master_path: Optional[str] = None,
     skipped_fields: Optional[list[str]] = None,
+    sf_credentials: Optional[dict[str, str]] = None,
 ) -> dict[str, Any]:
     """Process all mapping sheets independently and return per-sheet results.
 
     Each sheet in the logic workbook produces one transformed .xlsx file inside
     output_dir.  output_dir must already exist or be creatable.
+    master_path is optional — only required when the mapping contains Excel Lookup rules.
     """
     if not os.path.exists(source_path):
         raise FileNotFoundError(f"Source file not found at {source_path}")
     if not os.path.exists(logic_path):
         raise FileNotFoundError(f"Mapping Logic file not found at {logic_path}")
-    if not os.path.exists(master_path):
+    if master_path and not os.path.exists(master_path):
         raise FileNotFoundError(f"Master file not found at {master_path}")
 
     os.makedirs(output_dir, exist_ok=True)
@@ -962,38 +1156,58 @@ def transform_source_data(
     print(f"\n[transform] Logic workbook has {len(sheet_names)} sheet(s): {sheet_names}")
 
     needed_master_sheets: set[str] = set()
+    has_sf_lookup = False
     for s in sheet_names:
         for rule in rules_per_sheet[s].values():
             if rule.get("data_type") == "lookup" and rule.get("master_sheet"):
                 needed_master_sheets.add(rule["master_sheet"].strip().lower())
+            if rule.get("data_type") == "lookup(s)":
+                has_sf_lookup = True
         for anf in anf_per_sheet[s]:
             if anf.get("data_type") == "lookup" and anf.get("master_sheet"):
                 needed_master_sheets.add(anf["master_sheet"].strip().lower())
+            if anf.get("data_type") == "lookup(s)":
+                has_sf_lookup = True
 
-    mst_ext = os.path.splitext(master_path)[1].lower()
-    print(f"Transformation: loading master file: {master_path}")
-    print(f"Transformation: detected extension: {mst_ext}")
+    if needed_master_sheets and not master_path:
+        raise ValueError(
+            "Master File is required because the mapping contains Excel Lookup transformations. "
+            "Please upload a Master Metadata file and re-run the transformation."
+        )
+    if has_sf_lookup and not sf_credentials:
+        raise ValueError(
+            "Salesforce connection is required because the mapping contains Lookup(S) "
+            "transformations. Please connect to Salesforce and re-run the transformation."
+        )
+
     master_sheets: dict[str, pd.DataFrame] = {}
-    if mst_ext == ".sql":
-        print("Transformation: using SQL loader")
-        from processor import _load_sql_as_sheets as _load_master_sql
-        for tbl_name, tbl_df in _load_master_sql(master_path).items():
-            master_sheets[tbl_name] = tbl_df
-            print(f"Transformation: loaded master sheet {tbl_name}")
-    elif mst_ext == ".csv":
-        print("Transformation: using CSV loader")
-        from processor import _load_csv_as_sheets
-        for key, df in _load_csv_as_sheets(master_path).items():
-            master_sheets[key] = df
-            print(f"Transformation: loaded master sheet {key}")
-    else:
-        print("Transformation: using Excel loader")
-        with pd.ExcelFile(master_path) as master_excel:
-            for s in master_excel.sheet_names:
-                key = s.strip().lower()
-                if key in needed_master_sheets:
-                    master_sheets[key] = pd.read_excel(master_excel, sheet_name=s)
-                    print(f"Transformation: loaded master sheet {s}")
+    if master_path:
+        mst_ext = os.path.splitext(master_path)[1].lower()
+        print(f"Transformation: loading master file: {master_path}")
+        print(f"Transformation: detected extension: {mst_ext}")
+        if mst_ext == ".sql":
+            print("Transformation: using SQL loader")
+            from processor import _load_sql_as_sheets as _load_master_sql
+            for tbl_name, tbl_df in _load_master_sql(master_path).items():
+                master_sheets[tbl_name] = tbl_df
+                print(f"Transformation: loaded master sheet {tbl_name}")
+        elif mst_ext == ".csv":
+            print("Transformation: using CSV loader")
+            from processor import _load_csv_as_sheets
+            for key, df in _load_csv_as_sheets(master_path).items():
+                master_sheets[key] = df
+                print(f"Transformation: loaded master sheet {key}")
+        else:
+            print("Transformation: using Excel loader")
+            with pd.ExcelFile(master_path) as master_excel:
+                for s in master_excel.sheet_names:
+                    key = s.strip().lower()
+                    if key in needed_master_sheets:
+                        master_sheets[key] = pd.read_excel(master_excel, sheet_name=s)
+                        print(f"Transformation: loaded master sheet {s}")
+
+    # One shared cache for all sheets in this run (de-duplicate SF API calls).
+    sf_cache: dict[str, str] = {}
 
     outputs: list[dict[str, Any]] = []
 
@@ -1009,6 +1223,8 @@ def transform_source_data(
             sheet_name=sheet_name,
             anf_rules=anf_per_sheet[sheet_name],
             target_map=target_map_per_sheet[sheet_name],
+            sf_credentials=sf_credentials,
+            sf_cache=sf_cache,
         )
         outputs.append(result)
 

@@ -16,6 +16,7 @@ export default function Sidebar() {
     { name: "Upload Files", path: "/upload", icon: "upload" },
     { name: "Transformations", path: "/transformation-workspace", icon: "layers" },
     { name: "Unique Identifier", path: "/unique-identifier", icon: "hash" },
+    { name: "SQL Workspace", path: "/sql-workspace", icon: "sql" },
     { name: "Projects", path: "/projects", icon: "folder" },
     { name: "Import Jobs", path: "/import-jobs", icon: "briefcase" },
     { name: "Activity Log", path: "/activity-log", icon: "activity" },

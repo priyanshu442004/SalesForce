@@ -1242,19 +1242,21 @@ export default function ImportConfigPage() {
 
         {/* ── SF connection banner ────────────────────────────────────────── */}
         {!sfAccessToken ? (
-          <div className="flex items-start gap-3 rounded-xl border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20 p-4">
-            <Cloud size={16} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
+          <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-4">
+            <Cloud size={16} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-semibold text-blue-900 dark:text-blue-200">Not connected to Salesforce</p>
-                <p className="mt-0.5 text-[11px] text-blue-700 dark:text-blue-300">Connect to load objects, validate mappings, and start the import.</p>
+                <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Salesforce not connected</p>
+                <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-300">
+                  Connect in <span className="font-semibold">Upload Files</span> before reaching this step, or reconnect below if your session expired.
+                </p>
               </div>
               <button
                 type="button"
                 onClick={handleConnectSalesforce}
-                className="mt-2 sm:mt-0 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                className="mt-2 sm:mt-0 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
               >
-                <Cloud size={12} />Connect Salesforce
+                <Cloud size={12} />Reconnect
               </button>
             </div>
           </div>

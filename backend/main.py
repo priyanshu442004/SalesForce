@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import shutil
 import tempfile
@@ -7,6 +8,7 @@ import io
 import zipfile
 import sqlite3
 from datetime import datetime
+from difflib import SequenceMatcher
 from typing import List, Optional
 import math
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Header, Form
@@ -16,7 +18,7 @@ from data_validation import run_data_validation, write_validation_report
 from data_cleaning import run_data_cleaning
 from processor import process_preview
 from comparison import compare_excel_files
-from transformer import transform_source_data
+from transformer import transform_source_data, inspect_mapping_requirements
 import boto3
 from dotenv import load_dotenv
 from simple_salesforce import Salesforce
@@ -77,6 +79,10 @@ app.include_router(import_jobs_router)
 # Database connection routes
 from database import router as database_router
 app.include_router(database_router)
+
+# SQL Workspace routes
+from sql_workspace import router as sql_workspace_router
+app.include_router(sql_workspace_router)
 
 # Initialize AWS S3 client
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -508,8 +514,10 @@ def generate_preview(
 def transform_data(
     source_key: str = Query(...),
     logic_key: str = Query(...),
-    master_key: str = Query(...),
+    master_key: Optional[str] = Query(None),
     skipped_fields: List[str] = Query(default=[]),
+    sf_access_token: Optional[str] = Query(None),
+    sf_instance_url: Optional[str] = Query(None),
     x_project_id: str = Header(None),
     x_client_id: str = Header(None)
 ):
@@ -534,18 +542,28 @@ def transform_data(
     temp_output_dir = None
     try:
         temp_source = temp_download(source_key)
-        temp_master = temp_download(master_key)
+        temp_master = temp_download(master_key) if master_key else None
         temp_logic = temp_download(logic_key)
 
         temp_output_dir = tempfile.mkdtemp()
 
-        transform_result = transform_source_data(
-            source_path=temp_source,
-            logic_path=temp_logic,
-            master_path=temp_master,
-            output_dir=temp_output_dir,
-            skipped_fields=skipped_fields,
+        sf_credentials = (
+            {"access_token": sf_access_token, "instance_url": sf_instance_url}
+            if sf_access_token and sf_instance_url
+            else None
         )
+
+        try:
+            transform_result = transform_source_data(
+                source_path=temp_source,
+                logic_path=temp_logic,
+                output_dir=temp_output_dir,
+                master_path=temp_master,
+                skipped_fields=skipped_fields,
+                sf_credentials=sf_credentials,
+            )
+        except ValueError as ve:
+            raise HTTPException(status_code=422, detail=str(ve))
 
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         sheet_outputs = transform_result.get("outputs", [])
@@ -793,6 +811,74 @@ def _is_enumerated_type(data_type: str) -> bool:
     return False
 
 
+_NORM_COL_RE = re.compile(r"[^a-z0-9]")
+
+
+def _normalize_col_for_match(s: str) -> str:
+    """Lowercase, strip, keep alphanumeric only — covers space/underscore/hyphen differences."""
+    return _NORM_COL_RE.sub("", s.lower().strip())
+
+
+def _match_source_col_to_mapping(
+    source_col: str,
+    field_types: dict,
+    fuzzy_threshold: float = 0.80,
+) -> Optional[str]:
+    """
+    Match a source column name to a mapping entry.
+    Tries strategies in order; returns the mapped data_type or None.
+
+    Strategies:
+    1. Exact string match
+    2. Case-insensitive + trimmed match
+    3. Normalized match (alphanumeric only, lowercase)
+    4. Fuzzy match (SequenceMatcher on normalized names)
+    """
+    # 1. Exact
+    if source_col in field_types:
+        return field_types[source_col]
+
+    # 2. Case-insensitive trimmed
+    sc_ci = source_col.strip().lower()
+    for k, v in field_types.items():
+        if k.strip().lower() == sc_ci:
+            return v
+
+    # 3. Normalized (strips underscores, spaces, hyphens, etc.)
+    sc_norm = _normalize_col_for_match(source_col)
+    if sc_norm:
+        for k, v in field_types.items():
+            if _normalize_col_for_match(k) == sc_norm:
+                return v
+
+    # 4. Fuzzy on normalized names
+    if sc_norm and fuzzy_threshold < 1.0:
+        best_score = 0.0
+        best_type: Optional[str] = None
+        for k, v in field_types.items():
+            k_norm = _normalize_col_for_match(k)
+            if not k_norm:
+                continue
+            score = SequenceMatcher(None, sc_norm, k_norm).ratio()
+            if score > best_score:
+                best_score = score
+                best_type = v
+        if best_score >= fuzzy_threshold and best_type is not None:
+            return best_type
+
+    return None
+
+
+def _is_eligible_for_unique_identifier(data_type: str) -> bool:
+    """Returns True for Boolean, Checkbox, Picklist, and MultiPicklist types."""
+    if not data_type:
+        return False
+    s = str(data_type).strip().lower()
+    if s in ("boolean", "bool"):
+        return True
+    return _is_enumerated_type(s)
+
+
 def _eligible_fields_from_logic(logic_path: str) -> Optional[set]:
     """Return the set of source field names that have an enumerated datatype.
 
@@ -809,6 +895,128 @@ def _eligible_fields_from_logic(logic_path: str) -> Optional[set]:
         }
     except Exception:
         return None
+
+
+def _field_types_from_logic(logic_path: str) -> Optional[dict]:
+    """Return {source_field: sf_data_type} for every field in the mapping.
+
+    Returns None when the logic file cannot be read.
+    """
+    try:
+        from data_validation import read_mapping_rules
+        mapping_df = read_mapping_rules(logic_path)
+        return {
+            str(row["source_field"]).strip(): str(row.get("data_type", "") or "Text").strip()
+            for _, row in mapping_df.iterrows()
+        }
+    except Exception:
+        return None
+
+
+# ── Auto data-profiling helpers ────────────────────────────────────────────────
+
+_BOOL_VOCAB: frozenset = frozenset({"yes", "no", "true", "false", "0", "1", "y", "n", "on", "off"})
+_BOOL_POS: frozenset = frozenset({"yes", "true", "1", "y", "on"})
+_BOOL_NEG: frozenset = frozenset({"no", "false", "0", "n", "off"})
+_BLANK_LOWER: frozenset = frozenset({"", "nan", "null", "none", "na", "n/a", "<na>"})
+
+
+def _is_numeric_str(v: str) -> bool:
+    try:
+        float(v.replace(",", "").replace(" ", ""))
+        return True
+    except (ValueError, AttributeError):
+        return False
+
+
+def _auto_detect_type(series, sample_size: int = 1000) -> str:
+    """
+    Infer a Salesforce-friendly type label from a pandas Series.
+    Priority: Boolean > Number > Date > Picklist > Text.
+    Only inspects the first `sample_size` non-blank values.
+    """
+    import pandas as pd
+
+    vals = []
+    for v in series[:sample_size]:
+        if v is None:
+            continue
+        if isinstance(v, float) and math.isnan(v):
+            continue
+        s = str(v).strip()
+        if s.lower() in _BLANK_LOWER:
+            continue
+        vals.append(s)
+
+    if not vals:
+        return "Text"
+
+    lower_vals = [v.lower() for v in vals]
+    unique_lower = set(lower_vals)
+
+    # Boolean: every unique value is in the boolean vocab AND both sides represented
+    if unique_lower.issubset(_BOOL_VOCAB) and (unique_lower & _BOOL_POS) and (unique_lower & _BOOL_NEG):
+        return "Boolean"
+
+    # Numeric: > 95 % of values parse as float
+    numeric_count = sum(1 for v in vals if _is_numeric_str(v))
+    if numeric_count / len(vals) > 0.95:
+        return "Number"
+
+    # Date: > 90 % of a capped sample parse as datetime (date parsing is expensive)
+    date_sample = vals[:200]
+    date_count = 0
+    for v in date_sample:
+        try:
+            pd.to_datetime(v)
+            date_count += 1
+        except Exception:
+            pass
+    if date_sample and date_count / len(date_sample) > 0.90:
+        return "Date"
+
+    # Picklist: few absolute unique values AND ratio is not too high.
+    # cardinality <= 20 catches short field lists (e.g. status, country code).
+    # The ratio guard < 0.6 prevents mislabelling tiny datasets with many IDs.
+    cardinality = len(unique_lower)
+    total = len(vals)
+    if total >= 5 and cardinality <= 20 and cardinality / total < 0.60:
+        return "Picklist"
+
+    return "Text"
+
+
+def _map_db_column_type(db_type: str) -> str:
+    """Map a raw SQL / MongoDB type string to a Salesforce-friendly display type."""
+    t = (db_type or "").lower().strip().split("(")[0].strip()
+
+    _BOOL_TYPES = {"boolean", "bool", "bit"}
+    _NUM_TYPES = {
+        "int", "integer", "bigint", "smallint", "tinyint", "mediumint",
+        "serial", "bigserial", "smallserial",
+        "float", "double", "real", "decimal", "numeric", "money",
+        "double precision",
+    }
+    _DATE_TYPES = {"date"}
+    _DATETIME_TYPES = {
+        "timestamp", "datetime", "timestamptz",
+        "timestamp with time zone", "timestamp without time zone",
+    }
+    _PICKLIST_TYPES = {"enum", "set"}
+
+    if t in _BOOL_TYPES or t == "tinyint":
+        return "Boolean"
+    if (t in _NUM_TYPES or t.startswith("int") or t.startswith("float")
+            or t.startswith("double") or t.startswith("decimal")
+            or t.startswith("numeric")):
+        return "Number"
+    if t in _DATE_TYPES:
+        return "Date"
+    if t in _DATETIME_TYPES or t.startswith("timestamp") or t.startswith("datetime"):
+        return "DateTime"
+    if t in _PICKLIST_TYPES:
+        return "Picklist"
+    return "Text"
 
 
 def _compute_unique_stats(df) -> list:
@@ -857,7 +1065,12 @@ async def unique_identifier_upload(
 
 
 @app.get("/api/unique-identifier/analyze")
-def unique_identifier_analyze(source_key: str = Query(...), logic_key: Optional[str] = Query(None)):
+def unique_identifier_analyze(
+    source_key: str = Query(...),
+    logic_key: Optional[str] = Query(None),
+    db_schema: Optional[str] = Query(None),  # JSON-encoded {col_name: db_type}
+):
+    import json as _json
     temp_path = None
     logic_temp = None
     try:
@@ -865,11 +1078,59 @@ def unique_identifier_analyze(source_key: str = Query(...), logic_key: Optional[
         df = _load_df_from_path(temp_path)
         stats = _compute_unique_stats(df)
 
+        # ── Priority 1: Salesforce Mapping file ───────────────────────────────────
         if logic_key:
             logic_temp = temp_download(logic_key)
-            eligible = _eligible_fields_from_logic(logic_temp)
-            if eligible is not None:
-                stats = [s for s in stats if s["field"] in eligible]
+            field_types = _field_types_from_logic(logic_temp)
+            if field_types is not None:
+                # Run ALL comparison strategies for every source column before deciding
+                # what to show. Never stop after the first exact match pass.
+                result_stats = []
+                for s in stats:
+                    col = s["field"]
+                    matched_type = _match_source_col_to_mapping(col, field_types)
+                    if matched_type is not None:
+                        # Column found in mapping — show only if its type is eligible
+                        if _is_eligible_for_unique_identifier(matched_type):
+                            s["detected_type"] = matched_type
+                            s["type_source"] = "mapping"
+                            result_stats.append(s)
+                    else:
+                        # Column not in mapping — auto-detect; show only if eligible type
+                        auto_type = _auto_detect_type(df[col]) if col in df.columns else "Text"
+                        if _is_eligible_for_unique_identifier(auto_type):
+                            s["detected_type"] = auto_type
+                            s["type_source"] = "auto_detected"
+                            result_stats.append(s)
+                stats = result_stats
+            else:
+                # Logic file unreadable — fall back to auto-detect (should be rare)
+                for s in stats:
+                    col = s["field"]
+                    s["detected_type"] = _auto_detect_type(df[col]) if col in df.columns else "Text"
+                    s["type_source"] = "auto_detected"
+
+        # ── Priority 2: Database schema metadata ──────────────────────────────
+        elif db_schema:
+            try:
+                schema_dict: dict = _json.loads(db_schema)
+            except Exception:
+                schema_dict = {}
+            for s in stats:
+                col = s["field"]
+                if col in schema_dict:
+                    s["detected_type"] = _map_db_column_type(schema_dict[col])
+                    s["type_source"] = "db_schema"
+                else:
+                    s["detected_type"] = _auto_detect_type(df[col]) if col in df.columns else "Text"
+                    s["type_source"] = "auto_detected"
+
+        # ── Priority 3: Automatic data profiling ──────────────────────────────
+        else:
+            for s in stats:
+                col = s["field"]
+                s["detected_type"] = _auto_detect_type(df[col]) if col in df.columns else "Text"
+                s["type_source"] = "auto_detected"
 
         return {"success": True, "columns": stats}
     except HTTPException:
@@ -895,9 +1156,20 @@ def unique_identifier_download(source_key: str = Query(...), logic_key: Optional
 
         if logic_key:
             logic_temp = temp_download(logic_key)
-            eligible = _eligible_fields_from_logic(logic_temp)
-            if eligible is not None:
-                stats = [s for s in stats if s["field"] in eligible]
+            field_types = _field_types_from_logic(logic_temp)
+            if field_types is not None:
+                eligible_cols: set = set()
+                for s in stats:
+                    col = s["field"]
+                    matched_type = _match_source_col_to_mapping(col, field_types)
+                    if matched_type is not None:
+                        if _is_eligible_for_unique_identifier(matched_type):
+                            eligible_cols.add(col)
+                    else:
+                        auto_type = _auto_detect_type(df[col]) if col in df.columns else "Text"
+                        if _is_eligible_for_unique_identifier(auto_type):
+                            eligible_cols.add(col)
+                stats = [s for s in stats if s["field"] in eligible_cols]
 
         max_len = max((len(s["unique_values"]) for s in stats), default=0)
         out_data = {
