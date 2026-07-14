@@ -44,7 +44,7 @@ type ProjectFileSource = {
   sourceType: SourceFileType;
 };
 
-type DbType = "PostgreSQL" | "MySQL" | "MongoDB";
+type DbType = "PostgreSQL" | "MySQL" | "MongoDB" | "SQL Server";
 
 type DbSource = {
   id: string;
@@ -102,11 +102,12 @@ type AcState = {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const DB_TYPES: DbType[] = ["PostgreSQL", "MySQL", "MongoDB"];
+const DB_TYPES: DbType[] = ["PostgreSQL", "MySQL", "MongoDB", "SQL Server"];
 const DB_PORTS: Record<DbType, string> = {
   PostgreSQL: "5432",
   MySQL: "3306",
   MongoDB: "27017",
+  "SQL Server": "1433",
 };
 
 const SLOT_ALIAS: Record<string, string> = {
@@ -916,7 +917,7 @@ export default function SQLWorkspacePage() {
                         sub={db.host}
                         alias={db.alias}
                         enabled={db.enabled}
-                        typeBadge={db.dbType === "PostgreSQL" ? "pg" : db.dbType === "MySQL" ? "sql" : "mdb"}
+                        typeBadge={db.dbType === "PostgreSQL" ? "pg" : db.dbType === "MySQL" ? "sql" : db.dbType === "SQL Server" ? "mssql" : "mdb"}
                         typeBadgeColor="bg-blue-500"
                         isDuplicate={duplicateAliases.has(db.alias) && db.enabled}
                         onToggle={() =>
@@ -1456,7 +1457,7 @@ export default function SQLWorkspacePage() {
                   type="text"
                   value={addDbTable}
                   onChange={(e) => setAddDbTable(e.target.value)}
-                  placeholder={addDbType === "MongoDB" ? "e.g. orders" : "e.g. public.users"}
+                  placeholder={addDbType === "MongoDB" ? "e.g. orders" : addDbType === "SQL Server" ? "e.g. dbo.contacts" : "e.g. public.users"}
                   className={inputCls}
                 />
               </div>

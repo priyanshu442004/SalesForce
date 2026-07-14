@@ -158,20 +158,12 @@ function UploadCard({ config, file, onUpload, onClear }: {
   );
 }
 
-// SQL Server is intentionally omitted here so it does not appear in the UI.
-// The backend implementation is fully preserved and can be restored by adding
-// "SQL Server" back to this array and updating DB_DEFAULTS below.
-const DB_TYPES = ["PostgreSQL", "MySQL", "MongoDB"] as const;
+const DB_TYPES = ["PostgreSQL", "MySQL", "MongoDB", "SQL Server"] as const;
 type DbType = (typeof DB_TYPES)[number];
-
-// DbTypeAll includes SQL Server so its defaults stay in the codebase even
-// while it is hidden from the UI.  DbType (the visible set) is a subset of it.
-type DbTypeAll = DbType | "SQL Server";
-const DB_DEFAULTS: Record<DbTypeAll, { port: string; tablePlaceholder: string; tableLabel: string }> = {
+const DB_DEFAULTS: Record<DbType, { port: string; tablePlaceholder: string; tableLabel: string }> = {
   PostgreSQL: { port: "5432", tablePlaceholder: "e.g. public.users", tableLabel: "Table Name" },
   MySQL: { port: "3306", tablePlaceholder: "e.g. customers", tableLabel: "Table Name" },
   MongoDB: { port: "27017", tablePlaceholder: "e.g. orders", tableLabel: "Collection Name" },
-  // Hidden from UI — restore by adding "SQL Server" to DB_TYPES above.
   "SQL Server": { port: "1433", tablePlaceholder: "e.g. dbo.contacts", tableLabel: "Table Name" },
 };
 

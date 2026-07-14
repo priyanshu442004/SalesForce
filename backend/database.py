@@ -234,6 +234,94 @@ def _fetch_mongo_dataframe(req: DBFetchRequest) -> pd.DataFrame:
     return df
 
 
+# ── SQL Server helpers ────────────────────────────────────────────────────────
+
+def _build_mssql_conn_str(req: DBConnectionRequest, timeout: int = 10) -> str:
+    """Build a pyodbc connection string for SQL Server using ODBC Driver 18."""
+    return (
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER={req.host},{req.port};"
+        f"DATABASE={req.database};"
+        f"UID={req.username};"
+        f"PWD={req.password};"
+        f"TrustServerCertificate=yes;"
+        f"Encrypt=yes;"
+        f"LoginTimeout={timeout};"
+    )
+
+
+def _friendly_mssql_error(exc: Exception) -> str:
+    """Map pyodbc SQL Server exceptions to user-readable messages."""
+    raw = str(exc).lower()
+    if "login failed" in raw:
+        return "Incorrect username or password. Please verify your SQL Server credentials."
+    if "cannot open database" in raw:
+        return "The specified database could not be found or is not accessible with these credentials."
+    if "tcp provider" in raw or "could not open a connection" in raw or "named pipes provider" in raw:
+        return (
+            "Unable to connect to the SQL Server. "
+            "Check the host and port, and ensure the server is running and reachable."
+        )
+    if "invalid object name" in raw:
+        return "The specified table was not found in the database."
+    if "timeout" in raw or "timed out" in raw:
+        return "Connection timed out. Check the host and port."
+    return _friendly_error(exc)
+
+
+def _test_mssql_connection(req: DBConnectionRequest) -> dict:
+    """Test a SQL Server connection using pyodbc directly."""
+    try:
+        import pyodbc
+        conn = pyodbc.connect(_build_mssql_conn_str(req, timeout=10))
+        conn.execute("SELECT 1")
+        conn.close()
+        print("[db/test] SQL Server ping succeeded")
+        return {"success": True, "message": "Connection successful"}
+    except Exception as exc:
+        print(f"[db/test] EXCEPTION (SQL Server): {exc}")
+        raise HTTPException(status_code=400, detail=_friendly_mssql_error(exc))
+
+
+def _fetch_mssql_dataframe(req: DBFetchRequest) -> pd.DataFrame:
+    """Fetch all rows from a SQL Server table using pyodbc."""
+    try:
+        import pyodbc
+        conn = pyodbc.connect(_build_mssql_conn_str(req))
+        safe = req.table.strip()
+        df = pd.read_sql_query(f"SELECT * FROM {safe}", conn)
+        conn.close()
+        return df
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"[db/fetch] EXCEPTION (SQL Server): {exc}")
+        raise HTTPException(status_code=400, detail=_friendly_mssql_error(exc))
+
+
+def _get_schema_from_mssql(req: DBFetchRequest) -> dict:
+    """Fetch {column_name: data_type} from SQL Server's information_schema."""
+    try:
+        import pyodbc
+        conn = pyodbc.connect(_build_mssql_conn_str(req))
+        safe = req.table.strip()
+        schema_name, table_name = safe.split(".", 1) if "." in safe else ("dbo", safe)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT column_name, data_type "
+            "FROM information_schema.columns "
+            "WHERE table_schema = ? AND table_name = ? "
+            "ORDER BY ordinal_position",
+            schema_name,
+            table_name,
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return {row[0]: row[1] for row in rows}
+    except Exception:
+        return {}
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @router.post("/test")
@@ -246,11 +334,15 @@ def test_connection(req: DBConnectionRequest):
         f"db={req.database!r} user={req.username!r} password_len={len(req.password)}"
     )
 
-    # ── MongoDB branch (new) ───────────────────────────────────────────────────
+    # ── MongoDB branch ────────────────────────────────────────────────────────
     if req.dbType.strip().lower() == "mongodb":
         return _test_mongo_connection(req)
 
-    # ── SQL branch (PostgreSQL / MySQL) — unchanged below ─────────────────────
+    # ── SQL Server branch ─────────────────────────────────────────────────────
+    if req.dbType.strip().lower() in ("sql server", "sqlserver", "mssql"):
+        return _test_mssql_connection(req)
+
+    # ── SQL branch (PostgreSQL / MySQL) ───────────────────────────────────────
     try:
         from sqlalchemy import create_engine, text
         from sqlalchemy.pool import NullPool
@@ -415,6 +507,9 @@ def fetch_data(
             raise HTTPException(status_code=400, detail=_friendly_mongo_error(exc))
         db_schema = _get_schema_from_mongo(docs_raw)
         df = _fetch_mongo_dataframe(req)
+    elif dialect in ("sql server", "sqlserver", "mssql"):
+        db_schema = _get_schema_from_mssql(req)
+        df = _fetch_mssql_dataframe(req)
     else:
         from sqlalchemy import create_engine
         engine = create_engine(_build_url(req), connect_args={"connect_timeout": 10})

@@ -49,9 +49,10 @@ const DB_PORTS: Record<string, string> = {
   PostgreSQL: "5432",
   MySQL: "3306",
   MongoDB: "27017",
+  "SQL Server": "1433",
 };
 
-type DbType = "PostgreSQL" | "MySQL" | "MongoDB";
+type DbType = "PostgreSQL" | "MySQL" | "MongoDB" | "SQL Server";
 
 // ── Type display constants ─────────────────────────────────────────────────────
 
@@ -486,7 +487,7 @@ export default function UniqueIdentifierPage() {
                   <div>
                     <label className={labelCls}>Database Type</label>
                     <div className="flex flex-wrap gap-1.5">
-                      {(["PostgreSQL", "MySQL", "MongoDB"] as const).map((type) => (
+                      {(["PostgreSQL", "MySQL", "MongoDB", "SQL Server"] as const).map((type) => (
                         <button
                           key={type}
                           type="button"

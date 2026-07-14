@@ -132,6 +132,25 @@ def _schema_from_db(source: SQLSource) -> list[str]:
             return []
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Schema load failed: {exc}")
+    elif db in ("sql server", "sqlserver", "mssql"):
+        try:
+            from database import DBFetchRequest, _get_schema_from_mssql
+            req_obj = DBFetchRequest(
+                dbType=source.dbType or "",
+                host=source.host or "",
+                port=source.port or 1433,
+                database=source.database or "",
+                username=source.username or "",
+                password=source.password or "",
+                auth_database=source.auth_database,
+                table=source.table or "",
+            )
+            schema = _get_schema_from_mssql(req_obj)
+            return list(schema.keys())
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Schema load failed: {exc}")
     else:
         try:
             from database import _build_url, DBConnectionRequest
@@ -169,7 +188,7 @@ def _schema_from_db(source: SQLSource) -> list[str]:
 
 def _load_db_to_df(source: SQLSource) -> pd.DataFrame:
     """Load full table / collection from an external database into a DataFrame."""
-    from database import DBFetchRequest, _fetch_sql_dataframe, _fetch_mongo_dataframe
+    from database import DBFetchRequest, _fetch_sql_dataframe, _fetch_mongo_dataframe, _fetch_mssql_dataframe
 
     req = DBFetchRequest(
         dbType=source.dbType or "",
@@ -183,6 +202,8 @@ def _load_db_to_df(source: SQLSource) -> pd.DataFrame:
     )
     if (source.dbType or "").strip().lower() == "mongodb":
         return _fetch_mongo_dataframe(req)
+    if (source.dbType or "").strip().lower() in ("sql server", "sqlserver", "mssql"):
+        return _fetch_mssql_dataframe(req)
     return _fetch_sql_dataframe(req)
 
 
