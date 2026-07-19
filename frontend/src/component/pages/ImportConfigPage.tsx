@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
   ChevronDown,
   Cloud,
@@ -18,7 +20,6 @@ import {
   Settings2,
   ShieldCheck,
   Table2,
-  Trash2,
   X,
   XCircle,
   Zap,
@@ -63,7 +64,7 @@ interface ValidationErrors {
 // ---------------------------------------------------------------------------
 
 
-const ACTIONS = ["Insert", "Update", "Upsert", "Delete"] as const;
+const ACTIONS = ["Insert", "Upsert"] as const;
 const SF_NUMERIC_TYPES = new Set(["double", "currency", "percent", "int", "long"]);
 const SF_DATE_TYPES = new Set(["date", "datetime"]);
 
@@ -456,20 +457,50 @@ function IdentifierSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setDropdownStyle({
+      position: "fixed",
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+      minWidth: "16rem",
+      zIndex: 9999,
+    });
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false); setSearch("");
+      const target = e.target as Node;
+      const insideTrigger = triggerRef.current?.contains(target);
+      const insideDropdown = dropdownRef.current?.contains(target);
+      if (!insideTrigger && !insideDropdown) {
+        setOpen(false);
+        setSearch("");
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  useEffect(() => { if (open && inputRef.current) inputRef.current.focus(); }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    if (inputRef.current) inputRef.current.focus();
+    // Reposition when the page scrolls or resizes while dropdown is open
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, updatePosition]);
 
   const filtered = search
     ? candidates.filter(f =>
@@ -480,12 +511,68 @@ function IdentifierSelect({
 
   const selected = candidates.find(f => f.api_name === value);
 
+  const dropdown = open && !loading ? (
+    <div
+      ref={dropdownRef}
+      style={dropdownStyle}
+      className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl"
+    >
+      <div className="border-b border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-700/30 px-3 py-2.5">
+        <input
+          ref={inputRef}
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search fields…"
+          className="w-full bg-transparent text-sm outline-none placeholder-slate-400 dark:placeholder-slate-500 text-slate-800 dark:text-slate-200"
+        />
+      </div>
+      <div className="max-h-80 overflow-y-auto py-1">
+        {filtered.length === 0 ? (
+          <p className="px-3 py-4 text-center text-xs text-slate-400">No matching fields</p>
+        ) : filtered.map(f => {
+          const isSelected = f.api_name === value;
+          return (
+            <button
+              key={f.api_name}
+              type="button"
+              onClick={() => { onChange(f.api_name); setOpen(false); setSearch(""); }}
+              className={cx(
+                "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors",
+                isSelected && "bg-blue-50 dark:bg-blue-900/30"
+              )}
+            >
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={cx("truncate font-medium", isSelected ? "text-blue-700 dark:text-blue-300" : "text-slate-800 dark:text-slate-200")}>{f.label}</span>
+                {f.type === "id" && (
+                  <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                    SF ID
+                  </span>
+                )}
+                {f.externalId && (
+                  <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
+                    Ext ID
+                  </span>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">{f.api_name}</span>
+                {isSelected && <Check size={13} className="shrink-0 text-blue-600 dark:text-blue-400" />}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
+
   return (
-    <div ref={containerRef} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         disabled={loading || candidates.length === 0}
-        onClick={() => setOpen(v => !v)}
+        onClick={() => { if (!open) updatePosition(); setOpen(v => !v); }}
         className={cx(
           "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm text-left transition-colors",
           "border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800",
@@ -519,50 +606,7 @@ function IdentifierSelect({
         }
       </button>
 
-      {open && !loading && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-[16rem] rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl">
-          <div className="border-b border-slate-100 dark:border-slate-700 px-3 py-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search fields…"
-              className="w-full bg-transparent text-sm outline-none placeholder-slate-400 dark:placeholder-slate-500 text-slate-800 dark:text-slate-200"
-            />
-          </div>
-          <div className="max-h-64 overflow-y-auto py-1">
-            {filtered.length === 0 ? (
-              <p className="px-3 py-4 text-center text-xs text-slate-400">No matching fields</p>
-            ) : filtered.map(f => (
-              <button
-                key={f.api_name}
-                type="button"
-                onClick={() => { onChange(f.api_name); setOpen(false); setSearch(""); }}
-                className={cx(
-                  "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors",
-                  f.api_name === value && "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                )}
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-medium text-slate-800 dark:text-slate-200">{f.label}</span>
-                  {f.type === "id" && (
-                    <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
-                      SF ID
-                    </span>
-                  )}
-                  {f.externalId && (
-                    <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
-                      Ext ID
-                    </span>
-                  )}
-                </div>
-                <span className="shrink-0 font-mono text-[11px] text-slate-400 dark:text-slate-500">{f.api_name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {typeof document !== "undefined" && ReactDOM.createPortal(dropdown, document.body)}
     </div>
   );
 }
@@ -623,9 +667,9 @@ export default function ImportConfigPage() {
   const [threads,      setThreads]      = useState<number>(1);
   const [threadsStr,   setThreadsStr]   = useState<string>("1");
   const [threadsError, setThreadsError] = useState<string | null>(null);
-  const [skipUnknownFields, setSkipUnknownFields] = useState(false);
-  const [continueOnError, setContinueOnError] = useState(false);
-  const [validateOnly, setValidateOnly] = useState(false);
+  const skipUnknownFields = false;
+  const continueOnError   = false;
+  const validateOnly      = false;
   const [configRestored, setConfigRestored] = useState(false);
 
   // ── SF data ─────────────────────────────────────────────────────────────
@@ -782,10 +826,11 @@ export default function ImportConfigPage() {
   }, [sourceColumns, searchQuery, activeFilter, fieldMappings, sfFieldMap, sfFieldApiNames, duplicateSfFields, typeWarnings, sampleValues]);
 
   // ── Identifier candidates for matching field selector ────────────────────
-  // Always includes the Salesforce Id field plus any external/unique/idLookup fields
+  // Bulk API Upsert only supports Id or fields where externalId === true.
+  // idLookup and unique fields (e.g. Email) are not valid Bulk API Upsert keys.
   const identifierCandidates: SfField[] = useMemo(() => {
     if (!sfFields.length) return [];
-    const extras = sfFields.filter(f => f.externalId || f.idLookup || f.unique);
+    const extras = sfFields.filter(f => f.externalId === true);
     return [SF_ID_FIELD, ...extras];
   }, [sfFields]);
 
@@ -809,13 +854,8 @@ export default function ImportConfigPage() {
   const requiredMissing = missingRequiredFields.length;
   const warningCount = filterCounts.warnings;
 
-  // Action-aware readiness: Delete skips all field mapping checks; Update skips required-field check
   const matchingFieldReady = action === "Insert" || !!matchingField;
-  const fieldMappingReady  = action === "Delete"
-    ? true
-    : action === "Update"
-    ? invalidCount === 0 && duplicateCount === 0
-    : requiredMissing === 0 && invalidCount === 0 && duplicateCount === 0;
+  const fieldMappingReady  = requiredMissing === 0 && invalidCount === 0 && duplicateCount === 0;
 
   const importReady    = !!sfAccessToken && !!targetObject && !!s3Key && fieldMappingReady && matchingFieldReady;
   const canStartImport = importReady && !uploading;
@@ -823,29 +863,18 @@ export default function ImportConfigPage() {
 
   // ── Readiness panel rows — dynamic by action ──────────────────────────────
   const readinessRows = useMemo((): Array<{ label: string; value: string; tone: string }> => {
-    if (action === "Delete") {
-      const mfSet = !!matchingField;
-      const mfLabel = matchingField ? (sfFieldMap.get(matchingField)?.label ?? matchingField) : "Not selected";
-      return [{ label: "Identifier Field", value: mfLabel, tone: mfSet ? "emerald" : "rose" }];
-    }
     const rows: Array<{ label: string; value: string; tone: string }> = [
-      { label: "Fields",   value: sourceColumns.length.toString(), tone: "slate" },
-      { label: "Mapped",   value: totalMapped.toString(),          tone: "emerald" },
-      { label: "Skipped",  value: filterCounts.skipped.toString(), tone: "slate" },
-      { label: "Unmapped", value: totalUnmapped.toString(),        tone: totalUnmapped > 0 ? "amber" : "slate" },
+      { label: "Fields",           value: sourceColumns.length.toString(), tone: "slate" },
+      { label: "Mapped",           value: totalMapped.toString(),          tone: "emerald" },
+      { label: "Skipped",          value: filterCounts.skipped.toString(), tone: "slate" },
+      { label: "Unmapped",         value: totalUnmapped.toString(),        tone: totalUnmapped > 0 ? "amber" : "slate" },
+      { label: "Required Missing", value: requiredMissing.toString(),      tone: requiredMissing > 0 ? "rose" : "emerald" },
+      { label: "Warnings",         value: warningCount.toString(),         tone: warningCount > 0 ? "amber" : "slate" },
     ];
-    if (action === "Insert" || action === "Upsert") {
-      rows.push({ label: "Required Missing", value: requiredMissing.toString(), tone: requiredMissing > 0 ? "rose" : "emerald" });
-    }
-    rows.push({ label: "Warnings", value: warningCount.toString(), tone: warningCount > 0 ? "amber" : "slate" });
-    if (action !== "Insert") {
+    if (action === "Upsert") {
       const mfSet = !!matchingField;
       const mfLabel = matchingField ? (sfFieldMap.get(matchingField)?.label ?? matchingField) : "Not selected";
-      rows.push({
-        label: action === "Upsert" ? "External ID / Match" : "Matching Field",
-        value: mfLabel,
-        tone: mfSet ? "emerald" : "rose",
-      });
+      rows.push({ label: "External ID / Match", value: mfLabel, tone: mfSet ? "emerald" : "rose" });
     }
     return rows;
   }, [action, matchingField, sfFieldMap, sourceColumns, totalMapped, filterCounts, totalUnmapped, requiredMissing, warningCount]);
@@ -864,21 +893,12 @@ export default function ImportConfigPage() {
       setMappingStatuses((importConfig.mappingStatuses ?? {}) as Record<string, MappingStatus>);
       setPreSkipMappings(importConfig.preSkipMappings ?? {});
       setPreSkipStatuses((importConfig.preSkipStatuses ?? {}) as Record<string, MappingStatus>);
-      setSkipUnknownFields(importConfig.skipUnknownFields ?? false);
-      setContinueOnError(importConfig.continueOnError ?? false);
-      setValidateOnly(importConfig.validateOnly ?? false);
       setMatchingField(importConfig.matchingField ?? null);
     } else if (sfSelectedObject) {
       setTargetObject(sfSelectedObject);
     }
     setConfigRestored(true);
   }, [importConfig, sfSelectedObject, configRestored]);
-
-  // ── Auto-select Salesforce Id for Delete when fields first load ───────────
-  useEffect(() => {
-    if (action !== "Delete" || matchingField) return;
-    if (identifierCandidates.length > 0) setMatchingField(SF_ID_FIELD.api_name);
-  }, [action, identifierCandidates, matchingField]);
 
   // ── Load SF objects ───────────────────────────────────────────────────────
   const loadSfObjects = useCallback(async () => {
@@ -1433,27 +1453,6 @@ export default function ImportConfigPage() {
                 )}
               </div>
 
-              {/* Advanced Options */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Advanced Options</label>
-                <div className="flex flex-col gap-2.5 rounded-lg border border-slate-200 dark:border-slate-600 px-3 py-3">
-                  {([
-                    { id: "skip", label: "Skip Unknown Fields", value: skipUnknownFields, fn: setSkipUnknownFields },
-                    { id: "cont", label: "Continue On Error", value: continueOnError, fn: setContinueOnError },
-                    { id: "dry", label: "Validate Only (Dry Run)", value: validateOnly, fn: setValidateOnly },
-                  ] as const).map(({ id, label, value, fn }) => (
-                    <label key={id} className="flex cursor-pointer items-center gap-2.5 text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
-                      <input
-                        type="checkbox"
-                        checked={value}
-                        onChange={e => (fn as (v: boolean) => void)(e.target.checked)}
-                        className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-600 accent-blue-600 cursor-pointer"
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1512,56 +1511,24 @@ export default function ImportConfigPage() {
                   <span className="rounded-md bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-600">
                     ~{estimatedBatches} batch{estimatedBatches !== 1 ? "es" : ""}
                   </span>
-                  {validateOnly && (
-                    <span className="rounded-md bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 ring-1 ring-amber-100 dark:ring-amber-800/30">
-                      Dry Run
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── Record Matching section — Update / Upsert / Delete ─────────── */}
-        {action !== "Insert" && (
-          <div className={cx(
-            "overflow-hidden rounded-xl border shadow-sm",
-            action === "Delete"
-              ? "border-rose-200 dark:border-rose-800/50 bg-white dark:bg-slate-800"
-              : "border-indigo-100 dark:border-indigo-800/40 bg-white dark:bg-slate-800"
-          )}>
-            {/* Delete danger banner */}
-            {action === "Delete" && (
-              <div className="flex items-start gap-3 border-b border-rose-200 dark:border-rose-800/40 bg-rose-50 dark:bg-rose-900/20 px-5 py-4">
-                <AlertTriangle size={16} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
-                <div>
-                  <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">Delete Permanently Removes Records</p>
-                  <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5">
-                    This operation will permanently delete matching Salesforce records. This action cannot be undone.
-                  </p>
-                </div>
-              </div>
-            )}
-
+        {/* ── Record Matching section — Upsert only ──────────────────────── */}
+        {action === "Upsert" && (
+          <div className="overflow-hidden rounded-xl border border-indigo-100 dark:border-indigo-800/40 bg-white dark:bg-slate-800 shadow-sm">
             {/* Card header */}
             <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-700 px-5 py-4">
-              <span className={cx(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ring-1",
-                action === "Delete"
-                  ? "bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 ring-rose-100 dark:ring-rose-800/30"
-                  : "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 ring-indigo-100 dark:ring-indigo-800/30"
-              )}>
-                {action === "Delete" ? <Trash2 size={16} /> : <Link2 size={16} />}
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-100 dark:ring-indigo-800/30">
+                <Link2 size={16} />
               </span>
               <div>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {action === "Delete" ? "Record Identifier" : "Record Matching"}
-                </h3>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Record Matching</h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  {action === "Update" && "Salesforce will update existing records where this field matches the value in your data."}
-                  {action === "Upsert" && "Salesforce will update existing records if a match is found, or create new records if no match exists."}
-                  {action === "Delete" && "Select the field used to identify which Salesforce records to delete."}
+                  Salesforce will update existing records if a match is found, or create new records if no match exists.
                 </p>
               </div>
             </div>
@@ -1571,7 +1538,7 @@ export default function ImportConfigPage() {
               {/* Matching field picker */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                  {action === "Delete" ? "Identifier Field" : action === "Upsert" ? "External ID / Match Field" : "Matching Field"}
+                  External ID / Match Field
                   <span className="ml-1 text-rose-500">*</span>
                 </label>
                 {!sfAccessToken ? (
@@ -1597,23 +1564,18 @@ export default function ImportConfigPage() {
                     }}
                     candidates={identifierCandidates}
                     loading={sfFieldsLoading}
-                    placeholder={action === "Delete" ? "Select identifier field…" : "Select matching field…"}
+                    placeholder="Select matching field…"
                   />
                 )}
                 {sfAccessToken && !matchingField && identifierCandidates.length > 0 && (
                   <p className="text-[11px] text-rose-600 dark:text-rose-400">
-                    {action === "Delete" ? "Required to identify records for deletion." : "A matching field is required to proceed."}
+                    A matching field is required to proceed.
                   </p>
                 )}
               </div>
 
               {/* Info panel */}
-              <div className={cx(
-                "rounded-lg border p-4",
-                action === "Delete"
-                  ? "border-rose-100 dark:border-rose-800/40 bg-rose-50/40 dark:bg-rose-900/10"
-                  : "border-slate-100 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/40"
-              )}>
+              <div className="rounded-lg border border-slate-100 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/40 p-4">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Common Choices</p>
                 <ul className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
                   <li className="flex items-center gap-1.5">
@@ -1621,32 +1583,25 @@ export default function ImportConfigPage() {
                     <span className="font-mono text-slate-700 dark:text-slate-300">Id</span>
                     <span>— Salesforce record ID</span>
                   </li>
-                  {action !== "Delete" && (
-                    <>
-                      <li className="flex items-center gap-1.5">
-                        <span className="h-1 w-1 shrink-0 rounded-full bg-violet-400" />
-                        <span>External ID fields (ExternalId__c)</span>
-                      </li>
-                      <li className="flex items-center gap-1.5">
-                        <span className="h-1 w-1 shrink-0 rounded-full bg-slate-400" />
-                        <span>Email, unique index fields</span>
-                      </li>
-                    </>
-                  )}
-                  {action === "Upsert" && (
-                    <li className="mt-2 flex items-start gap-1.5 border-t border-slate-100 dark:border-slate-700 pt-2">
-                      <Info size={10} className="mt-0.5 shrink-0 text-violet-500" />
-                      <span className="text-violet-600 dark:text-violet-400">External ID fields are recommended for Upsert operations.</span>
-                    </li>
-                  )}
+                  <li className="flex items-center gap-1.5">
+                    <span className="h-1 w-1 shrink-0 rounded-full bg-violet-400" />
+                    <span>External ID fields (ExternalId__c)</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <span className="h-1 w-1 shrink-0 rounded-full bg-slate-400" />
+                    <span>Email, unique index fields</span>
+                  </li>
+                  <li className="mt-2 flex items-start gap-1.5 border-t border-slate-100 dark:border-slate-700 pt-2">
+                    <Info size={10} className="mt-0.5 shrink-0 text-violet-500" />
+                    <span className="text-violet-600 dark:text-violet-400">Bulk API Upsert requires Salesforce Id or a custom External ID field.</span>
+                  </li>
                 </ul>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── Field Mapping table — hidden for Delete ────────────────────── */}
-        {action !== "Delete" && (
+        {/* ── Field Mapping table ──────────────────────────────────────────── */}
         <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
           {/* Card header */}
           <div className="flex flex-col gap-3 border-b border-slate-200 dark:border-slate-700 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1888,24 +1843,6 @@ export default function ImportConfigPage() {
             </>
           )}
         </div>
-        )} {/* end action !== "Delete" */}
-
-        {/* ── Delete mode — field mapping not required ──────────────────── */}
-        {action === "Delete" && (
-          <div className="overflow-hidden rounded-xl border border-rose-100 dark:border-rose-800/40 bg-rose-50/20 dark:bg-rose-900/10 shadow-sm">
-            <div className="flex items-center gap-3 px-5 py-4">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 ring-1 ring-rose-100 dark:ring-rose-800/30">
-                <Trash2 size={16} />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">Field Mapping Not Required for Delete</p>
-                <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5">
-                  Salesforce uses only the identifier field to locate and delete records. No column mapping is needed.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* ── Bottom action bar ───────────────────────────────────────────── */}
         <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-5 py-4 shadow-sm">

@@ -3,6 +3,7 @@ import math
 import os
 import uuid
 from datetime import datetime
+from typing import Optional
 from urllib.parse import quote_plus
 
 import boto3
@@ -28,12 +29,14 @@ _s3 = boto3.client(
 
 class DBConnectionRequest(BaseModel):
     dbType: str
-    host: str
-    port: int
-    database: str
-    username: str
-    password: str
-    auth_database: str = "admin"  # MongoDB only; SQL drivers ignore this field
+    host: str = ""
+    port: int = 0
+    database: str = ""
+    username: str = ""
+    password: str = ""
+    auth_database: str = "admin"      # MongoDB only; SQL drivers ignore this field
+    sap_base_url: Optional[str] = None  # SAP OData only
+    sap_entity: str = "A_BusinessPartner"  # SAP OData only
 
 
 class DBFetchRequest(DBConnectionRequest):
@@ -234,6 +237,91 @@ def _fetch_mongo_dataframe(req: DBFetchRequest) -> pd.DataFrame:
     return df
 
 
+# ── SAP OData helpers ─────────────────────────────────────────────────────────
+
+def _friendly_sap_error(exc: Exception, status_code: Optional[int] = None) -> str:
+    """Map SAP OData HTTP errors and network exceptions to user-readable messages."""
+    if status_code == 401:
+        return "Authentication failed. Please verify your SAP username and password."
+    if status_code == 403:
+        return "Access denied. The SAP user does not have permission to access this resource."
+    if status_code == 404:
+        return "The SAP entity endpoint was not found. Check the Base URL and Entity name."
+    raw = str(exc).lower()
+    if "connection" in raw or "refused" in raw or "name or service" in raw or "nodename" in raw:
+        return (
+            "Unable to connect to the SAP system. "
+            "Check the Base URL and ensure the system is reachable."
+        )
+    if "timeout" in raw or "timed out" in raw:
+        return "Connection to SAP timed out. Check the Base URL and network access."
+    return "An unexpected SAP error occurred. Check your connection settings and try again."
+
+
+def _test_sap_connection(req: DBConnectionRequest) -> dict:
+    """Test a SAP OData connection by fetching a single record from the entity endpoint."""
+    import requests as _requests
+    base = (req.sap_base_url or "").rstrip("/")
+    entity = req.sap_entity.strip("/")
+    url = f"{base}/sap/opu/odata/sap/{entity}"
+    try:
+        resp = _requests.get(
+            url,
+            params={"$top": "1", "$format": "json"},
+            auth=(req.username, req.password),
+            headers={"Accept": "application/json"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            print("[db/test] SAP OData ping succeeded")
+            return {"success": True, "message": "Connection successful"}
+        raise HTTPException(
+            status_code=400,
+            detail=_friendly_sap_error(Exception(resp.text), status_code=resp.status_code),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"[db/test] EXCEPTION (SAP OData): {exc}")
+        raise HTTPException(status_code=400, detail=_friendly_sap_error(exc))
+
+
+def _fetch_sap_dataframe(req: DBFetchRequest) -> pd.DataFrame:
+    """Fetch all records from a SAP OData entity endpoint and return a DataFrame."""
+    import requests as _requests
+    base = (req.sap_base_url or "").rstrip("/")
+    entity = (req.sap_entity or req.table or "A_BusinessPartner").strip("/")
+    url = f"{base}/sap/opu/odata/sap/{entity}"
+    try:
+        resp = _requests.get(
+            url,
+            params={"$format": "json"},
+            auth=(req.username, req.password),
+            headers={"Accept": "application/json"},
+            timeout=60,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=400,
+                detail=_friendly_sap_error(Exception(resp.text), status_code=resp.status_code),
+            )
+        payload = resp.json()
+        # OData V2: {"d": {"results": [...]}}
+        if isinstance(payload.get("d"), dict) and "results" in payload["d"]:
+            records = payload["d"]["results"]
+        # OData V4: {"value": [...]}
+        elif "value" in payload and isinstance(payload["value"], list):
+            records = payload["value"]
+        else:
+            records = payload if isinstance(payload, list) else [payload]
+        return pd.DataFrame(records) if records else pd.DataFrame()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"[db/fetch] EXCEPTION (SAP OData): {exc}")
+        raise HTTPException(status_code=400, detail=_friendly_sap_error(exc))
+
+
 # ── SQL Server helpers ────────────────────────────────────────────────────────
 
 def _build_mssql_conn_str(req: DBConnectionRequest, timeout: int = 10) -> str:
@@ -337,6 +425,10 @@ def test_connection(req: DBConnectionRequest):
     # ── MongoDB branch ────────────────────────────────────────────────────────
     if req.dbType.strip().lower() == "mongodb":
         return _test_mongo_connection(req)
+
+    # ── SAP OData branch ──────────────────────────────────────────────────────
+    if req.dbType.strip().lower() in ("sap", "sap odata", "sap_odata"):
+        return _test_sap_connection(req)
 
     # ── SQL Server branch ─────────────────────────────────────────────────────
     if req.dbType.strip().lower() in ("sql server", "sqlserver", "mssql"):
@@ -507,6 +599,9 @@ def fetch_data(
             raise HTTPException(status_code=400, detail=_friendly_mongo_error(exc))
         db_schema = _get_schema_from_mongo(docs_raw)
         df = _fetch_mongo_dataframe(req)
+    elif dialect in ("sap", "sap odata", "sap_odata"):
+        df = _fetch_sap_dataframe(req)
+        db_schema = {col: "text" for col in df.columns} if not df.empty else {}
     elif dialect in ("sql server", "sqlserver", "mssql"):
         db_schema = _get_schema_from_mssql(req)
         df = _fetch_mssql_dataframe(req)

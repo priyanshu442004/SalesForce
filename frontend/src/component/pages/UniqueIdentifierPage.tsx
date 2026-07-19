@@ -50,9 +50,10 @@ const DB_PORTS: Record<string, string> = {
   MySQL: "3306",
   MongoDB: "27017",
   "SQL Server": "1433",
+  "SAP OData": "",
 };
 
-type DbType = "PostgreSQL" | "MySQL" | "MongoDB" | "SQL Server";
+type DbType = "PostgreSQL" | "MySQL" | "MongoDB" | "SQL Server" | "SAP OData";
 
 // ── Type display constants ─────────────────────────────────────────────────────
 
@@ -103,6 +104,8 @@ export default function UniqueIdentifierPage() {
   const [showDbPassword, setShowDbPassword] = useState(false);
   const [dbAuthDatabase, setDbAuthDatabase] = useState("admin");
   const [dbTable, setDbTable] = useState("");
+  const [sapBaseUrl, setSapBaseUrl] = useState("");
+  const [sapEntity, setSapEntity] = useState("A_BusinessPartner");
   const [dbFetching, setDbFetching] = useState(false);
 
   // ── Type metadata state (Priorities 2–4) ─────────────────────────────────
@@ -247,6 +250,8 @@ export default function UniqueIdentifierPage() {
   function handleDbTypeChange(type: DbType) {
     setDbType(type);
     setDbPort(DB_PORTS[type] ?? "5432");
+    setSapBaseUrl("");
+    setSapEntity("A_BusinessPartner");
   }
 
   async function handleDbFetch() {
@@ -270,12 +275,13 @@ export default function UniqueIdentifierPage() {
         body: JSON.stringify({
           dbType,
           host: dbHost,
-          port: parseInt(dbPort, 10) || 5432,
+          port: parseInt(dbPort, 10) || 0,
           database: dbName,
           username: dbUsername,
           password: dbPassword,
           auth_database: dbAuthDatabase,
-          table: dbTable.trim(),
+          table: dbType === "SAP OData" ? sapEntity : dbTable.trim(),
+          ...(dbType === "SAP OData" ? { sap_base_url: sapBaseUrl, sap_entity: sapEntity } : {}),
         }),
       });
       const data = await res.json();
@@ -487,7 +493,7 @@ export default function UniqueIdentifierPage() {
                   <div>
                     <label className={labelCls}>Database Type</label>
                     <div className="flex flex-wrap gap-1.5">
-                      {(["PostgreSQL", "MySQL", "MongoDB", "SQL Server"] as const).map((type) => (
+                      {(["PostgreSQL", "MySQL", "MongoDB", "SQL Server", "SAP OData"] as const).map((type) => (
                         <button
                           key={type}
                           type="button"
@@ -505,75 +511,99 @@ export default function UniqueIdentifierPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2">
-                      <label className={labelCls}>Host</label>
-                      <input type="text" value={dbHost} onChange={(e) => setDbHost(e.target.value)}
-                        placeholder="e.g. localhost" className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Port</label>
-                      <input type="text" value={dbPort} onChange={(e) => setDbPort(e.target.value)}
-                        className={inputCls} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>Database Name</label>
-                    <input type="text" value={dbName} onChange={(e) => setDbName(e.target.value)}
-                      placeholder="e.g. salesforce_migration" className={inputCls} />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className={labelCls}>Username</label>
-                      <input type="text" value={dbUsername} onChange={(e) => setDbUsername(e.target.value)}
-                        placeholder="e.g. admin" className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Password</label>
-                      <div className="relative">
-                        <input
-                          type={showDbPassword ? "text" : "password"}
-                          value={dbPassword}
-                          onChange={(e) => setDbPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className={cx(inputCls, "pr-8")}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowDbPassword((v) => !v)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
-                        >
-                          {showDbPassword ? <EyeOff size={13} /> : <Eye size={13} />}
-                        </button>
+                  {dbType === "SAP OData" ? (
+                    <>
+                      <div>
+                        <label className={labelCls}>SAP Server URL</label>
+                        <input type="text" value={sapBaseUrl} onChange={(e) => setSapBaseUrl(e.target.value)}
+                          placeholder="e.g. https://mycompany.sap.com" className={inputCls} />
                       </div>
-                    </div>
-                  </div>
-
-                  {dbType === "MongoDB" && (
-                    <div>
-                      <label className={labelCls}>Authentication Database</label>
-                      <input type="text" value={dbAuthDatabase} onChange={(e) => setDbAuthDatabase(e.target.value)}
-                        placeholder="admin" className={inputCls} />
-                    </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className={labelCls}>Username</label>
+                          <input type="text" value={dbUsername} onChange={(e) => setDbUsername(e.target.value)}
+                            placeholder="e.g. admin" className={inputCls} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Password</label>
+                          <div className="relative">
+                            <input type={showDbPassword ? "text" : "password"} value={dbPassword}
+                              onChange={(e) => setDbPassword(e.target.value)} placeholder="••••••••"
+                              className={cx(inputCls, "pr-8")} />
+                            <button type="button" onClick={() => setShowDbPassword((v) => !v)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200">
+                              {showDbPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Entity Set</label>
+                        <input type="text" value={sapEntity} onChange={(e) => setSapEntity(e.target.value)}
+                          placeholder="e.g. A_BusinessPartner" className={inputCls} />
+                        <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
+                          Examples: A_BusinessPartner, A_Customer, A_Supplier
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="col-span-2">
+                          <label className={labelCls}>Host</label>
+                          <input type="text" value={dbHost} onChange={(e) => setDbHost(e.target.value)}
+                            placeholder="e.g. localhost" className={inputCls} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Port</label>
+                          <input type="text" value={dbPort} onChange={(e) => setDbPort(e.target.value)}
+                            className={inputCls} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Database Name</label>
+                        <input type="text" value={dbName} onChange={(e) => setDbName(e.target.value)}
+                          placeholder="e.g. salesforce_migration" className={inputCls} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className={labelCls}>Username</label>
+                          <input type="text" value={dbUsername} onChange={(e) => setDbUsername(e.target.value)}
+                            placeholder="e.g. admin" className={inputCls} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Password</label>
+                          <div className="relative">
+                            <input type={showDbPassword ? "text" : "password"} value={dbPassword}
+                              onChange={(e) => setDbPassword(e.target.value)} placeholder="••••••••"
+                              className={cx(inputCls, "pr-8")} />
+                            <button type="button" onClick={() => setShowDbPassword((v) => !v)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200">
+                              {showDbPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      {dbType === "MongoDB" && (
+                        <div>
+                          <label className={labelCls}>Authentication Database</label>
+                          <input type="text" value={dbAuthDatabase} onChange={(e) => setDbAuthDatabase(e.target.value)}
+                            placeholder="admin" className={inputCls} />
+                        </div>
+                      )}
+                      <div>
+                        <label className={labelCls}>{dbType === "MongoDB" ? "Collection Name" : "Table Name"}</label>
+                        <input type="text" value={dbTable} onChange={(e) => setDbTable(e.target.value)}
+                          placeholder={dbType === "MongoDB" ? "e.g. orders" : dbType === "SQL Server" ? "e.g. dbo.contacts" : "e.g. public.users"}
+                          className={inputCls} />
+                      </div>
+                    </>
                   )}
-
-                  <div>
-                    <label className={labelCls}>{dbType === "MongoDB" ? "Collection Name" : "Table Name"}</label>
-                    <input
-                      type="text"
-                      value={dbTable}
-                      onChange={(e) => setDbTable(e.target.value)}
-                      placeholder={dbType === "MongoDB" ? "e.g. orders" : "e.g. public.users"}
-                      className={inputCls}
-                    />
-                  </div>
 
                   <button
                     type="button"
                     onClick={handleDbFetch}
-                    disabled={!dbTable.trim() || dbFetching || analyzing || !currentProject}
+                    disabled={!(dbType === "SAP OData" ? sapEntity.trim() : dbTable.trim()) || dbFetching || analyzing || !currentProject}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.98] disabled:active:scale-100"
                   >
                     {dbFetching

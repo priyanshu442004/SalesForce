@@ -44,7 +44,7 @@ type ProjectFileSource = {
   sourceType: SourceFileType;
 };
 
-type DbType = "PostgreSQL" | "MySQL" | "MongoDB" | "SQL Server";
+type DbType = "PostgreSQL" | "MySQL" | "MongoDB" | "SQL Server" | "SAP OData";
 
 type DbSource = {
   id: string;
@@ -58,6 +58,8 @@ type DbSource = {
   table: string;
   alias: string;
   enabled: boolean;
+  sapBaseUrl?: string;
+  sapEntity?: string;
 };
 
 type TableSchema = {
@@ -102,12 +104,13 @@ type AcState = {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const DB_TYPES: DbType[] = ["PostgreSQL", "MySQL", "MongoDB", "SQL Server"];
+const DB_TYPES: DbType[] = ["PostgreSQL", "MySQL", "MongoDB", "SQL Server", "SAP OData"];
 const DB_PORTS: Record<DbType, string> = {
   PostgreSQL: "5432",
   MySQL: "3306",
   MongoDB: "27017",
   "SQL Server": "1433",
+  "SAP OData": "",
 };
 
 const SLOT_ALIAS: Record<string, string> = {
@@ -307,6 +310,8 @@ export default function SQLWorkspacePage() {
   const [addDbAuthDb, setAddDbAuthDb] = useState("admin");
   const [addDbTable, setAddDbTable] = useState("");
   const [addDbAlias, setAddDbAlias] = useState("");
+  const [addDbSapBaseUrl, setAddDbSapBaseUrl] = useState("");
+  const [addDbSapEntity, setAddDbSapEntity] = useState("A_BusinessPartner");
 
   // ── Load ALL active project files on project change ────────────────────────
   useEffect(() => {
@@ -380,12 +385,13 @@ export default function SQLWorkspacePage() {
         table_name: db.alias,
         dbType: db.dbType,
         host: db.host,
-        port: parseInt(db.port, 10) || 5432,
+        port: parseInt(db.port, 10) || 0,
         database: db.database,
         username: db.username,
         password: db.password,
         auth_database: db.authDatabase,
         table: db.table,
+        ...(db.dbType === "SAP OData" ? { sap_base_url: db.sapBaseUrl, sap_entity: db.sapEntity } : {}),
       })),
   ];
 
@@ -610,9 +616,10 @@ export default function SQLWorkspacePage() {
   // ── Add DB source ──────────────────────────────────────────────────────────
 
   function handleAddDb() {
+    const tableOrEntity = addDbType === "SAP OData" ? addDbSapEntity : addDbTable;
     const alias =
       addDbAlias.trim() ||
-      addDbTable.trim().replace(/\W+/g, "_").replace(/^_+|_+$/g, "").toLowerCase() ||
+      tableOrEntity.trim().replace(/\W+/g, "_").replace(/^_+|_+$/g, "").toLowerCase() ||
       `db_${dbSources.length + 1}`;
     const newDb: DbSource = {
       id: crypto.randomUUID(),
@@ -623,9 +630,11 @@ export default function SQLWorkspacePage() {
       username: addDbUsername,
       password: addDbPassword,
       authDatabase: addDbAuthDb,
-      table: addDbTable,
+      table: tableOrEntity,
       alias,
       enabled: true,
+      sapBaseUrl: addDbType === "SAP OData" ? addDbSapBaseUrl : undefined,
+      sapEntity: addDbType === "SAP OData" ? addDbSapEntity : undefined,
     };
     setDbSources((prev) => [...prev, newDb]);
     setShowAddDb(false);
@@ -638,6 +647,8 @@ export default function SQLWorkspacePage() {
     setAddDbAuthDb("admin");
     setAddDbTable("");
     setAddDbAlias("");
+    setAddDbSapBaseUrl("");
+    setAddDbSapEntity("A_BusinessPartner");
   }
 
   // ── Autocomplete ───────────────────────────────────────────────────────────
@@ -917,7 +928,7 @@ export default function SQLWorkspacePage() {
                         sub={db.host}
                         alias={db.alias}
                         enabled={db.enabled}
-                        typeBadge={db.dbType === "PostgreSQL" ? "pg" : db.dbType === "MySQL" ? "sql" : db.dbType === "SQL Server" ? "mssql" : "mdb"}
+                        typeBadge={db.dbType === "PostgreSQL" ? "pg" : db.dbType === "MySQL" ? "sql" : db.dbType === "SQL Server" ? "mssql" : db.dbType === "SAP OData" ? "sap" : "mdb"}
                         typeBadgeColor="bg-blue-500"
                         isDuplicate={duplicateAliases.has(db.alias) && db.enabled}
                         onToggle={() =>
@@ -1402,21 +1413,30 @@ export default function SQLWorkspacePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <label className={labelCls}>Host</label>
-                  <input type="text" value={addDbHost} onChange={(e) => setAddDbHost(e.target.value)} placeholder="e.g. localhost" className={inputCls} />
-                </div>
+              {addDbType === "SAP OData" ? (
                 <div>
-                  <label className={labelCls}>Port</label>
-                  <input type="text" value={addDbPort} onChange={(e) => setAddDbPort(e.target.value)} className={inputCls} />
+                  <label className={labelCls}>SAP Server URL</label>
+                  <input type="text" value={addDbSapBaseUrl} onChange={(e) => setAddDbSapBaseUrl(e.target.value)}
+                    placeholder="e.g. https://mycompany.sap.com" className={inputCls} />
                 </div>
-              </div>
-
-              <div>
-                <label className={labelCls}>Database Name</label>
-                <input type="text" value={addDbDatabase} onChange={(e) => setAddDbDatabase(e.target.value)} placeholder="e.g. salesforce_migration" className={inputCls} />
-              </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className={labelCls}>Host</label>
+                      <input type="text" value={addDbHost} onChange={(e) => setAddDbHost(e.target.value)} placeholder="e.g. localhost" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Port</label>
+                      <input type="text" value={addDbPort} onChange={(e) => setAddDbPort(e.target.value)} className={inputCls} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Database Name</label>
+                    <input type="text" value={addDbDatabase} onChange={(e) => setAddDbDatabase(e.target.value)} placeholder="e.g. salesforce_migration" className={inputCls} />
+                  </div>
+                </>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -1451,16 +1471,27 @@ export default function SQLWorkspacePage() {
                 </div>
               )}
 
-              <div>
-                <label className={labelCls}>{addDbType === "MongoDB" ? "Collection Name" : "Table Name"}</label>
-                <input
-                  type="text"
-                  value={addDbTable}
-                  onChange={(e) => setAddDbTable(e.target.value)}
-                  placeholder={addDbType === "MongoDB" ? "e.g. orders" : addDbType === "SQL Server" ? "e.g. dbo.contacts" : "e.g. public.users"}
-                  className={inputCls}
-                />
-              </div>
+              {addDbType === "SAP OData" ? (
+                <div>
+                  <label className={labelCls}>Entity Set</label>
+                  <input type="text" value={addDbSapEntity} onChange={(e) => setAddDbSapEntity(e.target.value)}
+                    placeholder="e.g. A_BusinessPartner" className={inputCls} />
+                  <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
+                    Examples: A_BusinessPartner, A_Customer, A_Supplier
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className={labelCls}>{addDbType === "MongoDB" ? "Collection Name" : "Table Name"}</label>
+                  <input
+                    type="text"
+                    value={addDbTable}
+                    onChange={(e) => setAddDbTable(e.target.value)}
+                    placeholder={addDbType === "MongoDB" ? "e.g. orders" : addDbType === "SQL Server" ? "e.g. dbo.contacts" : "e.g. public.users"}
+                    className={inputCls}
+                  />
+                </div>
+              )}
 
               <div>
                 <label className={labelCls}>SQL Alias (table name in query)</label>
@@ -1469,8 +1500,8 @@ export default function SQLWorkspacePage() {
                   value={addDbAlias}
                   onChange={(e) => setAddDbAlias(e.target.value)}
                   placeholder={
-                    addDbTable
-                      ? addDbTable.replace(/\W+/g, "_").replace(/^_+|_+$/g, "").toLowerCase()
+                    (addDbType === "SAP OData" ? addDbSapEntity : addDbTable)
+                      ? (addDbType === "SAP OData" ? addDbSapEntity : addDbTable).replace(/\W+/g, "_").replace(/^_+|_+$/g, "").toLowerCase()
                       : "e.g. db_orders"
                   }
                   className={inputCls}

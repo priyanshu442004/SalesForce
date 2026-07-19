@@ -158,13 +158,14 @@ function UploadCard({ config, file, onUpload, onClear }: {
   );
 }
 
-const DB_TYPES = ["PostgreSQL", "MySQL", "MongoDB", "SQL Server"] as const;
+const DB_TYPES = ["PostgreSQL", "MySQL", "MongoDB", "SQL Server", "SAP OData"] as const;
 type DbType = (typeof DB_TYPES)[number];
 const DB_DEFAULTS: Record<DbType, { port: string; tablePlaceholder: string; tableLabel: string }> = {
-  PostgreSQL: { port: "5432", tablePlaceholder: "e.g. public.users", tableLabel: "Table Name" },
-  MySQL: { port: "3306", tablePlaceholder: "e.g. customers", tableLabel: "Table Name" },
-  MongoDB: { port: "27017", tablePlaceholder: "e.g. orders", tableLabel: "Collection Name" },
-  "SQL Server": { port: "1433", tablePlaceholder: "e.g. dbo.contacts", tableLabel: "Table Name" },
+  PostgreSQL:    { port: "5432",  tablePlaceholder: "e.g. public.users",       tableLabel: "Table Name" },
+  MySQL:         { port: "3306",  tablePlaceholder: "e.g. customers",           tableLabel: "Table Name" },
+  MongoDB:       { port: "27017", tablePlaceholder: "e.g. orders",              tableLabel: "Collection Name" },
+  "SQL Server":  { port: "1433",  tablePlaceholder: "e.g. dbo.contacts",        tableLabel: "Table Name" },
+  "SAP OData":   { port: "",      tablePlaceholder: "e.g. A_BusinessPartner",   tableLabel: "Entity Set" },
 };
 
 function SourceDataCard({ file, onUpload, onClear }: {
@@ -185,6 +186,8 @@ function SourceDataCard({ file, onUpload, onClear }: {
   const [showPassword, setShowPassword] = useState(false);
   const [tableName, setTableName] = useState("");
   const [authDatabase, setAuthDatabase] = useState("admin");
+  const [sapBaseUrl, setSapBaseUrl] = useState("");
+  const [sapEntity, setSapEntity] = useState("A_BusinessPartner");
 
   // Connection / fetch status state
   const [connStatus, setConnStatus] = useState<"idle" | "testing" | "success" | "warning" | "error">("idle");
@@ -197,6 +200,8 @@ function SourceDataCard({ file, onUpload, onClear }: {
   const handleDbTypeChange = (type: DbType) => {
     setDbType(type);
     setPort(DB_DEFAULTS[type].port);
+    setSapBaseUrl("");
+    setSapEntity("A_BusinessPartner");
     setConnStatus("idle");
     setConnMessage("");
   };
@@ -212,11 +217,12 @@ function SourceDataCard({ file, onUpload, onClear }: {
         body: JSON.stringify({
           dbType,
           host,
-          port: parseInt(port, 10) || 5432,
+          port: parseInt(port, 10) || 0,
           database: dbName,
           username,
           password,
           auth_database: authDatabase,
+          ...(dbType === "SAP OData" ? { sap_base_url: sapBaseUrl, sap_entity: sapEntity } : {}),
         }),
       });
       const data = await res.json();
@@ -237,15 +243,17 @@ function SourceDataCard({ file, onUpload, onClear }: {
   };
 
   const handleFetchData = async () => {
-    if (!currentProject || isFetching || !tableName.trim()) return;
+    const entityForFetch = dbType === "SAP OData" ? sapEntity : tableName.trim();
+    if (!currentProject || isFetching || !entityForFetch) return;
     setIsFetching(true);
     setFetchError(null);
 
     // Optimistic loading UI — mirrors what handleFileUpload does for upload mode
+    const displayName = dbType === "SAP OData" ? sapEntity : tableName.trim();
     setUploadedFiles((prev) => ({
       ...prev,
       source: {
-        name: `${tableName.trim()} (${dbType})`,
+        name: `${displayName} (${dbType})`,
         size: "Fetching…",
         loading: true,
         progress: 0,
@@ -280,12 +288,13 @@ function SourceDataCard({ file, onUpload, onClear }: {
         body: JSON.stringify({
           dbType,
           host,
-          port: parseInt(port, 10) || 5432,
+          port: parseInt(port, 10) || 0,
           database: dbName,
           username,
           password,
           auth_database: authDatabase,
-          table: tableName.trim(),
+          table: dbType === "SAP OData" ? sapEntity : tableName.trim(),
+          ...(dbType === "SAP OData" ? { sap_base_url: sapBaseUrl, sap_entity: sapEntity } : {}),
         }),
       });
 
@@ -470,69 +479,106 @@ function SourceDataCard({ file, onUpload, onClear }: {
               </div>
             </div>
 
-            {/* Host + Port */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
-                <label className={labelCls}>Host</label>
-                <input type="text" value={host} onChange={(e) => setHost(e.target.value)}
-                  placeholder="e.g. db.example.com" className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Port</label>
-                <input type="text" value={port} onChange={(e) => setPort(e.target.value)} className={inputCls} />
-              </div>
-            </div>
-
-            {/* Database Name */}
-            <div>
-              <label className={labelCls}>Database Name</label>
-              <input type="text" value={dbName} onChange={(e) => setDbName(e.target.value)}
-                placeholder="e.g. salesforce_migration" className={inputCls} />
-            </div>
-
-            {/* Username + Password */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className={labelCls}>Username</label>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. admin" className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Password</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className={cx(inputCls, "pr-8")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
-                  >
-                    {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
-                  </button>
+            {dbType === "SAP OData" ? (
+              <>
+                {/* SAP Server URL */}
+                <div>
+                  <label className={labelCls}>SAP Server URL</label>
+                  <input type="text" value={sapBaseUrl} onChange={(e) => setSapBaseUrl(e.target.value)}
+                    placeholder="e.g. https://mycompany.sap.com" className={inputCls} />
                 </div>
-              </div>
-            </div>
 
-            {/* Authentication Database — MongoDB only */}
-            {dbType === "MongoDB" && (
-              <div>
-                <label className={labelCls}>Authentication Database</label>
-                <input type="text" value={authDatabase} onChange={(e) => setAuthDatabase(e.target.value)}
-                  placeholder="admin" className={inputCls} />
-              </div>
+                {/* Username + Password */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelCls}>Username</label>
+                    <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+                      placeholder="e.g. admin" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Password</label>
+                    <div className="relative">
+                      <input type={showPassword ? "text" : "password"} value={password}
+                        onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                        className={cx(inputCls, "pr-8")} />
+                      <button type="button" onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200">
+                        {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Entity Set */}
+                <div>
+                  <label className={labelCls}>Entity Set</label>
+                  <input type="text" value={sapEntity} onChange={(e) => setSapEntity(e.target.value)}
+                    placeholder="e.g. A_BusinessPartner" className={inputCls} />
+                  <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
+                    Examples: A_BusinessPartner, A_Customer, A_Supplier
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Host + Port */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <label className={labelCls}>Host</label>
+                    <input type="text" value={host} onChange={(e) => setHost(e.target.value)}
+                      placeholder="e.g. db.example.com" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Port</label>
+                    <input type="text" value={port} onChange={(e) => setPort(e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+
+                {/* Database Name */}
+                <div>
+                  <label className={labelCls}>Database Name</label>
+                  <input type="text" value={dbName} onChange={(e) => setDbName(e.target.value)}
+                    placeholder="e.g. salesforce_migration" className={inputCls} />
+                </div>
+
+                {/* Username + Password */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelCls}>Username</label>
+                    <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+                      placeholder="e.g. admin" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Password</label>
+                    <div className="relative">
+                      <input type={showPassword ? "text" : "password"} value={password}
+                        onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                        className={cx(inputCls, "pr-8")} />
+                      <button type="button" onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200">
+                        {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Authentication Database — MongoDB only */}
+                {dbType === "MongoDB" && (
+                  <div>
+                    <label className={labelCls}>Authentication Database</label>
+                    <input type="text" value={authDatabase} onChange={(e) => setAuthDatabase(e.target.value)}
+                      placeholder="admin" className={inputCls} />
+                  </div>
+                )}
+
+                {/* Table / Collection Name */}
+                <div>
+                  <label className={labelCls}>{tableLabel}</label>
+                  <input type="text" value={tableName} onChange={(e) => setTableName(e.target.value)}
+                    placeholder={tablePlaceholder} className={inputCls} />
+                </div>
+              </>
             )}
-
-            {/* Table / Collection Name */}
-            <div>
-              <label className={labelCls}>{tableLabel}</label>
-              <input type="text" value={tableName} onChange={(e) => setTableName(e.target.value)}
-                placeholder={tablePlaceholder} className={inputCls} />
-            </div>
 
             {/* Action buttons */}
             <div className="flex gap-2 border-t border-slate-100 dark:border-slate-700 pt-3">
@@ -550,7 +596,7 @@ function SourceDataCard({ file, onUpload, onClear }: {
               <button
                 type="button"
                 onClick={handleFetchData}
-                disabled={isFetching || !tableName.trim() || connStatus === "testing"}
+                disabled={isFetching || !(dbType === "SAP OData" ? sapEntity.trim() : tableName.trim()) || connStatus === "testing"}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
               >
                 {isFetching

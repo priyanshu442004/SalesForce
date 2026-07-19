@@ -52,6 +52,8 @@ class SQLSource(BaseModel):
     password: Optional[str] = None
     auth_database: str = "admin"
     table: Optional[str] = None   # table or collection name inside the source DB
+    sap_base_url: Optional[str] = None   # SAP OData only
+    sap_entity: str = "A_BusinessPartner"  # SAP OData only
 
 
 class SQLQueryRequest(BaseModel):
@@ -132,6 +134,23 @@ def _schema_from_db(source: SQLSource) -> list[str]:
             return []
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Schema load failed: {exc}")
+    elif db in ("sap", "sap odata", "sap_odata"):
+        try:
+            from database import DBFetchRequest, _fetch_sap_dataframe
+            req_obj = DBFetchRequest(
+                dbType=source.dbType or "",
+                username=source.username or "",
+                password=source.password or "",
+                sap_base_url=source.sap_base_url,
+                sap_entity=source.sap_entity or source.table or "A_BusinessPartner",
+                table=source.table or source.sap_entity or "A_BusinessPartner",
+            )
+            df = _fetch_sap_dataframe(req_obj)
+            return [str(c) for c in df.columns.tolist()]
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Schema load failed: {exc}")
     elif db in ("sql server", "sqlserver", "mssql"):
         try:
             from database import DBFetchRequest, _get_schema_from_mssql
@@ -188,7 +207,10 @@ def _schema_from_db(source: SQLSource) -> list[str]:
 
 def _load_db_to_df(source: SQLSource) -> pd.DataFrame:
     """Load full table / collection from an external database into a DataFrame."""
-    from database import DBFetchRequest, _fetch_sql_dataframe, _fetch_mongo_dataframe, _fetch_mssql_dataframe
+    from database import (
+        DBFetchRequest, _fetch_sql_dataframe, _fetch_mongo_dataframe,
+        _fetch_mssql_dataframe, _fetch_sap_dataframe,
+    )
 
     req = DBFetchRequest(
         dbType=source.dbType or "",
@@ -199,9 +221,13 @@ def _load_db_to_df(source: SQLSource) -> pd.DataFrame:
         password=source.password or "",
         auth_database=source.auth_database,
         table=source.table or "",
+        sap_base_url=source.sap_base_url,
+        sap_entity=source.sap_entity or source.table or "A_BusinessPartner",
     )
     if (source.dbType or "").strip().lower() == "mongodb":
         return _fetch_mongo_dataframe(req)
+    if (source.dbType or "").strip().lower() in ("sap", "sap odata", "sap_odata"):
+        return _fetch_sap_dataframe(req)
     if (source.dbType or "").strip().lower() in ("sql server", "sqlserver", "mssql"):
         return _fetch_mssql_dataframe(req)
     return _fetch_sql_dataframe(req)
