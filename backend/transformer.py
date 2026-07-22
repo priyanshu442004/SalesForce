@@ -750,6 +750,7 @@ def apply_sf_lookup_rule(
     sf_credentials: {"access_token": str, "instance_url": str}
     sf_cache: shared dict (populated in-place) for de-duplication within one run.
     """
+    import difflib as _difflib
     import requests as _req
 
     sf_object    = rule["master_sheet"]       # e.g. "Account"
@@ -768,6 +769,50 @@ def apply_sf_lookup_rule(
         return [""] * len(series), 0, 0, []
 
     headers = {"Authorization": f"Bearer {access_token}"}
+
+    # ── One-time: describe the object and validate return_field ─────────────
+    # This resolves the canonical Salesforce casing (e.g. "OwnerId" for
+    # "OwnerID") and fails fast with a clear message when the field doesn't
+    # exist, rather than silently writing blank values.
+    describe_url = (
+        f"{instance_url}/services/data/v60.0/sobjects/{sf_object}/describe"
+    )
+    try:
+        desc_resp = _req.get(describe_url, headers=headers, timeout=30)
+        desc_resp.raise_for_status()
+        all_field_names: list[str] = [
+            f["name"] for f in desc_resp.json().get("fields", [])
+        ]
+        lower_to_canonical: dict[str, str] = {n.lower(): n for n in all_field_names}
+        canonical_return_field = lower_to_canonical.get(return_field.lower())
+        if canonical_return_field is None:
+            close = _difflib.get_close_matches(
+                return_field, all_field_names, n=3, cutoff=0.5
+            )
+            suggestions: list[str] = [repr(c) for c in close]
+            canonical_id = lower_to_canonical.get("id")
+            if canonical_id and repr(canonical_id) not in suggestions:
+                suggestions.append(repr(canonical_id))
+            did_you_mean = (
+                f" Did you mean {' or '.join(suggestions[:2])}?"
+                if suggestions
+                else ""
+            )
+            raise ValueError(
+                f"Salesforce field {return_field!r} does not exist on object "
+                f"{sf_object!r}.{did_you_mean}"
+            )
+        if canonical_return_field != return_field:
+            print(
+                f"[SF-LOOKUP] Field name resolved: {return_field!r} → "
+                f"{canonical_return_field!r} (canonical Salesforce casing)"
+            )
+    except _req.exceptions.RequestException as exc:
+        raise RuntimeError(
+            f"Failed to describe Salesforce object {sf_object!r} "
+            f"(validating return field {return_field!r}): {exc}"
+        ) from exc
+
     results: list[str] = []
     matched = 0
     missed = 0
@@ -794,22 +839,27 @@ def apply_sf_lookup_rule(
         # ── Cache miss: execute SOQL ─────────────────────────────────────────
         escaped = source_value.replace("\\", "\\\\").replace("'", "\\'")
         soql = (
-            f"SELECT {return_field} FROM {sf_object} "
+            f"SELECT {canonical_return_field} FROM {sf_object} "
             f"WHERE {search_field} = '{escaped}' LIMIT 1"
         )
         url = f"{instance_url}/services/data/v60.0/query?q={_url_quote(soql)}"
 
         result = ""
+        record_count = 0
+        http_status = 0
         try:
             resp = _req.get(url, headers=headers, timeout=30)
+            http_status = resp.status_code
             if resp.status_code == 200:
                 data = resp.json()
                 records = data.get("records", [])
+                record_count = len(records)
                 if records:
-                    raw = records[0].get(return_field, "") or ""
+                    # Use canonical field name — Salesforce always returns the
+                    # field in its canonical casing regardless of SELECT casing.
+                    raw = records[0].get(canonical_return_field, "") or ""
                     result = str(raw).strip()
                 else:
-                    # No matching record
                     print(
                         f"[SF-LOOKUP] no record — "
                         f"{sf_object}.{search_field} = {source_value!r}"
@@ -839,6 +889,17 @@ def apply_sf_lookup_rule(
                 print(f"[SF-LOOKUP] {msg}")
                 if msg not in errors:
                     errors.append(msg)
+
+            print(
+                f"[SF-LOOKUP] Object: {sf_object} | "
+                f"Search Field: {search_field} | "
+                f"Return Field: {canonical_return_field} | "
+                f"SOQL: SELECT {canonical_return_field} FROM {sf_object} "
+                f"WHERE {search_field} = '{escaped}' LIMIT 1 | "
+                f"HTTP: {http_status} | "
+                f"Records: {record_count} | "
+                f"Extracted Value: {result!r}"
+            )
         except Exception as exc:
             msg = f"Salesforce lookup error ({sf_object}.{search_field}): {exc}"
             print(f"[SF-LOOKUP] {msg}")
