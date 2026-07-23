@@ -446,24 +446,21 @@ export default function TransformationWorkspacePage() {
     runPipeline,
     proceedWithSkips,
     restorePipelineState,
-    sfAccessToken,
-    setSfAccessToken,
-    sfInstanceUrl,
-    setSfInstanceUrl,
-    sfRefreshToken,
-    setSfRefreshToken,
+    effectiveTargetSf,
     sfSelectedObject,
     setSfSelectedObject,
-    sfUserEmail,
-    setSfUserEmail,
     logActivity,
     currentUser,
   } = useMigration();
 
+  // Convenience aliases for the effective target connection
+  const sfAccessToken = effectiveTargetSf.accessToken;
+  const sfInstanceUrl = effectiveTargetSf.instanceUrl;
+  const sfUserEmail   = effectiveTargetSf.userEmail;
+
   console.log("[TransformationWorkspace]", {
     sfAccessToken,
     sfInstanceUrl,
-    sfRefreshToken,
   });
 
   const [checkedRows, setCheckedRows]     = useState<Record<string, boolean>>({});
@@ -477,10 +474,6 @@ export default function TransformationWorkspacePage() {
   const [sfObjectPickerError, setSfObjectPickerError] = useState<string | null>(null);
 
   const [sfObjectSearch, setSfObjectSearch] = useState("");
-
-  // When true, the next connect attempt will pass prompt=login to force the
-  // Salesforce credentials page, allowing the user to switch accounts.
-  const [sfForceLogin, setSfForceLogin] = useState(false);
 
   // Salesforce upload state
   const [sfUploading, setSfUploading] = useState(false);
@@ -698,18 +691,7 @@ export default function TransformationWorkspacePage() {
 
   const handlePushToSalesforce = async () => {
     if (!sfAccessToken || !sfInstanceUrl) {
-      // Not authenticated — start OAuth flow
-      try {
-        const url = sfForceLogin
-          ? `${NEXT_PUBLIC_API_URL}/salesforce/login?force_login=true`
-          : `${NEXT_PUBLIC_API_URL}/salesforce/login`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to get Salesforce login URL");
-        const { auth_url } = await res.json();
-        window.location.href = auth_url;
-      } catch (err) {
-        console.error("[Push to Salesforce] OAuth initiation failed:", err);
-      }
+      router.push("/import-configuration");
       return;
     }
 
@@ -1434,10 +1416,10 @@ export default function TransformationWorkspacePage() {
 
           {/* ── Salesforce integration ── */}
           <div className="flex items-center justify-between gap-8 px-6 py-5 border-b border-slate-100 dark:border-slate-700/60">
-            {/* Left: status + email + disconnect */}
-            <div className="flex flex-col gap-2">
+            {/* Left: read-only status */}
+            <div className="flex flex-col gap-1">
               {sfAccessToken ? (
-                <div className="flex flex-col gap-1">
+                <>
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-1.5 w-1.5 shrink-0">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
@@ -1448,26 +1430,11 @@ export default function TransformationWorkspacePage() {
                   {sfUserEmail && (
                     <p className="pl-3.5 text-[11px] text-slate-400 dark:text-slate-500">{sfUserEmail}</p>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSfAccessToken(null);
-                      setSfInstanceUrl(null);
-                      setSfRefreshToken(null);
-                      setSfUserEmail(null);
-                      setSfSelectedObject(null);
-                      setSfObjectPickerOpen(false);
-                      setSfForceLogin(true);
-                    }}
-                    className="w-fit pl-3.5 text-[11px] text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 transition-colors"
-                  >
-                    Disconnect
-                  </button>
-                </div>
+                </>
               ) : (
                 <div className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
-                  <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Not Connected</span>
+                  <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Not connected — configure in Import Config</span>
                 </div>
               )}
             </div>
@@ -1497,15 +1464,10 @@ export default function TransformationWorkspacePage() {
                     </svg>
                     Uploading…
                   </>
-                ) : sfAccessToken ? (
-                  <>
-                    <Cloud size={13} />
-                    Import to Salesforce
-                  </>
                 ) : (
                   <>
                     <Cloud size={13} />
-                    Connect Salesforce
+                    Import to Salesforce
                   </>
                 )}
               </Button>

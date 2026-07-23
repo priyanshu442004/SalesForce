@@ -24,8 +24,9 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { useMigration } from "@/context/MigrationContext";
+import { useMigration, emptySfConnection } from "@/context/MigrationContext";
 import type { ImportConfig, MappingStatus } from "@/context/MigrationContext";
+import { SfInlineStatus } from "@/component/SfConnectionCard";
 import { NEXT_PUBLIC_API_URL } from "@/lib/config";
 
 // ---------------------------------------------------------------------------
@@ -651,12 +652,18 @@ function FilterTabBtn({ tab, activeTab, count, onClick }: {
 export default function ImportConfigPage() {
   const router = useRouter();
   const {
-    sfAccessToken, sfInstanceUrl, sfSelectedObject, setSfSelectedObject,
-    sfUserEmail, setSfAccessToken, setSfInstanceUrl, setSfRefreshToken, setSfUserEmail,
+    effectiveTargetSf,
+    targetSf, setTargetSf,
+    sfSelectedObject, setSfSelectedObject,
     transformResult,
     importConfig, setImportConfig,
     currentProject,
   } = useMigration();
+
+  // Convenience aliases for the effective target connection
+  const sfAccessToken  = effectiveTargetSf.accessToken;
+  const sfInstanceUrl  = effectiveTargetSf.instanceUrl;
+  const sfUserEmail    = effectiveTargetSf.userEmail;
 
   // ── Import Settings ─────────────────────────────────────────────────────
   const [targetObject, setTargetObject] = useState<string>(sfSelectedObject ?? "");
@@ -1130,26 +1137,15 @@ export default function ImportConfigPage() {
   };
 
   // ── SF connect / disconnect ───────────────────────────────────────────────
-  const handleConnectSalesforce = async () => {
-    try {
-      sessionStorage.setItem("sfReturnTo", "/import-configuration");
-      const res = await fetch(`${NEXT_PUBLIC_API_URL}/salesforce/login`);
-      if (!res.ok) throw new Error("Failed to get login URL");
-      window.location.href = (await res.json()).auth_url;
-    } catch (err) {
-      console.error("[ImportConfig] OAuth initiation failed:", err);
-    }
-  };
-
   const handleDisconnect = () => {
-    setSfAccessToken(null); setSfInstanceUrl(null); setSfRefreshToken(null);
-    setSfUserEmail(null); setSfSelectedObject(null);
+    setTargetSf(emptySfConnection);
+    setSfSelectedObject(null);
     setSfObjects([]); setSfFields([]);
   };
 
   // ── Start import ───────────────────────────────────────────────────────────
   const handleStartImport = async () => {
-    if (!sfAccessToken || !sfInstanceUrl) { handleConnectSalesforce(); return; }
+    if (!sfAccessToken || !sfInstanceUrl) return;
     if (!targetObject || !s3Key) return;
     if (action !== "Insert" && !matchingField) return;
 
@@ -1260,40 +1256,49 @@ export default function ImportConfigPage() {
           </div>
         </header>
 
-        {/* ── SF connection banner ────────────────────────────────────────── */}
-        {!sfAccessToken ? (
-          <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-4">
-            <Cloud size={16} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Salesforce not connected</p>
-                <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-300">
-                  Connect in <span className="font-semibold">Upload Files</span> before reaching this step, or reconnect below if your session expired.
-                </p>
+        {/* ── Target Salesforce ───────────────────────────────────────────── */}
+        <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/60 px-4 py-3">
+            <Cloud size={13} className="text-slate-400 dark:text-slate-500" />
+            <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">Target Salesforce</p>
+          </div>
+          <div className="px-4 py-3.5">
+            {effectiveTargetSf.accessToken ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  </span>
+                  <span className="truncate text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                    Connected to Target Salesforce{sfUserEmail ? ` as ${sfUserEmail}` : ""}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDisconnect}
+                  className="shrink-0 text-[11px] text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors"
+                >
+                  Disconnect
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleConnectSalesforce}
-                className="mt-2 sm:mt-0 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
-              >
-                <Cloud size={12} />Reconnect
-              </button>
-            </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Not Connected</span>
+                </div>
+                <SfInlineStatus
+                  connection={targetSf}
+                  role="target"
+                  label="Target Salesforce"
+                  returnTo="/import-configuration"
+                  onDisconnect={handleDisconnect}
+                />
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="flex items-center gap-3 rounded-xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3">
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            </span>
-            <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
-              Connected to Salesforce{sfUserEmail ? ` as ${sfUserEmail}` : ""}
-            </p>
-            <button type="button" onClick={handleDisconnect} className="ml-auto text-[11px] text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors">
-              Disconnect
-            </button>
-          </div>
-        )}
+        </div>
 
         {/* ── Required fields banner ──────────────────────────────────────── */}
         {sfFields.length > 0 && missingRequiredFields.length > 0 && (

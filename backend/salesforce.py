@@ -1,18 +1,34 @@
 import io
 import math
 import os
+import re
 import tempfile
 import time
+import uuid
+import boto3
 import requests
 import pandas as pd
+from datetime import datetime
+from typing import List, Optional
 from urllib.parse import urlencode
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/salesforce", tags=["Salesforce"])
 
-SALESFORCE_AUTH_BASE = "https://login.salesforce.com/services/oauth2/authorize"
-SALESFORCE_TOKEN_URL = "https://login.salesforce.com/services/oauth2/token"
+# ── S3 client (mirrors database.py pattern) ───────────────────────────────────
+_AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME", "s3-bucket-analytx4t")
+_s3 = boto3.client(
+    "s3",
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    region_name=os.getenv("AWS_REGION", "ap-south-1"),
+)
+
+SALESFORCE_AUTH_BASE_PROD    = "https://login.salesforce.com/services/oauth2/authorize"
+SALESFORCE_AUTH_BASE_SANDBOX = "https://test.salesforce.com/services/oauth2/authorize"
+SALESFORCE_TOKEN_URL_PROD    = "https://login.salesforce.com/services/oauth2/token"
+SALESFORCE_TOKEN_URL_SANDBOX = "https://test.salesforce.com/services/oauth2/token"
 
 # ── Shared API-usage cache (updated from every SF response) ──────────────────
 
@@ -72,22 +88,40 @@ def _raise_if_401(response, context: str):
 
 
 @router.get("/login")
-def salesforce_login(force_login: bool = False):
+def salesforce_login(
+    force_login: bool = Query(default=False),
+    role: str = Query(default="source", description="Connection role: source | master | target"),
+    sandbox: bool = Query(default=False, description="Use test.salesforce.com for sandbox orgs"),
+):
+    """Initiate Salesforce OAuth flow.
+
+    `role` is round-tripped through the OAuth state parameter so the frontend
+    callback page knows which connection slot to populate.  `sandbox=true`
+    switches both the auth and token endpoints to test.salesforce.com.
+    """
+    auth_base = SALESFORCE_AUTH_BASE_SANDBOX if sandbox else SALESFORCE_AUTH_BASE_PROD
+    # Encode both role and env in state so the callback can reconstruct both.
+    state = f"{role}|{'sandbox' if sandbox else 'prod'}"
     params = {
         "response_type": "code",
         "client_id": os.environ["SALESFORCE_CLIENT_ID"],
         "redirect_uri": os.environ["SALESFORCE_REDIRECT_URI"],
+        "state": state,
     }
     if force_login:
         # prompt=login forces Salesforce to show the credentials page even when
         # an active browser session exists, allowing the user to switch accounts.
         params["prompt"] = "login"
-    auth_url = f"{SALESFORCE_AUTH_BASE}?{urlencode(params)}"
+    auth_url = f"{auth_base}?{urlencode(params)}"
     return {"auth_url": auth_url}
 
 
 @router.get("/callback")
-def salesforce_callback(code: str = Query(..., description="Authorization code returned by Salesforce")):
+def salesforce_callback(
+    code: str = Query(..., description="Authorization code returned by Salesforce"),
+    sandbox: bool = Query(default=False, description="Use test.salesforce.com token URL"),
+):
+    token_url = SALESFORCE_TOKEN_URL_SANDBOX if sandbox else SALESFORCE_TOKEN_URL_PROD
     payload = {
         "grant_type": "authorization_code",
         "code": code,
@@ -96,7 +130,7 @@ def salesforce_callback(code: str = Query(..., description="Authorization code r
         "redirect_uri": os.environ["SALESFORCE_REDIRECT_URI"],
     }
 
-    response = requests.post(SALESFORCE_TOKEN_URL, data=payload)
+    response = requests.post(token_url, data=payload)
     print(response.status_code)
     print(response.text)
 
@@ -200,6 +234,166 @@ def get_api_usage():
     if not _api_usage:
         return {"available": False}
     return {"available": True, **_api_usage}
+
+
+# ---------------------------------------------------------------------------
+# Fetch records from Salesforce → Excel → S3  (source data producer)
+# ---------------------------------------------------------------------------
+
+_ALLOWED_SF_OPERATORS = {"=", "!=", "<", ">", "<=", ">=", "LIKE"}
+_SF_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+
+
+class SfFilterRow(BaseModel):
+    field: str
+    operator: str
+    value: str
+
+
+class SfFetchRequest(BaseModel):
+    access_token: str
+    instance_url: str
+    object_name: str
+    fields: List[str]
+    filters: Optional[List[SfFilterRow]] = []
+    limit: Optional[int] = None
+    preview_only: bool = False
+
+
+@router.post("/fetch-records")
+def salesforce_fetch_records(
+    body: SfFetchRequest,
+    x_project_id: str = Header(None),
+    x_client_id: str = Header(None),
+):
+    """Query Salesforce records via SOQL, convert to Excel, upload to S3.
+
+    Returns the same shape as /api/database/fetch so the frontend can treat
+    Salesforce as just another source-data producer.
+    When preview_only=True, skips S3 upload and returns a small row sample.
+    """
+    if not body.fields:
+        raise HTTPException(status_code=422, detail="At least one field must be selected.")
+    if not _SF_NAME_RE.match(body.object_name):
+        raise HTTPException(status_code=422, detail=f"Invalid Salesforce object name: {body.object_name!r}")
+
+    # Validate field names
+    valid_fields = [f for f in body.fields if _SF_NAME_RE.match(f)]
+    if not valid_fields:
+        raise HTTPException(status_code=422, detail="No valid field names provided.")
+
+    headers = {"Authorization": f"Bearer {body.access_token}"}
+
+    # ── Build SOQL ────────────────────────────────────────────────────────────
+    soql = f"SELECT {', '.join(valid_fields)} FROM {body.object_name}"
+
+    where_parts = []
+    for filt in (body.filters or []):
+        if not filt.field or not filt.value.strip():
+            continue
+        if filt.operator not in _ALLOWED_SF_OPERATORS:
+            continue
+        if not _SF_NAME_RE.match(filt.field):
+            continue
+        # Escape single quotes in the value (SOQL escape = backslash)
+        escaped = filt.value.replace("\\", "\\\\").replace("'", "\\'")
+        where_parts.append(f"{filt.field} {filt.operator} '{escaped}'")
+
+    if where_parts:
+        soql += f" WHERE {' AND '.join(where_parts)}"
+
+    effective_limit = 10 if body.preview_only else (min(body.limit, 200_000) if body.limit and body.limit > 0 else None)
+    if effective_limit:
+        soql += f" LIMIT {effective_limit}"
+
+    print(f"[sf-fetch-records] SOQL: {soql}", flush=True)
+
+    # ── Execute query (with pagination) ───────────────────────────────────────
+    records: list = []
+    total_size: int = 0
+    next_url: Optional[str] = f"{body.instance_url}/services/data/{BULK_API_VERSION}/query"
+    first_page = True
+
+    while next_url:
+        if first_page:
+            resp = requests.get(next_url, params={"q": soql}, headers=headers, timeout=60)
+            first_page = False
+        else:
+            resp = requests.get(next_url, headers=headers, timeout=60)
+
+        _update_api_usage(resp)
+        _raise_if_401(resp, "fetch records")
+
+        if not resp.ok:
+            detail = resp.json() if resp.content else {"error": "soql_query_failed"}
+            raise HTTPException(status_code=resp.status_code, detail=detail)
+
+        page = resp.json()
+        total_size = page.get("totalSize", total_size)
+        records.extend(page.get("records", []))
+
+        if page.get("done", True) or not page.get("nextRecordsUrl"):
+            break
+        next_url = f"{body.instance_url}{page['nextRecordsUrl']}"
+
+        if effective_limit and len(records) >= effective_limit:
+            records = records[:effective_limit]
+            break
+
+    print(f"[sf-fetch-records] fetched {len(records)} of {total_size} total records", flush=True)
+
+    # ── Convert to DataFrame ──────────────────────────────────────────────────
+    rows_data = [{k: v for k, v in rec.items() if k != "attributes"} for rec in records]
+    df = pd.DataFrame(rows_data) if rows_data else pd.DataFrame(columns=valid_fields)
+
+    # Ensure all requested fields are present (Salesforce omits null fields on some orgs)
+    for f in valid_fields:
+        if f not in df.columns:
+            df[f] = None
+    df = df[valid_fields]
+
+    # ── Preview-only path ─────────────────────────────────────────────────────
+    if body.preview_only:
+        sample = df.head(10)
+        return {
+            "totalRows": total_size,
+            "columns": list(df.columns),
+            "rows": [[None if (isinstance(v, float) and math.isnan(v)) else v for v in row]
+                     for row in sample.values.tolist()],
+        }
+
+    # ── Full-fetch path: Excel → S3 ───────────────────────────────────────────
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Sheet1")
+    buf.seek(0)
+    file_bytes = buf.getvalue()
+
+    safe_name = re.sub(r"[^A-Za-z0-9_]", "_", body.object_name)
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"sf_{safe_name}.xlsx"
+    size_str = f"{len(file_bytes) / (1024 * 1024):.2f} MB"
+
+    project_id = x_project_id or str(uuid.uuid4())
+    if x_client_id:
+        s3_key = f"clients/{x_client_id}/projects/{project_id}/uploads/source/{timestamp}_{filename}"
+    else:
+        s3_key = f"projects/{project_id}/uploads/source/{timestamp}_{filename}"
+
+    try:
+        _s3.put_object(Bucket=_AWS_BUCKET_NAME, Key=s3_key, Body=file_bytes)
+        print(f"[sf-fetch-records] uploaded → s3://{_AWS_BUCKET_NAME}/{s3_key}", flush=True)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to upload to S3: {exc}")
+
+    return {
+        "success": True,
+        "fileName": filename,
+        "fileSize": size_str,
+        "s3Key": s3_key,
+        "totalRows": len(df),
+        "columns": list(df.columns),
+    }
 
 
 class PreviewPayloadRequest(BaseModel):

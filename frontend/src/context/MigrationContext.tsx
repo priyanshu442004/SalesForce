@@ -53,6 +53,27 @@ export interface Project {
 }
 
 // ---------------------------------------------------------------------------
+// Salesforce connection types
+// ---------------------------------------------------------------------------
+
+export interface SfConnection {
+  accessToken: string | null;
+  instanceUrl: string | null;
+  refreshToken: string | null;
+  userEmail: string | null;
+}
+
+export type SfRole = "source" | "master" | "target";
+export type TargetReuseChoice = "source" | "master" | "none";
+
+export const emptySfConnection: SfConnection = {
+  accessToken: null,
+  instanceUrl: null,
+  refreshToken: null,
+  userEmail: null,
+};
+
+// ---------------------------------------------------------------------------
 // Import Configuration type
 // ---------------------------------------------------------------------------
 
@@ -239,17 +260,24 @@ interface MigrationContextType {
     transformResult?: TransformResult | null;
   }) => void;
 
-  // Salesforce session state
-  sfAccessToken: string | null;
-  setSfAccessToken: React.Dispatch<React.SetStateAction<string | null>>;
-  sfInstanceUrl: string | null;
-  setSfInstanceUrl: React.Dispatch<React.SetStateAction<string | null>>;
-  sfRefreshToken: string | null;
-  setSfRefreshToken: React.Dispatch<React.SetStateAction<string | null>>;
+  // Salesforce connections — three independent roles
+  sourceSf: SfConnection;
+  setSourceSf: React.Dispatch<React.SetStateAction<SfConnection>>;
+  masterSf: SfConnection;
+  setMasterSf: React.Dispatch<React.SetStateAction<SfConnection>>;
+  targetSf: SfConnection;
+  setTargetSf: React.Dispatch<React.SetStateAction<SfConnection>>;
+  // Reuse flags — default values preserve backward-compat single-connection behaviour
+  masterReusesSource: boolean;
+  setMasterReusesSource: React.Dispatch<React.SetStateAction<boolean>>;
+  targetReuse: TargetReuseChoice;
+  setTargetReuse: React.Dispatch<React.SetStateAction<TargetReuseChoice>>;
+  // Computed effective connections (reflect reuse selections)
+  effectiveMasterSf: SfConnection;
+  effectiveTargetSf: SfConnection;
+  // Target object selection (UI state, not a credential)
   sfSelectedObject: string | null;
   setSfSelectedObject: React.Dispatch<React.SetStateAction<string | null>>;
-  sfUserEmail: string | null;
-  setSfUserEmail: React.Dispatch<React.SetStateAction<string | null>>;
 
   // Import configuration
   importConfig: ImportConfig | null;
@@ -304,20 +332,31 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
   const [transformResult, setTransformResult] = useState<TransformResult | null>(null);
   const [transformError, setTransformError] = useState<string | null>(null);
 
-  // Salesforce session state
-  const [sfAccessToken, setSfAccessToken] = useState<string | null>(null);
-  const [sfInstanceUrl, setSfInstanceUrl] = useState<string | null>(null);
-  const [sfRefreshToken, setSfRefreshToken] = useState<string | null>(null);
+  // Salesforce connections — three independent roles
+  const [sourceSf, setSourceSf] = useState<SfConnection>(emptySfConnection);
+  const [masterSf, setMasterSf] = useState<SfConnection>(emptySfConnection);
+  const [targetSf, setTargetSf] = useState<SfConnection>(emptySfConnection);
+  // Reuse defaults: master reuses source, target reuses source → backward-compat
+  // single-connection behaviour when only sourceSf is authenticated.
+  const [masterReusesSource, setMasterReusesSource] = useState(true);
+  const [targetReuse, setTargetReuse] = useState<TargetReuseChoice>("none");
   const [sfSelectedObject, setSfSelectedObject] = useState<string | null>(null);
-  const [sfUserEmail, setSfUserEmail] = useState<string | null>(null);
+
+  // Computed effective connections
+  const effectiveMasterSf: SfConnection = masterReusesSource ? sourceSf : masterSf;
+  const effectiveTargetSf: SfConnection =
+    targetReuse === "source" ? sourceSf :
+    targetReuse === "master" ? effectiveMasterSf :
+    targetSf;
 
   // Import configuration
   const [importConfig, setImportConfigState] = useState<ImportConfig | null>(null);
 
   useEffect(() => {
-    console.log("[MigrationContext] sfAccessToken:", sfAccessToken);
-    console.log("[MigrationContext] sfInstanceUrl:", sfInstanceUrl);
-  }, [sfAccessToken, sfInstanceUrl]);
+    console.log("[MigrationContext] sourceSf connected:", !!sourceSf.accessToken);
+    console.log("[MigrationContext] masterSf connected:", !!effectiveMasterSf.accessToken, masterReusesSource ? "(reuses source)" : "");
+    console.log("[MigrationContext] targetSf connected:", !!effectiveTargetSf.accessToken, targetReuse !== "none" ? `(reuses ${targetReuse})` : "");
+  }, [sourceSf, masterSf, targetSf, effectiveMasterSf, effectiveTargetSf, masterReusesSource, targetReuse]);
 
   const pipelineProjectIdRef = useRef<string | null>(null);
   // Monotonic counter: only the latest in-flight refreshCurrentProject() response is applied.
@@ -1255,8 +1294,8 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       }
       let url = `${NEXT_PUBLIC_API_URL}/api/transform-data?source_key=${encodeURIComponent(effectiveSource)}&logic_key=${encodeURIComponent(logicKey)}`;
       if (masterKey) url += `&master_key=${encodeURIComponent(masterKey)}`;
-      if (sfAccessToken && sfInstanceUrl) {
-        url += `&sf_access_token=${encodeURIComponent(sfAccessToken)}&sf_instance_url=${encodeURIComponent(sfInstanceUrl)}`;
+      if (effectiveMasterSf.accessToken && effectiveMasterSf.instanceUrl) {
+        url += `&master_sf_access_token=${encodeURIComponent(effectiveMasterSf.accessToken)}&master_sf_instance_url=${encodeURIComponent(effectiveMasterSf.instanceUrl)}`;
       }
       console.log("[pipeline] transform-data effective source key:", effectiveSource);
       const response = await fetch(url, {
@@ -1392,8 +1431,8 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
       for (const field of skippedFields) {
         url += `&skipped_fields=${encodeURIComponent(field)}`;
       }
-      if (sfAccessToken && sfInstanceUrl) {
-        url += `&sf_access_token=${encodeURIComponent(sfAccessToken)}&sf_instance_url=${encodeURIComponent(sfInstanceUrl)}`;
+      if (effectiveMasterSf.accessToken && effectiveMasterSf.instanceUrl) {
+        url += `&master_sf_access_token=${encodeURIComponent(effectiveMasterSf.accessToken)}&master_sf_instance_url=${encodeURIComponent(effectiveMasterSf.instanceUrl)}`;
       }
       const transformHeaders: Record<string, string> = { "x-project-id": cp.id };
       if (cp.clientId) {
@@ -1539,17 +1578,21 @@ export function MigrationProvider({ children }: { children: React.ReactNode }) {
         resetPipelineState,
         restorePipelineState,
 
-        // Salesforce session state
-        sfAccessToken,
-        setSfAccessToken,
-        sfInstanceUrl,
-        setSfInstanceUrl,
-        sfRefreshToken,
-        setSfRefreshToken,
+        // Salesforce connections
+        sourceSf,
+        setSourceSf,
+        masterSf,
+        setMasterSf,
+        targetSf,
+        setTargetSf,
+        masterReusesSource,
+        setMasterReusesSource,
+        targetReuse,
+        setTargetReuse,
+        effectiveMasterSf,
+        effectiveTargetSf,
         sfSelectedObject,
         setSfSelectedObject,
-        sfUserEmail,
-        setSfUserEmail,
 
         // Import configuration
         importConfig,

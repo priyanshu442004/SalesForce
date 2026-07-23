@@ -730,7 +730,9 @@ const PAGE_SIZE = 20;
 export default function ImportJobsPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
-  const { sfAccessToken, sfInstanceUrl } = useMigration();
+  const { effectiveTargetSf } = useMigration();
+  const sfAccessToken = effectiveTargetSf.accessToken;
+  const sfInstanceUrl = effectiveTargetSf.instanceUrl;
 
   // ── Data state ─────────────────────────────────────────────────────────────
   const [jobs,    setJobs]    = useState<ImportJob[]>([]);

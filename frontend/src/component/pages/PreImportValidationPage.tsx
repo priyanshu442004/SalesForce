@@ -107,10 +107,13 @@ const PAGE_SIZE = 25;
 export default function PreImportValidationPage() {
   const router = useRouter();
   const {
-    sfAccessToken, sfInstanceUrl, sfUserEmail,
-    setSfAccessToken, setSfInstanceUrl, setSfRefreshToken, setSfUserEmail, setSfSelectedObject,
+    effectiveTargetSf,
     transformResult, importConfig, currentProject,
   } = useMigration();
+
+  const sfAccessToken = effectiveTargetSf.accessToken;
+  const sfInstanceUrl = effectiveTargetSf.instanceUrl;
+  const sfUserEmail   = effectiveTargetSf.userEmail;
 
   // ── Validation state ──────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);

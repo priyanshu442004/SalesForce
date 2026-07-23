@@ -516,6 +516,11 @@ def transform_data(
     logic_key: str = Query(...),
     master_key: Optional[str] = Query(None),
     skipped_fields: List[str] = Query(default=[]),
+    # Master Salesforce credentials — used exclusively for Lookup(S) SOQL queries.
+    master_sf_access_token: Optional[str] = Query(None),
+    master_sf_instance_url: Optional[str] = Query(None),
+    # Deprecated aliases kept for backward compatibility (clients that still send
+    # the old sf_access_token / sf_instance_url params continue to work).
     sf_access_token: Optional[str] = Query(None),
     sf_instance_url: Optional[str] = Query(None),
     x_project_id: str = Header(None),
@@ -547,9 +552,12 @@ def transform_data(
 
         temp_output_dir = tempfile.mkdtemp()
 
+        # Prefer the explicit master_sf_* params; fall back to the legacy aliases.
+        resolved_token = master_sf_access_token or sf_access_token
+        resolved_url   = master_sf_instance_url or sf_instance_url
         sf_credentials = (
-            {"access_token": sf_access_token, "instance_url": sf_instance_url}
-            if sf_access_token and sf_instance_url
+            {"access_token": resolved_token, "instance_url": resolved_url}
+            if resolved_token and resolved_url
             else None
         )
 

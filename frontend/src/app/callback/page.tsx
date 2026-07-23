@@ -4,12 +4,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMigration } from "@/context/MigrationContext";
+import type { SfConnection, SfRole } from "@/context/MigrationContext";
 import { NEXT_PUBLIC_API_URL } from "@/lib/config";
 
 export default function CallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setSfAccessToken, setSfInstanceUrl, setSfRefreshToken, setSfUserEmail } = useMigration();
+  const { setSourceSf, setMasterSf, setTargetSf } = useMigration();
   const [error, setError] = useState<string | null>(null);
   const exchanged = useRef(false);
 
@@ -23,25 +24,34 @@ export default function CallbackPage() {
       return;
     }
 
+    // The backend encodes state as "{role}|{prod|sandbox}" so we can route
+    // the token to the correct connection slot and use the right token URL.
+    const rawState = searchParams.get("state") ?? "source|prod";
+    const parts = rawState.split("|");
+    const role = (parts[0] as SfRole) || "source";
+    const isSandbox = parts[1] === "sandbox";
+
+    const setters: Record<SfRole, React.Dispatch<React.SetStateAction<SfConnection>>> = {
+      source: setSourceSf,
+      master: setMasterSf,
+      target: setTargetSf,
+    };
+    const setConnection = setters[role] ?? setSourceSf;
+
     (async () => {
       try {
-        console.log("[callback] calling /salesforce/callback with code:", code.slice(0, 10) + "…");
-        const res = await fetch(
-          `${NEXT_PUBLIC_API_URL}/salesforce/callback?code=${encodeURIComponent(code)}`
-        );
+        console.log(`[callback] role=${role} sandbox=${isSandbox} code=${code.slice(0, 10)}…`);
+        const callbackUrl = `${NEXT_PUBLIC_API_URL}/salesforce/callback?code=${encodeURIComponent(code)}${isSandbox ? "&sandbox=true" : ""}`;
+        const res = await fetch(callbackUrl);
         if (!res.ok) {
           const body = await res.json().catch(() => null);
           throw new Error(body?.detail?.message ?? body?.detail ?? "Token exchange failed.");
         }
         const data = await res.json();
-        console.log("[callback] received response:", { access_token: data.access_token?.slice(0, 12) + "…", instance_url: data.instance_url, refresh_token: data.refresh_token ? "present" : "absent" });
-        setSfAccessToken(data.access_token);
-        console.log("[callback] setSfAccessToken called");
-        setSfInstanceUrl(data.instance_url);
-        console.log("[callback] setSfInstanceUrl called");
-        setSfRefreshToken(data.refresh_token);
-        console.log("[callback] setSfRefreshToken called");
+        console.log(`[callback] ${role} connected — instance_url: ${data.instance_url}`);
 
+        // Fetch the authenticated user's email (non-fatal)
+        let userEmail: string | null = null;
         try {
           const infoRes = await fetch(
             `${data.instance_url}/services/oauth2/userinfo`,
@@ -49,21 +59,28 @@ export default function CallbackPage() {
           );
           if (infoRes.ok) {
             const info = await infoRes.json();
-            setSfUserEmail(info.email ?? null);
+            userEmail = info.email ?? null;
           }
         } catch {
           // non-fatal — email is optional display info
         }
 
+        setConnection({
+          accessToken:  data.access_token,
+          instanceUrl:  data.instance_url,
+          refreshToken: data.refresh_token ?? null,
+          userEmail,
+        });
+
         const returnTo = sessionStorage.getItem("sfReturnTo") || "/transformation-workspace";
         sessionStorage.removeItem("sfReturnTo");
-        console.log("[callback] calling router.replace(" + returnTo + ")");
+        console.log(`[callback] redirecting to ${returnTo}`);
         router.replace(returnTo);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to connect to Salesforce.");
       }
     })();
-  }, [searchParams, setSfAccessToken, setSfInstanceUrl, setSfRefreshToken, setSfUserEmail, router]);
+  }, [searchParams, setSourceSf, setMasterSf, setTargetSf, router]);
 
   if (error) {
     return (
