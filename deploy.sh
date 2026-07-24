@@ -72,10 +72,10 @@ if [ ! -d "$PROJECT_DIR" ]; then
     git clone https://github.com/priyanshu442004/SalesForce.git "$PROJECT_DIR"
     cd "$PROJECT_DIR"
 else
-    echo -e "${BLUE}Repository folder found. Fetching latest main branch...${CLEAR}"
+    echo -e "${BLUE}Repository folder found. Fetching latest  branch...${CLEAR}"
     cd "$PROJECT_DIR"
     git fetch --all
-    git reset --hard origin/main
+    git reset --hard origin/oauth-experiment
 fi
 
 # 4. Configure & Setup Backend (FastAPI)
